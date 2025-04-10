@@ -3,14 +3,12 @@ import { Link } from 'react-router-dom'
 
 const Navbar = () => {
   return (
-    <nav className="bg-gray-800 text-white p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <h1 className="text-xl font-bold">ShareTribe</h1>
-        <div className="space-x-4">
+    <nav className="bg-purple-600/60 text-white py-4 px-3">
+      <div className="flex justify-between items-center">
+        <h1 className="text-xl font-bold">Job_Portal</h1>
+        <div className="space-x-6">
           <Link to="/" className="hover:underline">Home</Link>
-          <Link to="/login" className="hover:underline">Login</Link>
-          <Link to="/admin" className="hover:underline">Admin Dashboard</Link>
-          <Link to="/client" className="hover:underline">Client Dashboard</Link>
+          <Link to="/login" className="bg-[#1c1c1c81] p-2.5 rounded-lg hover:bg-[#1c1c1cd9] cursor-pointer">Get Started</Link>
         </div>
       </div>
     </nav>
