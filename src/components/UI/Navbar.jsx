@@ -9,7 +9,7 @@ const Navbar = () => {
         <div className="space-x-6">
           <Link to="/" className="hover:underline">Home</Link>
           <Link to="/login" className="bg-[#1c1c1c81] p-2.5 rounded-lg hover:bg-[#1c1c1cd9] cursor-pointer">Get Started</Link>
-          <Link to="/admin" className="bg-[#1c1c1c81] p-2.5 rounded-lg hover:bg-[#1c1c1cd9] cursor-pointer">Get Started</Link>
+          <Link to="/admin" className="bg-[#1c1c1c81] p-2.5 rounded-lg hover:bg-[#1c1c1cd9] cursor-pointer">Admin Dashboard</Link>
         </div>
       </div>
     </nav>
