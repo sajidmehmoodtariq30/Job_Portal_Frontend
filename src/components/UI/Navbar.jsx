@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 const Navbar = () => {
   return (
+    
     <nav className="bg-purple-600/60 text-white py-4 px-3">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">Job_Portal</h1>
