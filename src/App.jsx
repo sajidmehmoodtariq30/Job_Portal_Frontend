@@ -12,6 +12,8 @@ import AdminClientDetails from '@/pages/admin/AdminClientDetails'
 import Home from './pages/Home'
 import ClientHome from './pages/client/ClientHome'
 import AdminHome from './pages/admin/AdminHome'
+import AdminSchedule from './pages/admin/AdminSchedule'
+import AdminTeam from './pages/admin/AdminTeam'
 
 function App() {
   return (
@@ -31,6 +33,8 @@ function App() {
           <Route path="jobs/:jobId" element={<AdminJobDetails />} />
           <Route path="clients" element={<AdminClients />} />
           <Route path="clients/:clientId" element={<AdminClientDetails />} />
+          <Route path="schedule" element={<AdminSchedule />} />
+          <Route path="team" element={<AdminTeam />} />
         </Route>
 
         <Route path="/client" element={<ClientLayout />}>
