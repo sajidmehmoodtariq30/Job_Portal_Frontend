@@ -1,5 +1,5 @@
 import React from 'react'
-import ClientSidebar from '../UI/ClientSidebar.jsx'
+import ClientSidebar from '../UI/client/ClientSidebar.jsx'
 import { Outlet } from 'react-router-dom'
 
 const ClientLayout = () => {
