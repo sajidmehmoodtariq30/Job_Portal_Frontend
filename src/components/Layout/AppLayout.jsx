@@ -5,7 +5,7 @@ import Footer from '../UI/Footer.jsx'
 
 const AppLayout = () => {
   return (
-    <div className='bg-gray-900 w-screen h-screen flex flex-col justify-between'>
+    <div className='bg-gray-900 w-screen h-screen flex flex-col'>
       <Navbar />
       <Outlet />
       <Footer />
