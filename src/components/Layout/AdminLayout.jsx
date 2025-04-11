@@ -1,5 +1,5 @@
 // src/layouts/AdminLayout.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/UI/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/UI/avatar'
@@ -11,13 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/UI/dropdown-menu'
+import axios from "axios"
 import { cn } from '@/lib/utils'
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  
+
   // Mock user data - would come from authentication context
   const user = {
     name: 'Admin User',
