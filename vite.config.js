@@ -12,9 +12,7 @@ export default defineConfig({
     },
   },
   server: {
-    proxy: {
-      '/api': 'https://job-portal-backend-virid.vercel.app', // Your backend port
-    },
-  }
-  
+    port: 3000,
+    open: true,
+  },
 })
