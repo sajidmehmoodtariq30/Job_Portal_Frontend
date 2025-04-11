@@ -1,30 +1,50 @@
-import React from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import AppLayout from './components/Layout/AppLayout.jsx'
-import AdminLayout from './components/Layout/AdminLayout.jsx'
-import ClientLayout from './components/Layout/ClientLayout.jsx'
-import Home from './pages/Home.jsx'
-import AdminHome from './pages/AdminHome.jsx'
-import ClientHome from './pages/ClientHome.jsx'
-import Login from './pages/Login.jsx'
+// src/App.jsx
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import Login from '@/pages/Login'
+import SignUp from '@/pages/SignUp'
+import AppLayout from './components/Layout/AppLayout'
+import AdminLayout from './components/Layout/AdminLayout'
+import ClientLayout from './components/Layout/ClientLayout'
+import AdminJobs from '@/pages/admin/AdminJobs'
+import AdminJobDetails from '@/pages/admin/AdminJobDetails'
+import AdminClients from '@/pages/admin/AdminClients'
+import AdminClientDetails from '@/pages/admin/AdminClientDetails'
+import Home from './pages/Home'
+import ClientHome from './pages/client/ClientHome'
+import AdminHome from './pages/admin/AdminHome'
+import AdminSchedule from './pages/admin/AdminSchedule'
+import AdminTeam from './pages/admin/AdminTeam'
 
-const App = () => {
+function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path='/' element={<AppLayout />} >
-          <Route path='' element={<Home />} />
-          <Route path='login' element={<Login />} />
+        {/* Public Routes */}
+        <Route element={<AppLayout />}>
+          <Route index element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/SignUp" element={<SignUp />} />
         </Route>
+
+        {/* Admin Routes */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
+          <Route path="jobs" element={<AdminJobs />} />
+          <Route path="jobs/:jobId" element={<AdminJobDetails />} />
+          <Route path="clients" element={<AdminClients />} />
+          <Route path="clients/:clientId" element={<AdminClientDetails />} />
+          <Route path="schedule" element={<AdminSchedule />} />
+          <Route path="team" element={<AdminTeam />} />
         </Route>
 
         <Route path="/client" element={<ClientLayout />}>
           <Route index element={<ClientHome />} />
         </Route>
+
+        {/* Redirects */}
+        <Route path="/" element={<Navigate to="/admin" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   )
 }
 
