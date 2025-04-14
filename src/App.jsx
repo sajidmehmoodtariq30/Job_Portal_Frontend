@@ -14,6 +14,11 @@ import ClientHome from './pages/client/ClientHome'
 import AdminHome from './pages/admin/AdminHome'
 import AdminSchedule from './pages/admin/AdminSchedule'
 import AdminTeam from './pages/admin/AdminTeam'
+import ClientJobs from './pages/client/ClientJobs.jsx'
+import ClientQuotes from './pages/client/ClientQuotes.jsx'
+import ClientInvoices from './pages/client/ClientInvoices.jsx'
+import ClientSupport from './pages/client/ClientSupport.jsx'
+import ClientSettings from './pages/client/ClientSettings.jsx'
 
 function App() {
   return (
@@ -39,6 +44,11 @@ function App() {
 
         <Route path="/client" element={<ClientLayout />}>
           <Route index element={<ClientHome />} />
+          <Route path="jobs" element={<ClientJobs />} />
+          <Route path="quotes" element={<ClientQuotes />} />
+          <Route path="invoices" element={<ClientInvoices />} />
+          <Route path="support" element={<ClientSupport />} />
+          <Route path="settings" element={<ClientSettings />} />
         </Route>
 
         {/* Redirects */}

@@ -1,5 +1,5 @@
-import { AlertCircle, Badge, Download, FileText } from "lucide-react";
-import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
+import { AlertCircle, Badge, Calendar, Download, FileText } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
 import { Button } from "../button";
 
 const QuoteCard = ({ quote, onQuoteAction, statusColor }) => {
