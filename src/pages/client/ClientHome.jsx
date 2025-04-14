@@ -9,16 +9,13 @@ import {
   MessageSquare,
   FileBarChart,
   AlertCircle,
-  Trophy,
   ArrowRight,
   Building,
   User
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from "@/components/UI/button";
-import { Input } from "@/components/UI/input";
+import { Button } from "../../components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/UI/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/UI/tabs";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -26,14 +23,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/UI/dropdown-menu";
+} from "../../components/UI/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/UI/select";
+} from "../../components/UI/select";
 import { Badge } from "@/components/UI/badge";
 import { Progress } from "@/components/UI/progress";
 

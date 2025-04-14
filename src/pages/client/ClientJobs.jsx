@@ -15,14 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/UI/dialog";
+} from "../../components/UI/dialog";
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/UI/select";
+} from "../../components/UI/select";
 import { Textarea } from "../../components/UI/textarea";
 import { Label } from "../../components/UI/label";
 import JobCard from "../../components/UI/client/JobCard";
