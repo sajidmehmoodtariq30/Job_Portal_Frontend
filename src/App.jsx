@@ -19,6 +19,8 @@ import ClientQuotes from './pages/client/ClientQuotes.jsx'
 import ClientInvoices from './pages/client/ClientInvoices.jsx'
 import ClientSupport from './pages/client/ClientSupport.jsx'
 import ClientSettings from './pages/client/ClientSettings.jsx'
+import AdminProfile from '@/pages/admin/AdminProfile';
+import ClientProfile from '@/pages/client/ClientProfile';
 
 function App() {
   return (
@@ -40,6 +42,7 @@ function App() {
           <Route path="clients/:clientId" element={<AdminClientDetails />} />
           <Route path="schedule" element={<AdminSchedule />} />
           <Route path="team" element={<AdminTeam />} />
+          <Route path="profile" element={<AdminProfile />} />
         </Route>
 
         <Route path="/client" element={<ClientLayout />}>
@@ -49,6 +52,7 @@ function App() {
           <Route path="invoices" element={<ClientInvoices />} />
           <Route path="support" element={<ClientSupport />} />
           <Route path="settings" element={<ClientSettings />} />
+          <Route path="profile" element={<ClientProfile />} />
         </Route>
 
         {/* Redirects */}
