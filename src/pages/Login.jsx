@@ -15,6 +15,16 @@ const LoginPage = () => {
     window.location.href = "https://job-portal-backend-virid.vercel.app/api/auth/servicem8";
   };
 
+  const handleClientSubmit = (e) => {
+    e.preventDefault();
+    if (email === "" || password === "") {
+      alert("Please fill in all fields.");
+      return;
+    }
+    // render /client page
+    window.location.href = "job-portal-backend-virid.vercel.app/client";
+  }
+
   return (
     <div className="w-full h-full flex items-center justify-center p-4">
       <div className=" w-full max-w-4xl h-auto md:h-[80%] rounded-lg flex flex-col md:flex-row -mt-[70px] md:mt-0 overflow-hidden">
@@ -46,7 +56,7 @@ const LoginPage = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" className="w-full md:w-[60%] cursor-pointer">
+            <Button type="submit" onClick={(e) => handleClientSubmit(e)} className="w-full md:w-[60%] cursor-pointer">
               Continue as Client
             </Button>
           </form>
