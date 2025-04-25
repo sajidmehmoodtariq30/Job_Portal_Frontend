@@ -22,7 +22,7 @@ const LoginPage = () => {
       return;
     }
     // render /client page
-    window.location.href = "job-portal-backend-virid.vercel.app/client";
+    window.location.href = "client";
   }
 
   return (
