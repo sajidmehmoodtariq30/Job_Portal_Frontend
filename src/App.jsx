@@ -21,6 +21,7 @@ import ClientSupport from './pages/client/ClientSupport.jsx'
 import ClientSettings from './pages/client/ClientSettings.jsx'
 import AdminProfile from '@/pages/admin/AdminProfile';
 import ClientProfile from '@/pages/client/ClientProfile';
+import AdminSettings from '@/pages/admin/AdminSettings';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route path="schedule" element={<AdminSchedule />} />
           <Route path="team" element={<AdminTeam />} />
           <Route path="profile" element={<AdminProfile />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
         <Route path="/client" element={<ClientLayout />}>
