@@ -1,5 +1,5 @@
 // src/pages/admin/AdminJobs.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
@@ -33,55 +33,12 @@ import {
   SelectValue,
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
-import { useEffect } from 'react'
 import axios from 'axios'
+import { useJobContext } from '@/components/JobContext';
 
+// Helper to determine page size
+const PAGE_SIZE = 10;
 
-// Mock data - in production would come from ServiceM8 API
-const mockJobs = [
-  { 
-    id: 'JOB-2025-042', 
-    client: 'Acme Corp', 
-    clientId: 'CL001',
-    status: 'Quote', 
-    createdAt: '2025-04-09',
-    description: 'Network installation and setup',
-    amount: 2500.00,
-    address: '123 Business Ave, Suite 101, New York, NY 10001',
-  },
-  { 
-    id: 'JOB-2025-041', 
-    client: 'TechSolutions Inc', 
-    clientId: 'CL002',
-    status: 'Work Order', 
-    createdAt: '2025-04-08',
-    description: 'Server maintenance and updates',
-    amount: 1200.00,
-    address: '456 Tech Road, San Francisco, CA 94107',
-  },
-  { 
-    id: 'JOB-2025-040', 
-    client: 'Global Enterprises', 
-    clientId: 'CL003',
-    status: 'In Progress', 
-    createdAt: '2025-04-07',
-    description: 'Security camera installation',
-    amount: 3750.00,
-    address: '789 Corporate Drive, Chicago, IL 60611',
-  },
-  { 
-    id: 'JOB-2025-039', 
-    client: 'Data Systems Ltd', 
-    clientId: 'CL004',
-    status: 'Completed', 
-    createdAt: '2025-04-06',
-    description: 'Data recovery and backup setup',
-    amount: 950.00,
-    address: '321 Data Lane, Austin, TX 78701',
-  },
-]
-
-// Sample clients for the dropdown
 const mockClients = [
   { id: 'CL001', name: 'Acme Corp' },
   { id: 'CL002', name: 'TechSolutions Inc' },
@@ -91,77 +48,98 @@ const mockClients = [
 ]
 
 const AdminJobs = () => {
-  const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState("all")
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newJob, setNewJob] = useState({
-    client: '',
-    description: '',
-    address: '',
-    amount: '',
-  })
+    company_uuid: '',
+    job_description: '',
+    job_address: '',
+    status: 'Quote',
+    amount: ''
+  });
+  const [page, setPage] = useState(1);
+  const {
+    jobs,
+    totalJobs,
+    loading,
+    fetchJobs,
+    resetJobs,
+    lastFetchedPage,
+    activeTab,
+    setActiveTab
+  } = useJobContext();
 
-  // Fetch jobs from the backend
+  // Fetch jobs on mount and when page or tab changes
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const response = await axios.get('http://localhost:5000/fetch/jobs')
-        console.log('Token', response.data)
-      } catch (error) {
-        console.error('Error fetching jobs:', error)
-      }
+    fetchJobs(page, activeTab);
+    // eslint-disable-next-line
+  }, [page, activeTab]);
+
+  // Reset jobs when tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setPage(1);
+    resetJobs();
+  };
+
+  // Calculate which jobs to show for current page
+  const startIdx = (page - 1) * PAGE_SIZE;
+  const endIdx = startIdx + PAGE_SIZE;
+  const visibleJobs = jobs.slice(startIdx, endIdx);
+
+  // Filter by search term
+  const filteredJobs = visibleJobs.filter(job => {
+    if (searchTerm &&
+      !job.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !job.client.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !job.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
     }
-  
-    fetchJobs()
-  }, [])
-  
+    return true;
+  });
+
+  const totalPages = Math.ceil(totalJobs / PAGE_SIZE);
+
   const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setNewJob({ ...newJob, [name]: value })
-  }
+    const { name, value } = e.target;
+    setNewJob({ ...newJob, [name]: value });
+  };
   
   const handleClientChange = (value) => {
-    setNewJob({ ...newJob, client: value })
-  }
+    setNewJob({ ...newJob, company_uuid: value });
+  };
   
-  const handleCreateJob = (e) => {
-    e.preventDefault()
-    
-    // In production, this would call the ServiceM8 API
-    console.log('Creating job:', newJob)
-    setIsDialogOpen(false)
-    
-    // Reset form
-    setNewJob({
-      client: '',
-      description: '',
-      address: '',
-      amount: '',
-    })
-  }
+  const handleStatusChange = (value) => {
+    setNewJob({ ...newJob, status: value });
+  };
   
-  const filteredJobs = mockJobs.filter(job => {
-    // Filter by tab
-    if (activeTab !== 'all' && job.status.toLowerCase() !== activeTab) {
-      return false
+  const handleCreateJob = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...newJob,
+        active: 1
+      };
+      const response = await axios.post('http://localhost:5000/fetch/jobs', payload);
+      fetchJobs(1, activeTab);
+      setIsDialogOpen(false);
+      setNewJob({
+        company_uuid: '',
+        job_description: '',
+        job_address: '',
+        status: 'Quote',
+        amount: ''
+      });
+    } catch (error) {
+      console.error('Error creating job:', error);
     }
-    
-    // Filter by search term
-    if (searchTerm && 
-        !job.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !job.client.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !job.description.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false
-    }
-    
-    return true
-  })
+  };
   
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -180,9 +158,9 @@ const AdminJobs = () => {
             <form onSubmit={handleCreateJob}>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="client">Client</Label>
+                  <Label htmlFor="company_uuid">Client</Label>
                   <Select
-                    value={newJob.client}
+                    value={newJob.company_uuid}
                     onValueChange={handleClientChange}
                     required
                   >
@@ -199,24 +177,40 @@ const AdminJobs = () => {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Job Description</Label>
+                  <Label htmlFor="job_description">Job Description</Label>
                   <Input
-                    id="description"
-                    name="description"
-                    value={newJob.description}
+                    id="job_description"
+                    name="job_description"
+                    value={newJob.job_description}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="address">Service Address</Label>
+                  <Label htmlFor="job_address">Service Address</Label>
                   <Input
-                    id="address"
-                    name="address"
-                    value={newJob.address}
+                    id="job_address"
+                    name="job_address"
+                    value={newJob.job_address}
                     onChange={handleInputChange}
                     required
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={newJob.status}
+                    onValueChange={handleStatusChange}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Quote">Quote</SelectItem>
+                      <SelectItem value="Work Order">Work Order</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="amount">Quote Amount ($)</Label>
@@ -227,7 +221,6 @@ const AdminJobs = () => {
                     step="0.01"
                     value={newJob.amount}
                     onChange={handleInputChange}
-                    required
                   />
                 </div>
               </div>
@@ -244,7 +237,7 @@ const AdminJobs = () => {
           <CardTitle>Jobs</CardTitle>
           <CardDescription>View and manage all jobs in the system</CardDescription>
           <div className="flex items-center gap-4 mt-2">
-            <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+            <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
               <TabsList>
                 <TabsTrigger value="all">All Jobs</TabsTrigger>
                 <TabsTrigger value="quote">Quotes</TabsTrigger>
@@ -276,37 +269,40 @@ const AdminJobs = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredJobs.map((job) => (
-                  <tr key={job.id} className="border-b">
-                    <td className="py-3">{job.id}</td>
-                    <td className="py-3">{job.client}</td>
-                    <td className="py-3">{job.description}</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        job.status === 'Quote' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : job.status === 'Work Order' 
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : job.status === 'In Progress'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-green-100 text-green-800'
-                      }`}>
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="py-3">{job.createdAt}</td>
-                    <td className="py-3">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleViewJob(job.id)}
-                      >
-                        View Details
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredJobs.length === 0 && (
+                {loading ? (
+                  <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
+                ) : filteredJobs.length > 0 ? (
+                  filteredJobs.map((job) => (
+                    <tr key={job.id} className="border-b">
+                      <td className="py-3">{job.id}</td>
+                      <td className="py-3">{job.client}</td>
+                      <td className="py-3">{job.description}</td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          job.status === 'Quote' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : job.status === 'Work Order' 
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : job.status === 'In Progress'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-green-100 text-green-800'
+                        }`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="py-3">{job.createdAt}</td>
+                      <td className="py-3">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleViewJob(job.id)}
+                        >
+                          View Details
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan="6" className="py-4 text-center text-muted-foreground">
                       No jobs found
@@ -315,6 +311,25 @@ const AdminJobs = () => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="flex justify-between items-center mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages || totalPages === 0}
+            >
+              Next
+            </Button>
           </div>
         </CardContent>
       </Card>
