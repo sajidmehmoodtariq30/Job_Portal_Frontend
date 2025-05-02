@@ -7,6 +7,7 @@ import AdminLayout from './components/Layout/AdminLayout'
 import ClientLayout from './components/Layout/ClientLayout'
 import AdminJobs from '@/pages/admin/AdminJobs'
 import AdminJobDetails from '@/pages/admin/AdminJobDetails'
+import AdminClientDetails from '@/pages/admin/AdminClientDetails.jsx'
 import AdminClients from '@/pages/admin/AdminClients'
 import Home from './pages/Home'
 import ClientHome from './pages/client/ClientHome'
@@ -22,11 +23,14 @@ import AdminProfile from '@/pages/admin/AdminProfile';
 import ClientProfile from '@/pages/client/ClientProfile';
 import AdminSettings from '@/pages/admin/AdminSettings';
 import { JobProvider } from './components/JobContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import TokenHandler from './components/TokenHandler';
 
 function App() {
   return (
     <JobProvider>
       <Router>
+        <TokenHandler />
         <Routes>
           {/* Public Routes */}
           <Route element={<AppLayout />}>
@@ -36,7 +40,11 @@ function App() {
           </Route>
 
           {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
             <Route index element={<AdminHome />} />
             <Route path="jobs" element={<AdminJobs />} />
             <Route path="jobs/:jobId" element={<AdminJobDetails />} />
