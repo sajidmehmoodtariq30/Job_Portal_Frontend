@@ -34,49 +34,58 @@ import {
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
 import axios from 'axios'
+import { useJobContext } from '@/components/JobContext';
 
-const PAGE_SIZE = 10
-
-const mockClients = [
-  { id: 'CL001', name: 'Acme Corp' },
-  { id: 'CL002', name: 'TechSolutions Inc' },
-  { id: 'CL003', name: 'Global Enterprises' },
-  { id: 'CL004', name: 'Data Systems Ltd' },
-  { id: 'CL005', name: 'Innovation Labs' },
-]
+// Helper to determine page size
+const PAGE_SIZE = 10;
 
 const AdminJobs = () => {
-  const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState("all")
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [newJob, setNewJob] = useState({
-    client: '',
-    description: '',
-    address: '',
-    amount: '',
-  })
-  const [jobs, setJobs] = useState([])
-  const [page, setPage] = useState(1)
-  const [totalJobs, setTotalJobs] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newJob, setNewJob] = useState({ client: '', description: '', address: '', amount: '' });
+  const [page, setPage] = useState(1);
+  const {
+    jobs,
+    totalJobs,
+    loading,
+    fetchJobs,
+    resetJobs,
+    lastFetchedPage,
+    activeTab,
+    setActiveTab
+  } = useJobContext();
 
+  // Fetch jobs on mount and when page or tab changes
   useEffect(() => {
-    const fetchJobs = async () => {
-      setLoading(true)
-      try {
-        const response = await axios.get(`http://localhost:5000/fetch/jobs?page=${page}&limit=${PAGE_SIZE}`)
-        setJobs(response.data.jobs)
-        setTotalJobs(response.data.total)
-      } catch (error) {
-        setJobs([])
-        setTotalJobs(0)
-      } finally {
-        setLoading(false)
-      }
+    fetchJobs(page, activeTab);
+    // eslint-disable-next-line
+  }, [page, activeTab]);
+
+  // Reset jobs when tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setPage(1);
+    resetJobs();
+  };
+
+  // Calculate which jobs to show for current page
+  const startIdx = (page - 1) * PAGE_SIZE;
+  const endIdx = startIdx + PAGE_SIZE;
+  const visibleJobs = jobs.slice(startIdx, endIdx);
+
+  // Filter by search term
+  const filteredJobs = visibleJobs.filter(job => {
+    if (searchTerm &&
+      !job.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !job.client.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !job.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
     }
-    fetchJobs()
-  }, [page])
+    return true;
+  });
+
+  const totalPages = Math.ceil(totalJobs / PAGE_SIZE);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -99,25 +108,10 @@ const AdminJobs = () => {
     })
   }
   
-  const filteredJobs = jobs.filter(job => {
-    if (activeTab !== 'all' && job.status.toLowerCase() !== activeTab) {
-      return false
-    }
-    if (searchTerm && 
-        !job.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !job.client.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !job.description.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false
-    }
-    return true
-  })
-  
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
   }
 
-  const totalPages = Math.ceil(totalJobs / PAGE_SIZE)
-  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -200,7 +194,7 @@ const AdminJobs = () => {
           <CardTitle>Jobs</CardTitle>
           <CardDescription>View and manage all jobs in the system</CardDescription>
           <div className="flex items-center gap-4 mt-2">
-            <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+            <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
               <TabsList>
                 <TabsTrigger value="all">All Jobs</TabsTrigger>
                 <TabsTrigger value="quote">Quotes</TabsTrigger>
@@ -234,8 +228,8 @@ const AdminJobs = () => {
               <tbody>
                 {loading ? (
                   <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
-                ) : jobs.length > 0 ? (
-                  jobs.map((job) => (
+                ) : filteredJobs.length > 0 ? (
+                  filteredJobs.map((job) => (
                     <tr key={job.id} className="border-b">
                       <td className="py-3">{job.id}</td>
                       <td className="py-3">{job.client}</td>
