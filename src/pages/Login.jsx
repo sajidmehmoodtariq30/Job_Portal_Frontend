@@ -12,7 +12,8 @@ const LoginPage = () => {
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
-    window.location.href = "https://job-portal-backend-virid.vercel.app/api/auth/servicem8";
+    // window.location.href = "https://job-portal-backend-virid.vercel.app/api/auth/servicem8";
+    window.location.href = "http://localhost:5000/api/auth/servicem8";
   };
 
   const handleClientSubmit = (e) => {

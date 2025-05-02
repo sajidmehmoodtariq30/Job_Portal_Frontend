@@ -33,6 +33,9 @@ import {
   SelectValue,
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
+import { useEffect } from 'react'
+import axios from 'axios'
+
 
 // Mock data - in production would come from ServiceM8 API
 const mockJobs = [
@@ -98,6 +101,20 @@ const AdminJobs = () => {
     address: '',
     amount: '',
   })
+
+  // Fetch jobs from the backend
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const response = await axios.delete('http://localhost:5000/fetch/jobs/deleteAll')
+        console.log('Token', response.data)
+      } catch (error) {
+        console.error('Error fetching jobs:', error)
+      }
+    }
+  
+    fetchJobs()
+  }, [])
   
   const handleInputChange = (e) => {
     const { name, value } = e.target
