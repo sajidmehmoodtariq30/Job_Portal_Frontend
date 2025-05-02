@@ -5,26 +5,41 @@ import { Input } from "@/components/UI/input";
 import { Label } from "@/components/UI/label";
 import Illustration from "@/assets/illustration.jpg";
 import { MoveRight } from "lucide-react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
-    // window.location.href = "https://job-portal-backend-virid.vercel.app/api/auth/servicem8";
     window.location.href = "http://localhost:5000/api/auth/servicem8";
   };
 
-  const handleClientSubmit = (e) => {
+  const handleClientSubmit = async (e) => {
     e.preventDefault();
-    if (email === "" || password === "") {
+    if (email === "") {
       alert("Please fill in all fields.");
       return;
     }
-    // render /client page
-    window.location.href = "client";
-  }
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`http://localhost:5000/fetch/clientLogin/${email}`);
+      if (response.status === 200) {
+        navigate("/client");
+      } else {
+        alert("Login failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+      alert("An error occurred (likely Client is not Affiliated with any admin). Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const navigate = useNavigate();
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4">
@@ -38,7 +53,7 @@ const LoginPage = () => {
         </div>
         <div className="w-full md:w-[50%] h-full flex flex-col items-center p-8 gap-5">
           <h1 className="text-2xl text-center">Authentication</h1>
-          <form className="w-full flex flex-col items-center gap-5">
+          <form className="w-full flex flex-col items-center gap-5" onSubmit={handleClientSubmit}>
             <div className="grid w-full max-w-sm items-center gap-1.5">
               <Label htmlFor="ClientID">ClientID</Label>
               <Input
@@ -48,17 +63,8 @@ const LoginPage = () => {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="grid w-full max-w-sm items-center gap-1.5">
-              <Label htmlFor="Password">Password</Label>
-              <Input
-                type="password"
-                id="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <Button type="submit" onClick={(e) => handleClientSubmit(e)} className="w-full md:w-[60%] cursor-pointer">
-              Continue as Client
+            <Button type="submit" className="w-full md:w-[60%] cursor-pointer" disabled={isLoading}>
+              {isLoading ? "Loading..." : "Continue as Client"}
             </Button>
           </form>
           <div className="flex items-center w-full md:w-[60%] gap-2">

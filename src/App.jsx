@@ -8,7 +8,6 @@ import ClientLayout from './components/Layout/ClientLayout'
 import AdminJobs from '@/pages/admin/AdminJobs'
 import AdminJobDetails from '@/pages/admin/AdminJobDetails'
 import AdminClients from '@/pages/admin/AdminClients'
-import AdminClientDetails from '@/pages/admin/AdminClientDetails'
 import Home from './pages/Home'
 import ClientHome from './pages/client/ClientHome'
 import AdminHome from './pages/admin/AdminHome'
@@ -40,7 +39,6 @@ function App() {
           <Route path="jobs" element={<AdminJobs />} />
           <Route path="jobs/:jobId" element={<AdminJobDetails />} />
           <Route path="clients" element={<AdminClients />} />
-          <Route path="clients/:clientId" element={<AdminClientDetails />} />
           <Route path="schedule" element={<AdminSchedule />} />
           <Route path="team" element={<AdminTeam />} />
           <Route path="profile" element={<AdminProfile />} />
