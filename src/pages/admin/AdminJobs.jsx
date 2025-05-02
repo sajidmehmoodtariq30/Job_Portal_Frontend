@@ -39,11 +39,25 @@ import { useJobContext } from '@/components/JobContext';
 // Helper to determine page size
 const PAGE_SIZE = 10;
 
+const mockClients = [
+  { id: 'CL001', name: 'Acme Corp' },
+  { id: 'CL002', name: 'TechSolutions Inc' },
+  { id: 'CL003', name: 'Global Enterprises' },
+  { id: 'CL004', name: 'Data Systems Ltd' },
+  { id: 'CL005', name: 'Innovation Labs' },
+]
+
 const AdminJobs = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newJob, setNewJob] = useState({ client: '', description: '', address: '', amount: '' });
+  const [newJob, setNewJob] = useState({
+    company_uuid: '',
+    job_description: '',
+    job_address: '',
+    status: 'Quote',
+    amount: ''
+  });
   const [page, setPage] = useState(1);
   const {
     jobs,
@@ -88,25 +102,39 @@ const AdminJobs = () => {
   const totalPages = Math.ceil(totalJobs / PAGE_SIZE);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setNewJob({ ...newJob, [name]: value })
-  }
+    const { name, value } = e.target;
+    setNewJob({ ...newJob, [name]: value });
+  };
   
   const handleClientChange = (value) => {
-    setNewJob({ ...newJob, client: value })
-  }
+    setNewJob({ ...newJob, company_uuid: value });
+  };
   
-  const handleCreateJob = (e) => {
-    e.preventDefault()
-    console.log('Creating job:', newJob)
-    setIsDialogOpen(false)
-    setNewJob({
-      client: '',
-      description: '',
-      address: '',
-      amount: '',
-    })
-  }
+  const handleStatusChange = (value) => {
+    setNewJob({ ...newJob, status: value });
+  };
+  
+  const handleCreateJob = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...newJob,
+        active: 1
+      };
+      const response = await axios.post('http://localhost:5000/fetch/jobs', payload);
+      fetchJobs(1, activeTab);
+      setIsDialogOpen(false);
+      setNewJob({
+        company_uuid: '',
+        job_description: '',
+        job_address: '',
+        status: 'Quote',
+        amount: ''
+      });
+    } catch (error) {
+      console.error('Error creating job:', error);
+    }
+  };
   
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
@@ -130,9 +158,9 @@ const AdminJobs = () => {
             <form onSubmit={handleCreateJob}>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="client">Client</Label>
+                  <Label htmlFor="company_uuid">Client</Label>
                   <Select
-                    value={newJob.client}
+                    value={newJob.company_uuid}
                     onValueChange={handleClientChange}
                     required
                   >
@@ -149,24 +177,40 @@ const AdminJobs = () => {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Job Description</Label>
+                  <Label htmlFor="job_description">Job Description</Label>
                   <Input
-                    id="description"
-                    name="description"
-                    value={newJob.description}
+                    id="job_description"
+                    name="job_description"
+                    value={newJob.job_description}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="address">Service Address</Label>
+                  <Label htmlFor="job_address">Service Address</Label>
                   <Input
-                    id="address"
-                    name="address"
-                    value={newJob.address}
+                    id="job_address"
+                    name="job_address"
+                    value={newJob.job_address}
                     onChange={handleInputChange}
                     required
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={newJob.status}
+                    onValueChange={handleStatusChange}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Quote">Quote</SelectItem>
+                      <SelectItem value="Work Order">Work Order</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="amount">Quote Amount ($)</Label>
@@ -177,7 +221,6 @@ const AdminJobs = () => {
                     step="0.01"
                     value={newJob.amount}
                     onChange={handleInputChange}
-                    required
                   />
                 </div>
               </div>
