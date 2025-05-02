@@ -1,5 +1,5 @@
 // src/pages/admin/AdminJobs.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
@@ -33,55 +33,10 @@ import {
   SelectValue,
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
-import { useEffect } from 'react'
 import axios from 'axios'
 
+const PAGE_SIZE = 10
 
-// Mock data - in production would come from ServiceM8 API
-const mockJobs = [
-  { 
-    id: 'JOB-2025-042', 
-    client: 'Acme Corp', 
-    clientId: 'CL001',
-    status: 'Quote', 
-    createdAt: '2025-04-09',
-    description: 'Network installation and setup',
-    amount: 2500.00,
-    address: '123 Business Ave, Suite 101, New York, NY 10001',
-  },
-  { 
-    id: 'JOB-2025-041', 
-    client: 'TechSolutions Inc', 
-    clientId: 'CL002',
-    status: 'Work Order', 
-    createdAt: '2025-04-08',
-    description: 'Server maintenance and updates',
-    amount: 1200.00,
-    address: '456 Tech Road, San Francisco, CA 94107',
-  },
-  { 
-    id: 'JOB-2025-040', 
-    client: 'Global Enterprises', 
-    clientId: 'CL003',
-    status: 'In Progress', 
-    createdAt: '2025-04-07',
-    description: 'Security camera installation',
-    amount: 3750.00,
-    address: '789 Corporate Drive, Chicago, IL 60611',
-  },
-  { 
-    id: 'JOB-2025-039', 
-    client: 'Data Systems Ltd', 
-    clientId: 'CL004',
-    status: 'Completed', 
-    createdAt: '2025-04-06',
-    description: 'Data recovery and backup setup',
-    amount: 950.00,
-    address: '321 Data Lane, Austin, TX 78701',
-  },
-]
-
-// Sample clients for the dropdown
 const mockClients = [
   { id: 'CL001', name: 'Acme Corp' },
   { id: 'CL002', name: 'TechSolutions Inc' },
@@ -101,21 +56,28 @@ const AdminJobs = () => {
     address: '',
     amount: '',
   })
+  const [jobs, setJobs] = useState([])
+  const [page, setPage] = useState(1)
+  const [totalJobs, setTotalJobs] = useState(0)
+  const [loading, setLoading] = useState(false)
 
-  // Fetch jobs from the backend
   useEffect(() => {
     const fetchJobs = async () => {
+      setLoading(true)
       try {
-        const response = await axios.delete('http://localhost:5000/fetch/jobs/deleteAll')
-        console.log('Token', response.data)
+        const response = await axios.get(`http://localhost:5000/fetch/jobs?page=${page}&limit=${PAGE_SIZE}`)
+        setJobs(response.data.jobs)
+        setTotalJobs(response.data.total)
       } catch (error) {
-        console.error('Error fetching jobs:', error)
+        setJobs([])
+        setTotalJobs(0)
+      } finally {
+        setLoading(false)
       }
     }
-  
     fetchJobs()
-  }, [])
-  
+  }, [page])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setNewJob({ ...newJob, [name]: value })
@@ -127,12 +89,8 @@ const AdminJobs = () => {
   
   const handleCreateJob = (e) => {
     e.preventDefault()
-    
-    // In production, this would call the ServiceM8 API
     console.log('Creating job:', newJob)
     setIsDialogOpen(false)
-    
-    // Reset form
     setNewJob({
       client: '',
       description: '',
@@ -141,26 +99,24 @@ const AdminJobs = () => {
     })
   }
   
-  const filteredJobs = mockJobs.filter(job => {
-    // Filter by tab
+  const filteredJobs = jobs.filter(job => {
     if (activeTab !== 'all' && job.status.toLowerCase() !== activeTab) {
       return false
     }
-    
-    // Filter by search term
     if (searchTerm && 
         !job.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !job.client.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !job.description.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false
     }
-    
     return true
   })
   
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
   }
+
+  const totalPages = Math.ceil(totalJobs / PAGE_SIZE)
   
   return (
     <div className="space-y-6">
@@ -276,37 +232,40 @@ const AdminJobs = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredJobs.map((job) => (
-                  <tr key={job.id} className="border-b">
-                    <td className="py-3">{job.id}</td>
-                    <td className="py-3">{job.client}</td>
-                    <td className="py-3">{job.description}</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        job.status === 'Quote' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : job.status === 'Work Order' 
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : job.status === 'In Progress'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-green-100 text-green-800'
-                      }`}>
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="py-3">{job.createdAt}</td>
-                    <td className="py-3">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleViewJob(job.id)}
-                      >
-                        View Details
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredJobs.length === 0 && (
+                {loading ? (
+                  <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
+                ) : jobs.length > 0 ? (
+                  jobs.map((job) => (
+                    <tr key={job.id} className="border-b">
+                      <td className="py-3">{job.id}</td>
+                      <td className="py-3">{job.client}</td>
+                      <td className="py-3">{job.description}</td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          job.status === 'Quote' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : job.status === 'Work Order' 
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : job.status === 'In Progress'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-green-100 text-green-800'
+                        }`}>
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="py-3">{job.createdAt}</td>
+                      <td className="py-3">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleViewJob(job.id)}
+                        >
+                          View Details
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan="6" className="py-4 text-center text-muted-foreground">
                       No jobs found
@@ -315,6 +274,25 @@ const AdminJobs = () => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="flex justify-between items-center mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages || totalPages === 0}
+            >
+              Next
+            </Button>
           </div>
         </CardContent>
       </Card>
