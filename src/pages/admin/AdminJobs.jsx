@@ -153,6 +153,10 @@ const AdminJobs = () => {
     navigate(`/admin/jobs/${jobId}`)
   }
 
+  const handleViewDetails = (job) => {
+    setSelectedJob(job);
+};
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -249,9 +253,9 @@ const AdminJobs = () => {
         <CardHeader>
           <CardTitle>Jobs</CardTitle>
           <CardDescription>View and manage all jobs in the system</CardDescription>
-          <div className="flex items-center gap-4 mt-2">
+          <div className="flex flex-col space-y-4 mt-2">
             <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-              <TabsList>
+              <TabsList className="w-full justify-start">
                 <TabsTrigger value="all">All Jobs</TabsTrigger>
                 <TabsTrigger value="Quote">Quotes</TabsTrigger>
                 <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
@@ -259,9 +263,10 @@ const AdminJobs = () => {
                 <TabsTrigger value="Completed">Completed</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="flex-1">
+            <div className="w-full">
               <Input
-                placeholder="Search jobs..."
+                className="w-full"
+                placeholder="Search jobs by ID, description, or generated ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -353,73 +358,125 @@ const AdminJobs = () => {
       {selectedJob && (
         <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
           <DialogContent className="max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
+            <DialogHeader className="border-b pb-4">
+              <DialogTitle className="text-xl">Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
               <DialogDescription>
-                Detailed information about the job.
+                Detailed information about the selected job
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Job ID</Label>
-                <p className="text-sm">{selectedJob.uuid}</p>
+            <div className="grid gap-6 py-6">
+              <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
+                <div className="space-y-2">
+                  <Label className="font-bold text-sm text-gray-600">Job ID</Label>
+                  <p className="text-sm font-medium">{selectedJob.uuid}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold text-sm text-gray-600">Generated ID</Label>
+                  <p className="text-sm font-medium">{selectedJob.generated_job_id}</p>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Generated Job ID</Label>
-                <p className="text-sm">{selectedJob.generated_job_id}</p>
-              </div>
-              <div className="grid gap-2">
-                <Label>Description</Label>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Job Description</Label>
                 <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
               </div>
-              <div className="grid gap-2">
-                <Label>Status</Label>
-                <span className={`px-2 py-1 rounded text-xs w-fit ${
-                  selectedJob.status === 'Quote' 
-                    ? 'bg-blue-100 text-blue-800' 
-                    : selectedJob.status === 'Work Order' 
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : selectedJob.status === 'In Progress'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-green-100 text-green-800'
-                }`}>
-                  {selectedJob.status}
-                </span>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-bold">Status</Label>
+                  <span className={`px-2 py-1 rounded text-xs inline-block ${
+                    selectedJob.status === 'Quote' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : selectedJob.status === 'Work Order' 
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : selectedJob.status === 'In Progress'
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-green-100 text-green-800'
+                  }`}>
+                    {selectedJob.status}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold">Active</Label>
+                  <p className="text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Service Address</Label>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Service Address</Label>
                 <p className="text-sm">{selectedJob.job_address}</p>
               </div>
-              <div className="grid gap-2">
-                <Label>Invoice Amount</Label>
-                <p className="text-sm">${selectedJob.total_invoice_amount || '0.00'}</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-bold">Created Date</Label>
+                  <p className="text-sm">{selectedJob.date}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold">Edit Date</Label>
+                  <p className="text-sm">{selectedJob.edit_date}</p>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Created Date</Label>
-                <p className="text-sm">{selectedJob.date}</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-bold">Quote Date</Label>
+                  <p className="text-sm">{selectedJob.quote_date !== '0000-00-00 00:00:00' ? selectedJob.quote_date : 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold">Work Order Date</Label>
+                  <p className="text-sm">{selectedJob.work_order_date !== '0000-00-00 00:00:00' ? selectedJob.work_order_date : 'N/A'}</p>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Location</Label>
-                <p className="text-sm">
-                  {[
-                    selectedJob.geo_number,
-                    selectedJob.geo_street,
-                    selectedJob.geo_city,
-                    selectedJob.geo_state,
-                    selectedJob.geo_postcode,
-                    selectedJob.geo_country
-                  ].filter(Boolean).join(', ') || 'Not available'}
-                </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-bold">Completion Date</Label>
+                  <p className="text-sm">{selectedJob.completion_date !== '0000-00-00 00:00:00' ? selectedJob.completion_date : 'N/A'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold">Invoice Amount</Label>
+                  <p className="text-sm">${selectedJob.total_invoice_amount || '0.00'}</p>
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Location Details</Label>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <p><span className="font-semibold">Street:</span> {selectedJob.geo_number} {selectedJob.geo_street}</p>
+                  <p><span className="font-semibold">City:</span> {selectedJob.geo_city}</p>
+                  <p><span className="font-semibold">State:</span> {selectedJob.geo_state}</p>
+                  <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode}</p>
+                  <p><span className="font-semibold">Country:</span> {selectedJob.geo_country}</p>
+                </div>
+              </div>
+
               {selectedJob.work_done_description && (
-                <div className="grid gap-2">
-                  <Label>Work Done Description</Label>
+                <div className="space-y-2">
+                  <Label className="font-bold">Work Done Description</Label>
                   <p className="text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label className="font-bold">Payment Details</Label>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
+                  <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
+                  <p><span className="font-semibold">Date:</span> {selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                  <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                </div>
+              </div>
+
+              {selectedJob.purchase_order_number && (
+                <div className="space-y-2">
+                  <Label className="font-bold">Purchase Order Number</Label>
+                  <p className="text-sm">{selectedJob.purchase_order_number}</p>
+                </div>
+              )}
             </div>
-            <DialogFooter>
-              <Button onClick={() => setSelectedJob(null)}>Close</Button>
+            <DialogFooter className="border-t pt-4">
+              <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
