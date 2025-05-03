@@ -30,6 +30,7 @@ const AdminClients = () => {
     uuid: '',
     name: '',
     address: '',
+    email: '',
     address_city: '',
     address_state: '',
     address_postcode: '',
@@ -45,7 +46,8 @@ const AdminClients = () => {
       setIsLoading(true);
       try {
         const response = await axios.get('http://localhost:5000/fetch/clients');
-        setClients(response.data);
+        // Extract the `data` property from the API response
+        setClients(response.data.data);
       } catch (error) {
         console.error('Error fetching clients:', error);
       } finally {
@@ -69,6 +71,7 @@ const AdminClients = () => {
             uuid: newClient.uuid,
             name: newClient.name,
             address: newClient.address,
+            email: newClient.email,
             address_city: newClient.address_city,
             address_state: newClient.address_state,
             address_postcode: newClient.address_postcode,
@@ -84,6 +87,7 @@ const AdminClients = () => {
             uuid: '',
             name: '',
             address: '',
+            email: '',
             address_city: '',
             address_state: '',
             address_postcode: '',
@@ -105,7 +109,8 @@ const AdminClients = () => {
   const handleRefresh = async () => {
     try {
       const response = await axios.get('http://localhost:5000/fetch/clients');
-      setClients(response.data);
+      // Ensure the `data` property is extracted from the API response
+      setClients(response.data.data || []);
     } catch (error) {
       console.error('Error refreshing clients:', error);
     }
@@ -147,7 +152,7 @@ const AdminClients = () => {
               <DialogTrigger asChild>
                 <Button>Add New Client</Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Client</DialogTitle>
                   <DialogDescription>
@@ -172,6 +177,16 @@ const AdminClients = () => {
                         id="address"
                         name="address"
                         value={newClient.address}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        value={newClient.email}
                         onChange={handleInputChange}
                         required
                       />

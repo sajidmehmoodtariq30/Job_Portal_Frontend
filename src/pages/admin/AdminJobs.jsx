@@ -58,48 +58,61 @@ const AdminJobs = () => {
     status: 'Quote',
     amount: ''
   });
-  const [page, setPage] = useState(1);
+  const [visibleJobs, setVisibleJobs] = useState(10);
+  const [selectedJob, setSelectedJob] = useState(null);
   const {
     jobs,
     totalJobs,
     loading,
     fetchJobs,
     resetJobs,
-    lastFetchedPage,
     activeTab,
     setActiveTab
   } = useJobContext();
 
-  // Fetch jobs on mount and when page or tab changes
+  // Fetch jobs on mount and when tab changes
   useEffect(() => {
-    fetchJobs(page, activeTab);
-    // eslint-disable-next-line
-  }, [page, activeTab]);
+    fetchJobs(1, activeTab);
+  }, [activeTab]);
 
   // Reset jobs when tab changes
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setPage(1);
     resetJobs();
+    fetchJobs(1, tab);
   };
 
-  // Calculate which jobs to show for current page
-  const startIdx = (page - 1) * PAGE_SIZE;
-  const endIdx = startIdx + PAGE_SIZE;
-  const visibleJobs = jobs.slice(startIdx, endIdx);
+  // Update visible jobs logic
+  const displayedJobs = jobs.slice(0, visibleJobs);
 
   // Filter by search term
-  const filteredJobs = visibleJobs.filter(job => {
-    if (searchTerm &&
-      !job.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !job.client.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !job.description.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
-    }
-    return true;
+  const filteredJobs = displayedJobs.filter(job => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    
+    return (
+      (job.uuid?.toLowerCase().includes(searchLower)) ||
+      (job.job_description?.toLowerCase().includes(searchLower)) ||
+      (job.generated_job_id?.toLowerCase().includes(searchLower))
+    );
   });
 
-  const totalPages = Math.ceil(totalJobs / PAGE_SIZE);
+  const handleShowMore = () => {
+    setVisibleJobs(prev => prev + 10);
+  };
+
+  const handleShowLess = () => {
+    setVisibleJobs(prev => Math.max(prev - 10, 10));
+  };
+
+  const handleRefresh = async () => {
+    try {
+      await fetchJobs(1, activeTab);
+      setVisibleJobs(10);
+    } catch (error) {
+      console.error('Error refreshing jobs:', error);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -117,24 +130,24 @@ const AdminJobs = () => {
   const handleCreateJob = async (e) => {
     e.preventDefault();
     try {
-      const payload = {
-        ...newJob,
-        active: 1
-      };
-      const response = await axios.post('http://localhost:5000/fetch/jobs', payload);
-      fetchJobs(1, activeTab);
-      setIsDialogOpen(false);
-      setNewJob({
-        company_uuid: '',
-        job_description: '',
-        job_address: '',
-        status: 'Quote',
-        amount: ''
-      });
+        const payload = {
+            ...newJob,
+            active: 1
+        };
+        const response = await axios.post('http://localhost:5000/fetch/jobs', payload);
+        fetchJobs(1, activeTab);
+        setIsDialogOpen(false);
+        setNewJob({
+            company_uuid: '',
+            job_description: '',
+            job_address: '',
+            status: 'Quote',
+            amount: ''
+        });
     } catch (error) {
-      console.error('Error creating job:', error);
+        console.error('Error creating job:', error);
     }
-  };
+};
   
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
@@ -237,13 +250,13 @@ const AdminJobs = () => {
           <CardTitle>Jobs</CardTitle>
           <CardDescription>View and manage all jobs in the system</CardDescription>
           <div className="flex items-center gap-4 mt-2">
-            <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
+            <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
               <TabsList>
                 <TabsTrigger value="all">All Jobs</TabsTrigger>
-                <TabsTrigger value="quote">Quotes</TabsTrigger>
-                <TabsTrigger value="work order">Work Orders</TabsTrigger>
-                <TabsTrigger value="in progress">In Progress</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
+                <TabsTrigger value="Quote">Quotes</TabsTrigger>
+                <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
+                <TabsTrigger value="In Progress">In Progress</TabsTrigger>
+                <TabsTrigger value="Completed">Completed</TabsTrigger>
               </TabsList>
             </Tabs>
             <div className="flex-1">
@@ -261,7 +274,7 @@ const AdminJobs = () => {
               <thead>
                 <tr className="border-b">
                   <th className="py-3 text-left">Job ID</th>
-                  <th className="py-3 text-left">Client</th>
+                  <th className="py-3 text-left">Generated ID</th>
                   <th className="py-3 text-left">Description</th>
                   <th className="py-3 text-left">Status</th>
                   <th className="py-3 text-left">Created</th>
@@ -273,10 +286,10 @@ const AdminJobs = () => {
                   <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
                 ) : filteredJobs.length > 0 ? (
                   filteredJobs.map((job) => (
-                    <tr key={job.id} className="border-b">
-                      <td className="py-3">{job.id}</td>
-                      <td className="py-3">{job.client}</td>
-                      <td className="py-3">{job.description}</td>
+                    <tr key={job.uuid} className="border-b">
+                      <td className="py-3">{job.uuid ? job.uuid.slice(-4) : '...'}</td>
+                      <td className="py-3">{job.generated_job_id || '...'}</td>
+                      <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
                       <td className="py-3">
                         <span className={`px-2 py-1 rounded text-xs ${
                           job.status === 'Quote' 
@@ -290,12 +303,12 @@ const AdminJobs = () => {
                           {job.status}
                         </span>
                       </td>
-                      <td className="py-3">{job.createdAt}</td>
+                      <td className="py-3">{job.date || '...'}</td>
                       <td className="py-3">
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => handleViewJob(job.id)}
+                          onClick={() => handleViewDetails(job)}
                         >
                           View Details
                         </Button>
@@ -315,26 +328,104 @@ const AdminJobs = () => {
           <div className="flex justify-between items-center mt-4">
             <Button
               variant="outline"
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
+              onClick={handleShowLess}
+              disabled={visibleJobs <= 10}
             >
-              Previous
+              Show Less
             </Button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
             <Button
               variant="outline"
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages || totalPages === 0}
+              onClick={handleRefresh}
             >
-              Next
+              Refresh Data
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleShowMore}
+              disabled={filteredJobs.length < visibleJobs}
+            >
+              Show More
             </Button>
           </div>
         </CardContent>
       </Card>
-    </div>
-  )
-}
 
-export default AdminJobs
+      {selectedJob && (
+        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
+              <DialogDescription>
+                Detailed information about the job.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Job ID</Label>
+                <p className="text-sm">{selectedJob.uuid}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Generated Job ID</Label>
+                <p className="text-sm">{selectedJob.generated_job_id}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Description</Label>
+                <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
+                <span className={`px-2 py-1 rounded text-xs w-fit ${
+                  selectedJob.status === 'Quote' 
+                    ? 'bg-blue-100 text-blue-800' 
+                    : selectedJob.status === 'Work Order' 
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : selectedJob.status === 'In Progress'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-green-100 text-green-800'
+                }`}>
+                  {selectedJob.status}
+                </span>
+              </div>
+              <div className="grid gap-2">
+                <Label>Service Address</Label>
+                <p className="text-sm">{selectedJob.job_address}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Invoice Amount</Label>
+                <p className="text-sm">${selectedJob.total_invoice_amount || '0.00'}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Created Date</Label>
+                <p className="text-sm">{selectedJob.date}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>Location</Label>
+                <p className="text-sm">
+                  {[
+                    selectedJob.geo_number,
+                    selectedJob.geo_street,
+                    selectedJob.geo_city,
+                    selectedJob.geo_state,
+                    selectedJob.geo_postcode,
+                    selectedJob.geo_country
+                  ].filter(Boolean).join(', ') || 'Not available'}
+                </p>
+              </div>
+              {selectedJob.work_done_description && (
+                <div className="grid gap-2">
+                  <Label>Work Done Description</Label>
+                  <p className="text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setSelectedJob(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+};
+
+export default AdminJobs;

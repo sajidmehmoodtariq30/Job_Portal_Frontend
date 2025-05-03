@@ -12,25 +12,23 @@ export const JobProvider = ({ children }) => {
 
   // Fetch jobs with lazy loading
   const fetchJobs = async (page, status = 'all') => {
-    // If jobs for this page are already loaded, do nothing
-    if (page <= lastFetchedPage && activeTab === status) return;
+    if (loading) return; // Prevent multiple simultaneous fetches
     setLoading(true);
     try {
-      const limit = page === 1 ? 20 : 10;
-      let url = `http://localhost:5000/fetch/jobs?page=${page}&limit=${limit}`;
-      if (status !== 'all') {
-        url += `&status=${encodeURIComponent(status)}`;
-      }
-      const response = await axios.get(url);
-      if (page === 1 || activeTab !== status) {
-        setJobs(response.data.jobs);
-      } else {
-        setJobs(prev => [...prev, ...response.data.jobs]);
-      }
-      setTotalJobs(response.data.total);
+      const response = await axios.get('http://localhost:5000/fetch/jobs');
+      const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs;
+
+      // Filter jobs by status if not 'all'
+      const filteredJobs = status.toLowerCase() === 'all' 
+        ? jobsData 
+        : jobsData.filter(job => job.status.toLowerCase() === status.toLowerCase());
+
+      setJobs(filteredJobs);
+      setTotalJobs(filteredJobs.length);
       setLastFetchedPage(page);
       setActiveTab(status);
     } catch (error) {
+      console.error('Error fetching jobs:', error);
       setJobs([]);
       setTotalJobs(0);
     } finally {

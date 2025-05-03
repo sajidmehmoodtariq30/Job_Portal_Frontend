@@ -41,7 +41,6 @@ function App() {
             <Route path="jobs" element={<AdminJobs />} />
             <Route path="jobs/:jobId" element={<AdminJobDetails />} />
             <Route path="clients" element={<AdminClients />} />
-            <Route path="clients/:clientId" element={<AdminClientDetails />} />
             <Route path="schedule" element={<AdminSchedule />} />
             <Route path="team" element={<AdminTeam />} />
             <Route path="profile" element={<AdminProfile />} />
