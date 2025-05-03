@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
@@ -11,6 +11,30 @@ import { useNavigate } from "react-router-dom";
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    const expires_in = params.get('expires_in');
+    const token_type = params.get('token_type');
+    const scope = params.get('scope');
+    if (access_token && refresh_token && expires_in && token_type && scope) {
+      const tokenData = {
+        access_token,
+        refresh_token,
+        expires_in,
+        token_type,
+        scope: decodeURIComponent(scope)
+      };
+      localStorage.setItem('admin_token', JSON.stringify(tokenData));
+      // Remove tokens from URL for cleanliness
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Optionally, redirect to admin dashboard
+      navigate('/admin');
+    }
+  }, [navigate]);
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
@@ -38,8 +62,6 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
-
-  const navigate = useNavigate();
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4">
