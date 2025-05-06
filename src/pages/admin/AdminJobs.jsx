@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
+import { Textarea } from "@/components/UI/textarea"
 import { 
   Card,
   CardContent, 
@@ -35,28 +36,37 @@ import {
 import { Label } from "@/components/UI/label"
 import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
+import { API_ENDPOINTS } from '@/lib/apiConfig';
 
 // Helper to determine page size
 const PAGE_SIZE = 10;
-
-const mockClients = [
-  { id: 'CL001', name: 'Acme Corp' },
-  { id: 'CL002', name: 'TechSolutions Inc' },
-  { id: 'CL003', name: 'Global Enterprises' },
-  { id: 'CL004', name: 'Data Systems Ltd' },
-  { id: 'CL005', name: 'Innovation Labs' },
-]
 
 const AdminJobs = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [clients, setClients] = useState([]);
   const [newJob, setNewJob] = useState({
+    uuid: '',
+    created_by_staff_uuid: '', // This will be populated with client UUID
+    date: new Date().toISOString().split('T')[0], // Current date as default
     company_uuid: '',
     job_description: '',
     job_address: '',
     status: 'Quote',
-    amount: ''
+    work_done_description: '',
+    generated_job_id: '',
+    payment_date: '',
+    payment_method: '',
+    payment_amount: '',
+    category_uuid: '',
+    total_invoice_amount: '',
+    quote_date: '',
+    quote_sent: '0',
+    invoice_sent: '0',
+    quote_sent_stamp: '',
+    work_order_date: '',
+    completion_date: ''
   });
   const [visibleJobs, setVisibleJobs] = useState(10);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -73,7 +83,18 @@ const AdminJobs = () => {
   // Fetch jobs on mount and when tab changes
   useEffect(() => {
     fetchJobs(1, activeTab);
+    fetchClients(); // Fetch clients for the dropdown
   }, [activeTab]);
+
+  // Fetch clients for the dropdown
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
+      setClients(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
 
   // Reset jobs when tab changes
   const handleTabChange = (tab) => {
@@ -119,35 +140,108 @@ const AdminJobs = () => {
     setNewJob({ ...newJob, [name]: value });
   };
   
-  const handleClientChange = (value) => {
-    setNewJob({ ...newJob, company_uuid: value });
+  // Fixed handler for select dropdowns
+  const handleSelectChange = (name, value) => {
+    setNewJob({ ...newJob, [name]: value });
   };
   
-  const handleStatusChange = (value) => {
-    setNewJob({ ...newJob, status: value });
+  // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
+  const handleClientChange = (value) => {
+    setNewJob({ 
+      ...newJob, 
+      company_uuid: value,
+      created_by_staff_uuid: value // Using client UUID for staff UUID as requested
+    });
+    
+    // Optionally, pre-fill address if available
+    const selectedClient = clients.find(client => client.uuid === value);
+    if (selectedClient) {
+      const formattedAddress = [
+        selectedClient.address,
+        selectedClient.address_city,
+        selectedClient.address_state,
+        selectedClient.address_postcode,
+        selectedClient.address_country
+      ].filter(Boolean).join(', ');
+      
+      setNewJob(prev => ({
+        ...prev,
+        job_address: formattedAddress || prev.job_address
+      }));
+    }
   };
   
   const handleCreateJob = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!newJob.uuid || !newJob.company_uuid || !newJob.job_description || !newJob.job_address) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    
     try {
+        // Prepare payload to match ServiceM8 API format
         const payload = {
-            ...newJob,
-            active: 1
+            active: 1,
+            uuid: newJob.uuid,
+            created_by_staff_uuid: newJob.created_by_staff_uuid, // This is the client UUID
+            company_uuid: newJob.company_uuid,
+            date: newJob.date,
+            job_description: newJob.job_description,
+            job_address: newJob.job_address,
+            status: newJob.status,
+            work_done_description: newJob.work_done_description,
+            generated_job_id: newJob.generated_job_id,
+            payment_date: newJob.payment_date,
+            payment_method: newJob.payment_method,
+            payment_amount: newJob.payment_amount,
+            category_uuid: newJob.category_uuid,
+            total_invoice_amount: newJob.total_invoice_amount,
+            quote_date: newJob.quote_date,
+            quote_sent: newJob.quote_sent,
+            invoice_sent: newJob.invoice_sent,
+            quote_sent_stamp: newJob.quote_sent_stamp,
+            work_order_date: newJob.work_order_date,
+            completion_date: newJob.completion_date
         };
-        const response = await axios.post('http://localhost:5000/fetch/jobs', payload);
+        
+        console.log('Creating job with payload:', payload);
+        const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
+        console.log('Job created successfully:', response.data);
+        
+        // Refresh jobs list and close dialog
         fetchJobs(1, activeTab);
         setIsDialogOpen(false);
+        
+        // Reset form for next use
         setNewJob({
+            uuid: '',
+            created_by_staff_uuid: '',
+            date: new Date().toISOString().split('T')[0],
             company_uuid: '',
             job_description: '',
             job_address: '',
             status: 'Quote',
-            amount: ''
+            work_done_description: '',
+            generated_job_id: '',
+            payment_date: '',
+            payment_method: '',
+            payment_amount: '',
+            category_uuid: '',
+            total_invoice_amount: '',
+            quote_date: '',
+            quote_sent: '0',
+            invoice_sent: '0',
+            quote_sent_stamp: '',
+            work_order_date: '',
+            completion_date: ''
         });
     } catch (error) {
         console.error('Error creating job:', error);
+        alert(`Error creating job: ${error.response?.data?.message || error.message}`);
     }
-};
+  };
   
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
@@ -155,7 +249,13 @@ const AdminJobs = () => {
 
   const handleViewDetails = (job) => {
     setSelectedJob(job);
-};
+  };
+
+  // Generate UUID
+  const generateUUID = () => {
+    const uuid = crypto.randomUUID();
+    setNewJob({ ...newJob, uuid });
+  };
 
   return (
     <div className="space-y-6">
@@ -165,15 +265,50 @@ const AdminJobs = () => {
           <DialogTrigger asChild>
             <Button>Create New Job</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Job</DialogTitle>
               <DialogDescription>
-                Enter the details for the new job. This will create a quote in ServiceM8.
+                Enter the details for the new job. This will create a job in ServiceM8.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateJob}>
+            <form onSubmit={handleCreateJob} className="h-[20vh] overflow-y-auto">
               <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="uuid">Job UUID</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="uuid"
+                        name="uuid"
+                        value={newJob.uuid}
+                        onChange={handleInputChange}
+                        required
+                        className="flex-1"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={generateUUID}
+                        className="whitespace-nowrap"
+                      >
+                        Generate
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input
+                      id="date"
+                      name="date"
+                      type="date"
+                      value={newJob.date}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+                
                 <div className="grid gap-2">
                   <Label htmlFor="company_uuid">Client</Label>
                   <Select
@@ -182,27 +317,21 @@ const AdminJobs = () => {
                     required
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a client" />
+                      <SelectValue placeholder="Select client" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockClients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
+                      {clients.map(client => (
+                        <SelectItem key={client.uuid} value={client.uuid}>
+                          {client.name} ({client.uuid.slice(-4)})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Client UUID will also be used as staff UUID for ServiceM8
+                  </p>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="job_description">Job Description</Label>
-                  <Input
-                    id="job_description"
-                    name="job_description"
-                    value={newJob.job_description}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="job_address">Service Address</Label>
                   <Input
@@ -213,11 +342,12 @@ const AdminJobs = () => {
                     required
                   />
                 </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
                     value={newJob.status}
-                    onValueChange={handleStatusChange}
+                    onValueChange={(value) => handleSelectChange('status', value)}
                     required
                   >
                     <SelectTrigger>
@@ -226,19 +356,177 @@ const AdminJobs = () => {
                     <SelectContent>
                       <SelectItem value="Quote">Quote</SelectItem>
                       <SelectItem value="Work Order">Work Order</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Quote Amount ($)</Label>
-                  <Input
-                    id="amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    value={newJob.amount}
+                  <Label htmlFor="job_description">Job Description</Label>
+                  <Textarea
+                    id="job_description"
+                    name="job_description"
+                    value={newJob.job_description}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="work_done_description">Work Done Description</Label>
+                  <Textarea
+                    id="work_done_description"
+                    name="work_done_description"
+                    value={newJob.work_done_description}
                     onChange={handleInputChange}
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="generated_job_id">Generated Job ID</Label>
+                    <Input
+                      id="generated_job_id"
+                      name="generated_job_id"
+                      value={newJob.generated_job_id}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category_uuid">Category UUID</Label>
+                    <Input
+                      id="category_uuid"
+                      name="category_uuid"
+                      value={newJob.category_uuid}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="total_invoice_amount">Invoice Amount</Label>
+                    <Input
+                      id="total_invoice_amount"
+                      name="total_invoice_amount"
+                      type="number"
+                      step="0.01"
+                      value={newJob.total_invoice_amount}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="invoice_sent">Invoice Sent</Label>
+                    <Select
+                      value={newJob.invoice_sent}
+                      onValueChange={(value) => handleSelectChange('invoice_sent', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Yes</SelectItem>
+                        <SelectItem value="0">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="quote_date">Quote Date</Label>
+                    <Input
+                      id="quote_date"
+                      name="quote_date"
+                      type="date"
+                      value={newJob.quote_date}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="quote_sent">Quote Sent</Label>
+                    <Select
+                      value={newJob.quote_sent}
+                      onValueChange={(value) => handleSelectChange('quote_sent', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Yes</SelectItem>
+                        <SelectItem value="0">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="work_order_date">Work Order Date</Label>
+                    <Input
+                      id="work_order_date"
+                      name="work_order_date"
+                      type="date"
+                      value={newJob.work_order_date}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="completion_date">Completion Date</Label>
+                    <Input
+                      id="completion_date"
+                      name="completion_date"
+                      type="date"
+                      value={newJob.completion_date}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 mt-2">
+                  <h3 className="text-lg font-medium mb-3">Payment Details</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="payment_date">Payment Date</Label>
+                      <Input
+                        id="payment_date"
+                        name="payment_date"
+                        type="date"
+                        value={newJob.payment_date}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="payment_method">Payment Method</Label>
+                      <Select
+                        value={newJob.payment_method}
+                        onValueChange={(value) => handleSelectChange('payment_method', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Credit Card">Credit Card</SelectItem>
+                          <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                          <SelectItem value="Cash">Cash</SelectItem>
+                          <SelectItem value="Check">Check</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="payment_amount">Payment Amount</Label>
+                      <Input
+                        id="payment_amount"
+                        name="payment_amount"
+                        type="number"
+                        step="0.01"
+                        value={newJob.payment_amount}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>

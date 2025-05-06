@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '@/lib/apiConfig';
 
 const JobContext = createContext();
 
@@ -15,7 +16,7 @@ export const JobProvider = ({ children }) => {
     if (loading) return; // Prevent multiple simultaneous fetches
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/fetch/jobs');
+      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_ALL);
       const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs;
 
       // Filter jobs by status if not 'all'

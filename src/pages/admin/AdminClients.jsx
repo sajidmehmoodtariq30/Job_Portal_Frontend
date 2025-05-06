@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/UI/dialog";
 import { Label } from "@/components/UI/label";
+import { API_ENDPOINTS } from '@/lib/apiConfig';
 
 const AdminClients = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const AdminClients = () => {
     const fetchClients = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('http://localhost:5000/fetch/clients');
+        const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
         // Extract the `data` property from the API response
         setClients(response.data.data);
       } catch (error) {
@@ -67,7 +68,7 @@ const AdminClients = () => {
     e.preventDefault();
 
     try {
-        const response = await axios.post('http://localhost:5000/fetch/clients', {
+        const response = await axios.post(API_ENDPOINTS.CLIENTS.CREATE, {
             uuid: newClient.uuid,
             name: newClient.name,
             address: newClient.address,
@@ -108,7 +109,7 @@ const AdminClients = () => {
 
   const handleRefresh = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/fetch/clients');
+      const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
       // Ensure the `data` property is extracted from the API response
       setClients(response.data.data || []);
     } catch (error) {

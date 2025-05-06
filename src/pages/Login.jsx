@@ -7,6 +7,7 @@ import Illustration from "@/assets/illustration.jpg";
 import { MoveRight } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -38,7 +39,7 @@ const LoginPage = () => {
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
-    window.location.href = "http://localhost:5000/api/auth/servicem8";
+    window.location.href = API_ENDPOINTS.AUTH.SERVICE_M8;
   };
 
   const handleClientSubmit = async (e) => {
@@ -49,7 +50,7 @@ const LoginPage = () => {
     }
     setIsLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5000/fetch/clientLogin/${email}`);
+      const response = await axios.get(API_ENDPOINTS.AUTH.CLIENT_LOGIN(email));
       if (response.status === 200) {
         navigate("/client");
       } else {
