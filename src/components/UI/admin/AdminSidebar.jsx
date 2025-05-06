@@ -1,26 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
-  LayoutDashboard,
-  Briefcase,
-  Users,
-  CalendarDays,
-  UserPlus,
+  LayoutDashboard, 
+  Users, 
+  Briefcase, 
+  Puzzle, 
   Settings,
+  Bell,
+  Shield,
+  ChevronDown,
   ArrowUpDown
 } from 'lucide-react';
 
 const AdminSidebar = ({ sidebarOpen }) => {
   const location = useLocation();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
   const navigation = [
-    { name: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { name: 'Jobs', href: '/admin/jobs', icon: <Briefcase className="h-5 w-5" /> },
-    { name: 'Clients', href: '/admin/clients', icon: <Users className="h-5 w-5" /> },
-    { name: 'Schedule', href: '/admin/schedule', icon: <CalendarDays className="h-5 w-5" /> },
-    { name: 'Team', href: '/admin/team', icon: <UserPlus className="h-5 w-5" /> },
-    { name: 'Settings', href: '/admin/settings', icon: <Settings className="h-5 w-5" /> }
+    { name: 'Dashboard / Overview', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
+    { name: 'Users / Clients Management', href: '/admin/clients', icon: <Users className="h-5 w-5" /> },
+    { name: 'Jobs Management', href: '/admin/jobs', icon: <Briefcase className="h-5 w-5" /> },
+    { name: 'API Plugin', href: '/admin/api-plugin', icon: <Puzzle className="h-5 w-5" /> }
+  ];
+
+  const settingsNavigation = [
+    { name: 'Notifications Settings', href: '/admin/settings/notifications', icon: <Bell className="h-5 w-5" /> },
+    { name: 'Security of Files', href: '/admin/settings/security', icon: <Shield className="h-5 w-5" /> }
   ];
 
   return (
@@ -60,6 +66,54 @@ const AdminSidebar = ({ sidebarOpen }) => {
             </NavLink>
           );
         })}
+
+        {/* Settings dropdown */}
+        <div className="mt-2">
+          <button
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            className={cn(
+              "w-full flex items-center justify-between px-4 py-2 rounded-md text-sm font-medium transition-colors",
+              location.pathname.startsWith('/admin/settings')
+                ? "bg-primary text-primary-foreground"
+                : "text-gray-700 hover:bg-gray-100"
+            )}
+          >
+            <div className="flex items-center">
+              <Settings className="h-5 w-5" />
+              <span className="ml-3">Settings</span>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform",
+                settingsOpen ? "transform rotate-180" : ""
+              )}
+            />
+          </button>
+
+          {/* Settings submenu */}
+          {settingsOpen && (
+            <div className="pl-4 mt-1 space-y-1">
+              {settingsNavigation.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      "flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-gray-700 hover:bg-gray-100"
+                    )}
+                  >
+                    {item.icon}
+                    <span className="ml-3">{item.name}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </nav>
     </aside>
   );

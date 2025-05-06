@@ -22,6 +22,10 @@ import ClientSettings from './pages/client/ClientSettings.jsx'
 import AdminProfile from '@/pages/admin/AdminProfile';
 import ClientProfile from '@/pages/client/ClientProfile';
 import AdminSettings from '@/pages/admin/AdminSettings';
+import NotificationsSettings from '@/pages/admin/settings/NotificationsSettings';
+import SecuritySettings from '@/pages/admin/settings/SecuritySettings';
+import ApiPlugin from '@/pages/admin/ApiPlugin';
+import AdminQuotes from '@/pages/admin/AdminQuotes';
 import { JobProvider } from './components/JobContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import TokenHandler from './components/TokenHandler';
@@ -48,11 +52,18 @@ function App() {
             <Route index element={<AdminHome />} />
             <Route path="jobs" element={<AdminJobs />} />
             <Route path="jobs/:jobId" element={<AdminJobDetails />} />
+            <Route path="quotes" element={<AdminQuotes />} />
             <Route path="clients" element={<AdminClients />} />
-            <Route path="schedule" element={<AdminSchedule />} />
-            <Route path="team" element={<AdminTeam />} />
+            <Route path="clients/:clientId" element={<AdminClientDetails />} />
+            <Route path="api-plugin" element={<ApiPlugin />} />
             <Route path="profile" element={<AdminProfile />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="settings/notifications" element={<NotificationsSettings />} />
+            <Route path="settings/security" element={<SecuritySettings />} />
+            
+            {/* Legacy routes to maintain compatibility */}
+            <Route path="schedule" element={<AdminSchedule />} />
+            <Route path="team" element={<AdminTeam />} />
           </Route>
 
           <Route path="/client" element={<ClientLayout />}>
