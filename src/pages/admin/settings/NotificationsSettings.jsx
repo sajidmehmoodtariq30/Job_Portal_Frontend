@@ -1,5 +1,5 @@
 // src/pages/admin/settings/NotificationsSettings.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -10,7 +10,7 @@ import {
 import { Switch } from "@/components/UI/switch";
 import { Label } from "@/components/UI/label";
 import { Button } from "@/components/UI/button";
-import { Mail, Bell, FileText, ClipboardList, UserPlus, Users } from "lucide-react";
+import { Mail, Info, AlertCircle, Loader2 } from "lucide-react";
 import EmailVerification from './EmailVerification';
 import { API_URL } from "@/lib/apiConfig";
 import axios from 'axios';
@@ -18,6 +18,7 @@ import axios from 'axios';
 const NotificationsSettings = () => {
   const [settings, setSettings] = useState({
     emailNotifications: true,
+    // Setting all types to true but keeping the structure for backend compatibility
     types: {
       clientCreation: true,
       clientUpdate: true,
@@ -30,21 +31,44 @@ const NotificationsSettings = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
-  const handleToggle = (setting) => {
-    setSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting]
-    }));
+  // Fetch current notification settings on component mount
+  useEffect(() => {
+    fetchCurrentSettings();
+  }, []);
+
+  const fetchCurrentSettings = async () => {
+    setInitialLoading(true);
+    try {
+      const response = await axios.get(`${API_URL}/api/notifications/settings`);
+      
+      if (response.status === 200 && response.data) {
+        // Update the state based on the returned settings
+        setSettings({
+          emailNotifications: response.data.channels?.email ?? true,
+          types: response.data.types || {
+            clientCreation: true,
+            clientUpdate: true,
+            jobCreation: true,
+            jobUpdate: true,
+            quoteCreation: true,
+            invoiceGenerated: true
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch notification settings:', err);
+      // Don't show error to user, just use default settings
+    } finally {
+      setInitialLoading(false);
+    }
   };
 
-  const handleTypeToggle = (type) => {
+  const handleToggle = () => {
     setSettings(prev => ({
       ...prev,
-      types: {
-        ...prev.types,
-        [type]: !prev.types[type]
-      }
+      emailNotifications: !prev.emailNotifications
     }));
   };
 
@@ -59,6 +83,7 @@ const NotificationsSettings = () => {
         channels: {
           email: settings.emailNotifications
         },
+        // Keep all types true for backend compatibility
         types: settings.types,
         sendgrid: {
           enabled: true // Use environment variables for SendGrid credentials
@@ -104,97 +129,55 @@ const NotificationsSettings = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Notification Channels</CardTitle>
+          <CardTitle>Email Notification Settings</CardTitle>
           <CardDescription>
-            Configure how you'd like to receive notifications from the system
+            Enable or disable all email notifications from the system
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <Mail className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="email-notifications" className="text-base font-medium">Email Notifications</Label>
-                <p className="text-sm text-gray-500">Receive notifications via email</p>
-              </div>
+          {initialLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+              <span>Loading settings...</span>
             </div>
-            <Switch 
-              id="email-notifications" 
-              checked={settings.emailNotifications} 
-              onCheckedChange={() => handleToggle('emailNotifications')} 
-            />
-          </div>
-        </CardContent>
-      </Card>
+          ) : (
+            <>
+              <div className="flex items-center justify-between space-x-2">
+                <div className="flex items-center space-x-4">
+                  <Mail className="h-5 w-5 text-gray-500" />
+                  <div>
+                    <Label htmlFor="email-notifications" className="text-base font-medium">Email Notifications</Label>
+                    <p className="text-sm text-gray-500">Toggle all email notifications on or off</p>
+                  </div>
+                </div>
+                <Switch 
+                  id="email-notifications" 
+                  checked={settings.emailNotifications} 
+                  onCheckedChange={handleToggle} 
+                />
+              </div>
+              
+              <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200 flex items-start">
+                <Info className="h-5 w-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm text-blue-700">
+                    When email notifications are <strong>{settings.emailNotifications ? 'enabled' : 'disabled'}</strong>, the system {settings.emailNotifications ? 'will' : 'will not'} send emails for any events including job updates, client changes, quotes, and invoices.
+                  </p>
+                </div>
+              </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Notification Types</CardTitle>
-          <CardDescription>
-            Select which types of notifications you want to receive
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <UserPlus className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="client-creation" className="text-base font-medium">Client Creation</Label>
-                <p className="text-sm text-gray-500">When a new client is created</p>
-              </div>
-            </div>
-            <Switch 
-              id="client-creation" 
-              checked={settings.types.clientCreation} 
-              onCheckedChange={() => handleTypeToggle('clientCreation')} 
-            />
-          </div>
-
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <Users className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="client-update" className="text-base font-medium">Client Update</Label>
-                <p className="text-sm text-gray-500">When client details are updated</p>
-              </div>
-            </div>
-            <Switch 
-              id="client-update" 
-              checked={settings.types.clientUpdate} 
-              onCheckedChange={() => handleTypeToggle('clientUpdate')} 
-            />
-          </div>
-
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <ClipboardList className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="job-creation" className="text-base font-medium">Job Creation</Label>
-                <p className="text-sm text-gray-500">When a new job is created</p>
-              </div>
-            </div>
-            <Switch 
-              id="job-creation" 
-              checked={settings.types.jobCreation} 
-              onCheckedChange={() => handleTypeToggle('jobCreation')} 
-            />
-          </div>
-
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <ClipboardList className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="job-update" className="text-base font-medium">Job Update</Label>
-                <p className="text-sm text-gray-500">When a job status is updated</p>
-              </div>
-            </div>
-            <Switch 
-              id="job-update" 
-              checked={settings.types.jobUpdate} 
-              onCheckedChange={() => handleTypeToggle('jobUpdate')} 
-            />
-          </div>
-          
+              {!settings.emailNotifications && (
+                <div className="mt-4 p-4 bg-amber-50 rounded-md border border-amber-200 flex items-start">
+                  <AlertCircle className="h-5 w-5 text-amber-500 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-amber-700">
+                      <strong>Note:</strong> All email notifications are currently disabled. No emails will be sent for any system events.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

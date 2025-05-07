@@ -27,6 +27,9 @@ const EmailVerification = () => {
   const [primaryEmail, setPrimaryEmail] = useState(null);
   const [isLoadingEmails, setIsLoadingEmails] = useState(false);
   
+  // Flag to control the display of the add email form
+  const [showAddEmailForm, setShowAddEmailForm] = useState(false);
+  
   // Get current user ID from localStorage
   const getUserId = () => {
     const token = localStorage.getItem('admin_token');
@@ -136,6 +139,7 @@ const EmailVerification = () => {
         setEmail('');
         setOtp('');
         setIsOtpSent(false);
+        setShowAddEmailForm(false); // Hide the form after successful verification
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to verify email');
@@ -179,6 +183,10 @@ const EmailVerification = () => {
     setIsVerified(false);
     setError(null);
     setSuccess(null);
+    
+    // This is critical - we need to trigger the form to show up
+    // by setting a flag that we want to add a new email
+    setShowAddEmailForm(true);
   };
 
   return (
@@ -234,7 +242,7 @@ const EmailVerification = () => {
         )}
         
         {/* Verification form for new emails */}
-        {(verifiedEmails.length === 0 || (isVerified === false && email)) && (
+        {(verifiedEmails.length === 0 || showAddEmailForm) && (
           <>
             <div className="grid gap-2">
               <Label htmlFor="email">Email Address</Label>
