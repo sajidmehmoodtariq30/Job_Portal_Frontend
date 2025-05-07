@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  UploadCloud,
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
@@ -65,48 +64,63 @@ const ClientJobs = () => {
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
-  const [showAttachmentDialog, setShowAttachmentDialog] = useState(false);
-  const [currentJobId, setCurrentJobId] = useState(null);
   const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmRefresh, setConfirmRefresh] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [clients, setClients] = useState([]);
   
-  // Form state for new job creation
-  const [jobForm, setJobForm] = useState({
+  // New job form state modeled after the admin version
+  const [newJob, setNewJob] = useState({
     uuid: '',
-    title: '',
-    description: '',
-    location: 'Main Office',
-    jobType: 'Installation',
-    priority: 'Normal',
-    company_uuid: '', // Will be filled automatically based on the logged-in client
+    created_by_staff_uuid: '', 
+    date: new Date().toISOString().split('T')[0], 
+    company_uuid: '',
+    job_description: '',
     job_address: '',
-    status: 'Quote', // Default to Quote
+    status: 'Quote', // Client requests always start as quote
+    work_done_description: '',
+    generated_job_id: '',
   });
-  
-  // Mock locations and job types (can be replaced with real data from API)
-  const locations = ['Main Office', 'Warehouse', 'Branch Office'];
-  const jobTypes = ['Installation', 'Repair', 'Maintenance', 'Consultation'];
-  const priorities = ['Low', 'Normal', 'High', 'Urgent'];
   
   // Fetch jobs on mount and when active tab changes
   useEffect(() => {
     fetchJobs(1, activeTab);
+    fetchClients(); // Fetch clients for company_uuid
   }, [activeTab]);
 
+  // Fetch clients for the dropdown
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
+      console.log('Client data response:', response.data);
+      if (response.data && response.data.data) {
+        setClients(response.data.data || []);
+      } else if (response.data) {
+        // Handle case where response might not have a nested data property
+        setClients(response.data || []);
+      } else {
+        setClients([]);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      setClients([]);
+    }
+  };
+  
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setJobForm({
-      ...jobForm,
+    setNewJob({
+      ...newJob,
       [name]: value
     });
   };
   
   // Handle select changes
   const handleSelectChange = (name, value) => {
-    setJobForm({
-      ...jobForm,
+    setNewJob({
+      ...newJob,
       [name]: value
     });
   };
@@ -124,8 +138,8 @@ const ClientJobs = () => {
   // Generate UUID for new job
   const generateUUID = () => {
     const uuid = crypto.randomUUID();
-    setJobForm({ 
-      ...jobForm, 
+    setNewJob({ 
+      ...newJob, 
       uuid,
       generated_job_id: uuid // Set generated_job_id to match UUID automatically
     });
@@ -137,8 +151,10 @@ const ClientJobs = () => {
     const searchLower = searchQuery.toLowerCase().trim();
     
     // Only check fields that exist to improve performance
+    // Check both description and job_description fields to handle different API response formats
     return (
       (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+      (job.description && job.description.toLowerCase().includes(searchLower)) ||
       (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
       (job.generated_job_id && job.generated_job_id.toLowerCase().includes(searchLower)) ||
       (job.job_address && job.job_address.toLowerCase().includes(searchLower))
@@ -207,17 +223,18 @@ const ClientJobs = () => {
     alert(`${action} quote ${quoteId} - would send to ServiceM8 API`);
   };
   
-  // Handle add attachment button
-  const handleAddAttachment = (jobId) => {
-    setCurrentJobId(jobId);
-    setShowAttachmentDialog(true);
+  // Handle view job details
+  const handleViewDetails = (job) => {
+    setSelectedJob(job);
   };
   
-  // Handle create new job form submission
-  const handleCreateJob = async () => {
+  // Handle create new job form submission - updated to match admin version more closely
+  const handleCreateJob = async (e) => {
+    if (e) e.preventDefault();
+    
     // Validate required fields
-    if (!jobForm.uuid || !jobForm.description || !jobForm.job_address) {
-      alert("Please fill in all required fields");
+    if (!newJob.uuid || !newJob.job_description || !newJob.job_address || !newJob.company_uuid) {
+      alert("Please fill in all required fields including selecting a client");
       return;
     }
     
@@ -225,35 +242,42 @@ const ClientJobs = () => {
       // Prepare payload to match ServiceM8 API format
       const payload = {
         active: 1,
-        uuid: jobForm.uuid,
-        created_by_staff_uuid: jobForm.uuid, // Used as staff UUID
-        company_uuid: localStorage.getItem('clientId') || jobForm.uuid, // Client ID should be in localStorage
-        date: new Date().toISOString().split('T')[0],
-        job_description: jobForm.description,
-        job_address: jobForm.job_address || jobForm.location,
+        uuid: newJob.uuid,
+        created_by_staff_uuid: newJob.created_by_staff_uuid || newJob.company_uuid, 
+        company_uuid: newJob.company_uuid, // Use selected client UUID
+        date: newJob.date,
+        // Use job_description since the API doesn't accept "description" field
+        job_description: newJob.job_description, 
+        job_address: newJob.job_address,
         status: 'Quote', // Default to Quote for client requests
-        work_done_description: '',
-        generated_job_id: jobForm.uuid,
+        work_done_description: newJob.work_done_description || '',
+        generated_job_id: newJob.generated_job_id || newJob.uuid,
       };
       
       console.log('Creating job with payload:', payload);
       const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
       console.log('Job created successfully:', response.data);
       
-      // Force refresh jobs list with the current tab
+      // Force refresh jobs list with the current tab - use true to force refresh
       await fetchJobs(1, activeTab, true);
+      
+      // Reset search to ensure new job is visible
+      setSearchQuery('');
+      
+      // Close the dialog
       setShowNewJobDialog(false);
       
       // Reset form for next use
-      setJobForm({
+      setNewJob({
         uuid: '',
-        title: '',
-        description: '',
-        location: 'Main Office',
-        jobType: 'Installation',
-        priority: 'Normal',
+        created_by_staff_uuid: '',
+        date: new Date().toISOString().split('T')[0],
+        company_uuid: '',
+        job_description: '',
         job_address: '',
         status: 'Quote',
+        work_done_description: '',
+        generated_job_id: '',
       });
       
       // Show success message
@@ -263,31 +287,50 @@ const ClientJobs = () => {
       alert(`Error creating job: ${error.response?.data?.message || error.message}`);
     }
   };
-  
-  // Handle file upload
-  const handleFileUpload = () => {
-    // This would handle file upload and then send to ServiceM8 API
-    alert(`File uploaded to job ${currentJobId} - would scan and send to ServiceM8 API`);
-    setShowAttachmentDialog(false);
-  };
 
   // Convert job data for JobCard component
   const prepareJobForCard = (job) => {
     return {
       id: job.generated_job_id || job.uuid,
       uuid: job.uuid,
-      title: job.job_description?.slice(0, 50) || 'No description',
+      title: job.job_description || job.description || 'No description',
       status: job.status || 'Unknown',
       date: job.date || 'Unknown date',
       dueDate: job.work_order_date || job.date,
       completedDate: job.completion_date,
       type: job.status === 'Quote' ? 'Quote' : 'Work Order',
-      description: job.job_description || 'No description',
+      description: job.job_description || job.description || 'No description',
       location: job.job_address || 'No address',
       attachments: 0 // Placeholder since we don't have attachment count
     };
   };
 
+  // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
+  const handleClientChange = (value) => {
+    setNewJob({ 
+      ...newJob, 
+      company_uuid: value,
+      created_by_staff_uuid: value // Using client UUID for staff UUID as requested
+    });
+    
+    // Optionally, pre-fill address if available
+    const selectedClient = clients.find(client => client.uuid === value);
+    if (selectedClient) {
+      const formattedAddress = [
+        selectedClient.address,
+        selectedClient.address_city,
+        selectedClient.address_state,
+        selectedClient.address_postcode,
+        selectedClient.address_country
+      ].filter(Boolean).join(', ');
+      
+      setNewJob(prev => ({
+        ...prev,
+        job_address: formattedAddress || prev.job_address
+      }));
+    }
+  };
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -310,102 +353,106 @@ const ClientJobs = () => {
                 Submit a new service request to our team. We'll review it and get back to you promptly.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="uuid">Request ID</Label>
-                  <div className="flex gap-2">
+            <form onSubmit={handleCreateJob} className="overflow-y-auto">
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="uuid">Request ID</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="uuid"
+                        name="uuid"
+                        value={newJob.uuid}
+                        onChange={handleInputChange}
+                        required
+                        className="flex-1"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={generateUUID}
+                        className="whitespace-nowrap"
+                      >
+                        Generate
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="date">Date</Label>
                     <Input
-                      id="uuid"
-                      name="uuid"
-                      value={jobForm.uuid}
+                      id="date"
+                      name="date"
+                      type="date"
+                      value={newJob.date}
                       onChange={handleInputChange}
                       required
-                      className="flex-1"
                     />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={generateUUID}
-                      className="whitespace-nowrap"
-                    >
-                      Generate
-                    </Button>
                   </div>
                 </div>
+                
                 <div className="grid gap-2">
-                  <Label htmlFor="title">Request Title</Label>
-                  <Input 
-                    id="title" 
-                    name="title" 
-                    placeholder="Brief title for your request" 
-                    value={jobForm.title} 
+                  <Label htmlFor="job_description">Job Description</Label>
+                  <Textarea
+                    id="job_description"
+                    name="job_description"
+                    placeholder="Please describe what you need..."
+                    rows={4}
+                    value={newJob.job_description}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="job_address">Service Address</Label>
+                  <Input
+                    id="job_address"
+                    name="job_address"
+                    placeholder="Enter the address where service is needed"
+                    value={newJob.job_address}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="work_done_description">Additional Notes</Label>
+                  <Textarea
+                    id="work_done_description"
+                    name="work_done_description"
+                    placeholder="Any additional information or special requirements..."
+                    value={newJob.work_done_description}
                     onChange={handleInputChange}
                   />
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea 
-                  id="description" 
-                  name="description" 
-                  placeholder="Please describe what you need..." 
-                  rows={4} 
-                  value={jobForm.description} 
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="job_address">Service Address</Label>
-                <Input
-                  id="job_address"
-                  name="job_address"
-                  placeholder="Enter the address where service is needed"
-                  value={jobForm.job_address}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Client selection - new feature */}
                 <div className="grid gap-2">
-                  <Label htmlFor="jobType">Job Type</Label>
-                  <Select 
-                    value={jobForm.jobType} 
-                    onValueChange={(value) => handleSelectChange('jobType', value)}
+                  <Label htmlFor="client">Select Client</Label>
+                  <Select
+                    id="client"
+                    name="client"
+                    onValueChange={handleClientChange}
+                    defaultValue={newJob.company_uuid}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select job type" />
+                      <SelectValue placeholder="Choose a client" />
                     </SelectTrigger>
                     <SelectContent>
-                      {jobTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select 
-                    value={jobForm.priority} 
-                    onValueChange={(value) => handleSelectChange('priority', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {priorities.map((priority) => (
-                        <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                      {clients.map(client => (
+                        <SelectItem key={client.uuid} value={client.uuid}>
+                          {client.company_name} ({client.uuid})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
-              <Button onClick={handleCreateJob}>Submit Request</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
+                <Button type="submit">Submit Request</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -462,9 +509,8 @@ const ClientJobs = () => {
                   <JobCard 
                     key={job.uuid} 
                     job={prepareJobForCard(job)} 
-                    onQuoteAction={handleQuoteAction} 
-                    onAddAttachment={handleAddAttachment}
-                    statusColor={getStatusColor} 
+                    onQuoteAction={handleQuoteAction}
+                    statusColor={getStatusColor}
                   />
                 ))}
               </div>
@@ -525,32 +571,79 @@ const ClientJobs = () => {
         </DialogContent>
       </Dialog>
 
-      {/* File Upload Dialog */}
-      <Dialog open={showAttachmentDialog} onOpenChange={setShowAttachmentDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Upload Attachment</DialogTitle>
-            <DialogDescription>
-              Upload files related to job {currentJobId}. All files will be scanned for viruses before being processed.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Select File</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center">
-                <UploadCloud className="h-10 w-10 text-muted-foreground mb-4" />
-                <p className="text-sm text-center mb-2">Drag and drop files here or click to browse</p>
-                <p className="text-xs text-muted-foreground text-center">Max file size: 25MB</p>
-                <Button variant="outline" className="mt-4">Browse Files</Button>
+      {/* Job Details Dialog */}
+      {selectedJob && (
+        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
+            <DialogHeader className="border-b pb-4">
+              <DialogTitle className="text-xl">Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
+              <DialogDescription>
+                Detailed information about your service request
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-6 py-6">
+              <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
+                <div className="space-y-2">
+                  <Label className="font-bold text-sm text-gray-600">Job ID</Label>
+                  <p className="text-sm font-medium">{selectedJob.uuid}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold text-sm text-gray-600">Generated ID</Label>
+                  <p className="text-sm font-medium">{selectedJob.generated_job_id}</p>
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Job Description</Label>
+                <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-bold">Status</Label>
+                  <span className={`px-2 py-1 rounded text-xs inline-block ${
+                    selectedJob.status === 'Quote' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : selectedJob.status === 'Work Order' 
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : selectedJob.status === 'In Progress'
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-green-100 text-green-800'
+                  }`}>
+                    {selectedJob.status}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-bold">Created Date</Label>
+                  <p className="text-sm">{selectedJob.date}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Service Address</Label>
+                <p className="text-sm">{selectedJob.job_address}</p>
+              </div>
+
+              {selectedJob.work_done_description && (
+                <div className="space-y-2">
+                  <Label className="font-bold">Work Notes</Label>
+                  <p className="text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
+                </div>
+              )}
+
+              {selectedJob.completion_date && (
+                <div className="space-y-2">
+                  <Label className="font-bold">Completion Date</Label>
+                  <p className="text-sm">{selectedJob.completion_date}</p>
+                </div>
+              )}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAttachmentDialog(false)}>Cancel</Button>
-            <Button onClick={handleFileUpload}>Upload</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="border-t pt-4">
+              <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

@@ -1,9 +1,9 @@
 import { Badge } from "@/components/UI/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
-import { AlertCircle, Calendar, FileText, MessageSquare, UploadCloud } from "lucide-react";
+import { AlertCircle, Calendar, FileText } from "lucide-react";
 import { Button } from "../button";
 
-const JobCard = ({ job, onQuoteAction, onAddAttachment, statusColor }) => {
+const JobCard = ({ job, onQuoteAction, statusColor }) => {
     return (
         <Card>
             <CardHeader className="pb-2">
@@ -47,15 +47,7 @@ const JobCard = ({ job, onQuoteAction, onAddAttachment, statusColor }) => {
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
-                <Button variant="outline" size="sm" onClick={() => onAddAttachment(job.id)}>
-                    <UploadCloud size={16} className="mr-2" />
-                    Add Attachment
-                </Button>
-                <Button variant="outline" size="sm">
-                    <MessageSquare size={16} className="mr-2" />
-                    Add Note
-                </Button>
+            <CardFooter className="flex justify-end">
                 {job.type === 'Quote' && (
                     <div className="flex gap-2">
                         <Button
