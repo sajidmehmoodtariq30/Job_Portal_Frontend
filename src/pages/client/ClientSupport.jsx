@@ -1,30 +1,50 @@
 import React, { useState } from 'react';
-import { LifeBuoy, Mail, Phone, MessageSquare } from 'lucide-react';
+import { LifeBuoy, Mail, MessageSquare } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/UI/card';
 import { Button } from '@/components/UI/button';
 import { Input } from '@/components/UI/input';
 import { Textarea } from '@/components/UI/textarea';
+import axios from 'axios';
+import { API_URL } from '@/lib/apiConfig';
 
-const SUPPORT_EMAIL = 'support@mhitsolutions.com';
-const SUPPORT_PHONE = '+61 2 1234 5678';
+const SUPPORT_EMAIL = 'ibitbytesoft@gmail.com';
 
 const ClientSupport = () => {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
+    setError(null);
+    
+    try {
+      // Send feedback email to ibitbytesoft@gmail.com
+      const response = await axios.post(`${API_URL}/api/support/feedback`, {
+        name: form.name,
+        email: form.email,
+        message: form.message,
+        recipient: SUPPORT_EMAIL
+      });
+      
+      if (response.status === 200) {
+        setSubmitted(true);
+        setForm({ name: '', email: '', message: '' });
+      } else {
+        setError('There was a problem sending your message. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error sending feedback:', err);
+      setError('There was a problem sending your message. Please try again later.');
+    } finally {
       setSubmitting(false);
-      setSubmitted(true);
-      setForm({ name: '', email: '', message: '' });
-    }, 1200);
+    }
   };
 
   return (
@@ -38,17 +58,13 @@ const ClientSupport = () => {
       <Card>
         <CardHeader>
           <CardTitle>Contact Information</CardTitle>
-          <CardDescription>Reach us directly by email or phone</CardDescription>
+          <CardDescription>Reach us directly by email</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2 text-sm">
               <Mail className="text-blue-500" size={18} />
               <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:underline">{SUPPORT_EMAIL}</a>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="text-blue-500" size={18} />
-              <a href={`tel:${SUPPORT_PHONE}`} className="hover:underline">{SUPPORT_PHONE}</a>
             </div>
           </div>
         </CardContent>
@@ -80,6 +96,11 @@ const ClientSupport = () => {
                 <label htmlFor="message" className="block text-sm font-medium mb-1">Message</label>
                 <Textarea id="message" name="message" rows={5} value={form.message} onChange={handleChange} required disabled={submitting} />
               </div>
+              {error && (
+                <div className="p-3 text-sm bg-red-50 text-red-700 rounded border border-red-200">
+                  {error}
+                </div>
+              )}
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? 'Sending...' : 'Send Message'}
               </Button>

@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Briefcase,
   FileText,
-  Receipt,
   LifeBuoy,
   Settings,
   Building
@@ -19,7 +18,6 @@ const ClientSidebar = ({ sidebarOpen }) => {
     { name: 'Dashboard', href: '/client', icon: <LayoutDashboard className="h-5 w-5" /> },
     { name: 'Jobs', href: '/client/jobs', icon: <Briefcase className="h-5 w-5" /> },
     { name: 'Quotes', href: '/client/quotes', icon: <FileText className="h-5 w-5" /> },
-    { name: 'Invoices', href: '/client/invoices', icon: <Receipt className="h-5 w-5" /> },
     { name: 'Support', href: '/client/support', icon: <LifeBuoy className="h-5 w-5" /> },
     { name: 'Settings', href: '/client/settings', icon: <Settings className="h-5 w-5" /> }
   ];
