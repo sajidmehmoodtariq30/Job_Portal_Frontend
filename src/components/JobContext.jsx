@@ -12,18 +12,34 @@ export const JobProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('all');
 
   // Fetch jobs with lazy loading
-  const fetchJobs = async (page, status = 'all') => {
-    if (loading) return; // Prevent multiple simultaneous fetches
+  const fetchJobs = async (page, status = 'all', forceRefresh = false) => {
+    if (loading && !forceRefresh) return; // Prevent multiple simultaneous fetches unless forced
     setLoading(true);
     try {
-      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_ALL);
+      console.log(`Fetching jobs with status: ${status}`);
+      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_ALL, {
+        params: { 
+          timestamp: new Date().getTime() // Add timestamp to prevent caching
+        }
+      });
+      
       const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs;
+      console.log(`Fetched ${jobsData.length} total jobs from API`);
 
       // Filter jobs by status if not 'all'
-      const filteredJobs = status.toLowerCase() === 'all' 
-        ? jobsData 
-        : jobsData.filter(job => job.status.toLowerCase() === status.toLowerCase());
-
+      let filteredJobs;
+      if (status.toLowerCase() === 'all') {
+        filteredJobs = jobsData;
+      } else {
+        filteredJobs = jobsData.filter(job => {
+          const jobStatus = job.status?.toLowerCase() || '';
+          const targetStatus = status.toLowerCase();
+          return jobStatus === targetStatus;
+        });
+      }
+      
+      console.log(`After filtering by "${status}": ${filteredJobs.length} jobs`);
+      
       setJobs(filteredJobs);
       setTotalJobs(filteredJobs.length);
       setLastFetchedPage(page);

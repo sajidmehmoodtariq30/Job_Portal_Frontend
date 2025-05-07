@@ -48,8 +48,8 @@ const AdminJobs = () => {
   const [clients, setClients] = useState([]);
   const [newJob, setNewJob] = useState({
     uuid: '',
-    created_by_staff_uuid: '', // This will be populated with client UUID
-    date: new Date().toISOString().split('T')[0], // Current date as default
+    created_by_staff_uuid: '', 
+    date: new Date().toISOString().split('T')[0], 
     company_uuid: '',
     job_description: '',
     job_address: '',
@@ -59,17 +59,18 @@ const AdminJobs = () => {
     payment_date: '',
     payment_method: '',
     payment_amount: '',
-    category_uuid: '',
     total_invoice_amount: '',
     quote_date: '',
     quote_sent: '0',
     invoice_sent: '0',
     quote_sent_stamp: '',
     work_order_date: '',
-    completion_date: ''
+    completion_date: '',
+    category_uuid: '' // Ensure all form fields have initial values
   });
   const [visibleJobs, setVisibleJobs] = useState(10);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
   const {
     jobs,
     totalJobs,
@@ -90,9 +91,18 @@ const AdminJobs = () => {
   const fetchClients = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
-      setClients(response.data.data || []);
+      console.log('Client data response:', response.data);
+      if (response.data && response.data.data) {
+        setClients(response.data.data || []);
+      } else if (response.data) {
+        // Handle case where response might not have a nested data property
+        setClients(response.data || []);
+      } else {
+        setClients([]);
+      }
     } catch (error) {
       console.error('Error fetching clients:', error);
+      setClients([]);
     }
   };
 
@@ -101,22 +111,27 @@ const AdminJobs = () => {
     setActiveTab(tab);
     resetJobs();
     fetchJobs(1, tab);
+    // Reset search term and visible jobs count when changing tabs for better performance
+    setSearchTerm('');
+    setVisibleJobs(10);
   };
 
-  // Update visible jobs logic
-  const displayedJobs = jobs.slice(0, visibleJobs);
-
-  // Filter by search term
-  const filteredJobs = displayedJobs.filter(job => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
+  // Improved search function that efficiently filters jobs by search term
+  const filteredJobs = jobs.filter(job => {
+    if (!searchTerm.trim()) return true;
+    const searchLower = searchTerm.toLowerCase().trim();
     
+    // Only check fields that exist to improve performance
     return (
-      (job.uuid?.toLowerCase().includes(searchLower)) ||
-      (job.job_description?.toLowerCase().includes(searchLower)) ||
-      (job.generated_job_id?.toLowerCase().includes(searchLower))
+      (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+      (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
+      (job.generated_job_id && job.generated_job_id.toLowerCase().includes(searchLower)) ||
+      (job.job_address && job.job_address.toLowerCase().includes(searchLower))
     );
   });
+
+  // Limit visible jobs for pagination AFTER filtering
+  const displayedJobs = filteredJobs.slice(0, visibleJobs);
 
   const handleShowMore = () => {
     setVisibleJobs(prev => prev + 10);
@@ -127,11 +142,30 @@ const AdminJobs = () => {
   };
 
   const handleRefresh = async () => {
+    // Show confirmation dialog first
+    setConfirmRefresh(true);
+  };
+
+  const confirmRefreshData = async () => {
     try {
-      await fetchJobs(1, activeTab);
+      console.log("Manually refreshing job data...");
+      
+      // Reset any search term to show all jobs
+      setSearchTerm('');
+      
+      // Force reload with timestamp to prevent caching
+      await fetchJobs(1, activeTab, true);
+      
+      // Reset visible jobs to default
       setVisibleJobs(10);
+      
+      console.log("Job data refreshed successfully");
+
+      // Close the confirmation dialog
+      setConfirmRefresh(false);
     } catch (error) {
       console.error('Error refreshing jobs:', error);
+      setConfirmRefresh(false);
     }
   };
 
@@ -192,11 +226,10 @@ const AdminJobs = () => {
             job_address: newJob.job_address,
             status: newJob.status,
             work_done_description: newJob.work_done_description,
-            generated_job_id: newJob.generated_job_id,
+            generated_job_id: newJob.generated_job_id || newJob.uuid, // Ensure generated_job_id is set, defaulting to UUID
             payment_date: newJob.payment_date,
             payment_method: newJob.payment_method,
             payment_amount: newJob.payment_amount,
-            category_uuid: newJob.category_uuid,
             total_invoice_amount: newJob.total_invoice_amount,
             quote_date: newJob.quote_date,
             quote_sent: newJob.quote_sent,
@@ -206,13 +239,19 @@ const AdminJobs = () => {
             completion_date: newJob.completion_date
         };
         
+        // Exclude category_uuid from payload as it's optional and causing errors
+        
         console.log('Creating job with payload:', payload);
         const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
         console.log('Job created successfully:', response.data);
         
-        // Refresh jobs list and close dialog
-        fetchJobs(1, activeTab);
+        // Force refresh jobs list with the current tab and close dialog
+        // Use forceRefresh=true to ensure we get fresh data
+        await fetchJobs(1, activeTab, true);
         setIsDialogOpen(false);
+        
+        // Clear search term to make it easier to see new job
+        setSearchTerm('');
         
         // Reset form for next use
         setNewJob({
@@ -251,10 +290,14 @@ const AdminJobs = () => {
     setSelectedJob(job);
   };
 
-  // Generate UUID
+  // Generate UUID and update generated_job_id to match
   const generateUUID = () => {
     const uuid = crypto.randomUUID();
-    setNewJob({ ...newJob, uuid });
+    setNewJob({ 
+      ...newJob, 
+      uuid,
+      generated_job_id: uuid // Set generated_job_id to match UUID automatically
+    });
   };
 
   return (
@@ -272,7 +315,7 @@ const AdminJobs = () => {
                 Enter the details for the new job. This will create a job in ServiceM8.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateJob} className="h-[20vh] overflow-y-auto">
+            <form onSubmit={handleCreateJob} className="overflow-y-auto">
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
@@ -356,7 +399,6 @@ const AdminJobs = () => {
                     <SelectContent>
                       <SelectItem value="Quote">Quote</SelectItem>
                       <SelectItem value="Work Order">Work Order</SelectItem>
-                      <SelectItem value="In Progress">In Progress</SelectItem>
                       <SelectItem value="Completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
@@ -706,28 +748,6 @@ const AdminJobs = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="font-bold">Quote Date</Label>
-                  <p className="text-sm">{selectedJob.quote_date !== '0000-00-00 00:00:00' ? selectedJob.quote_date : 'N/A'}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold">Work Order Date</Label>
-                  <p className="text-sm">{selectedJob.work_order_date !== '0000-00-00 00:00:00' ? selectedJob.work_order_date : 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="font-bold">Completion Date</Label>
-                  <p className="text-sm">{selectedJob.completion_date !== '0000-00-00 00:00:00' ? selectedJob.completion_date : 'N/A'}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold">Invoice Amount</Label>
-                  <p className="text-sm">${selectedJob.total_invoice_amount || '0.00'}</p>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label className="font-bold">Location Details</Label>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -738,13 +758,6 @@ const AdminJobs = () => {
                   <p><span className="font-semibold">Country:</span> {selectedJob.geo_country}</p>
                 </div>
               </div>
-
-              {selectedJob.work_done_description && (
-                <div className="space-y-2">
-                  <Label className="font-bold">Work Done Description</Label>
-                  <p className="text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
-                </div>
-              )}
 
               <div className="space-y-2">
                 <Label className="font-bold">Payment Details</Label>

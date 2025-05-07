@@ -10,19 +10,26 @@ import {
 import { Switch } from "@/components/UI/switch";
 import { Label } from "@/components/UI/label";
 import { Button } from "@/components/UI/button";
-import { Mail, Bell, MessageSquare, Calendar } from "lucide-react";
+import { Mail, Bell, FileText, ClipboardList, UserPlus, Users } from "lucide-react";
+import EmailVerification from './EmailVerification';
+import { API_URL } from "@/lib/apiConfig";
+import axios from 'axios';
 
 const NotificationsSettings = () => {
   const [settings, setSettings] = useState({
     emailNotifications: true,
-    pushNotifications: true,
-    smsNotifications: false,
-    reminderNotifications: true,
-    quoteAcceptedNotifications: true,
-    paymentReceivedNotifications: true,
-    jobCompletedNotifications: true,
-    appointmentReminders: true
+    types: {
+      clientCreation: true,
+      clientUpdate: true,
+      jobCreation: true,
+      jobUpdate: true,
+      quoteCreation: true,
+      invoiceGenerated: true
+    }
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const handleToggle = (setting) => {
     setSettings(prev => ({
@@ -31,17 +38,69 @@ const NotificationsSettings = () => {
     }));
   };
 
-  const handleSave = () => {
-    // Here you would save the settings to your backend
-    alert('Notification settings saved successfully!');
+  const handleTypeToggle = (type) => {
+    setSettings(prev => ({
+      ...prev,
+      types: {
+        ...prev.types,
+        [type]: !prev.types[type]
+      }
+    }));
+  };
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      // Transform settings to match backend structure
+      const payload = {
+        channels: {
+          email: settings.emailNotifications
+        },
+        types: settings.types,
+        sendgrid: {
+          enabled: true // Use environment variables for SendGrid credentials
+        }
+      };
+      
+      const response = await axios.post(`${API_URL}/api/notifications/settings`, payload);
+      
+      if (response.status === 200) {
+        setSuccess('Notification settings saved successfully');
+      } else {
+        setError('Failed to save settings');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save settings');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Notifications Settings</h1>
-        <Button onClick={handleSave}>Save Changes</Button>
+        <Button onClick={handleSave} disabled={isLoading}>
+          {isLoading ? 'Saving...' : 'Save Changes'}
+        </Button>
       </div>
+
+      {error && (
+        <div className="p-3 text-sm bg-red-50 text-red-700 rounded border border-red-200">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 text-sm bg-green-50 text-green-700 rounded border border-green-200">
+          {success}
+        </div>
+      )}
+
+      <EmailVerification />
 
       <Card>
         <CardHeader>
@@ -65,36 +124,6 @@ const NotificationsSettings = () => {
               onCheckedChange={() => handleToggle('emailNotifications')} 
             />
           </div>
-
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <Bell className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="push-notifications" className="text-base font-medium">Push Notifications</Label>
-                <p className="text-sm text-gray-500">Receive push notifications in your browser</p>
-              </div>
-            </div>
-            <Switch 
-              id="push-notifications" 
-              checked={settings.pushNotifications} 
-              onCheckedChange={() => handleToggle('pushNotifications')} 
-            />
-          </div>
-
-          <div className="flex items-center justify-between space-x-2">
-            <div className="flex items-center space-x-4">
-              <MessageSquare className="h-5 w-5 text-gray-500" />
-              <div>
-                <Label htmlFor="sms-notifications" className="text-base font-medium">SMS Notifications</Label>
-                <p className="text-sm text-gray-500">Receive notifications via SMS</p>
-              </div>
-            </div>
-            <Switch 
-              id="sms-notifications" 
-              checked={settings.smsNotifications} 
-              onCheckedChange={() => handleToggle('smsNotifications')} 
-            />
-          </div>
         </CardContent>
       </Card>
 
@@ -107,55 +136,65 @@ const NotificationsSettings = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between space-x-2">
-            <div>
-              <Label htmlFor="quote-accepted" className="text-base font-medium">Quote Accepted</Label>
-              <p className="text-sm text-gray-500">When a client accepts a quote</p>
-            </div>
-            <Switch 
-              id="quote-accepted" 
-              checked={settings.quoteAcceptedNotifications} 
-              onCheckedChange={() => handleToggle('quoteAcceptedNotifications')} 
-            />
-          </div>
-          
-          <div className="flex items-center justify-between space-x-2">
-            <div>
-              <Label htmlFor="payment-received" className="text-base font-medium">Payment Received</Label>
-              <p className="text-sm text-gray-500">When a payment is received</p>
-            </div>
-            <Switch 
-              id="payment-received" 
-              checked={settings.paymentReceivedNotifications} 
-              onCheckedChange={() => handleToggle('paymentReceivedNotifications')} 
-            />
-          </div>
-          
-          <div className="flex items-center justify-between space-x-2">
-            <div>
-              <Label htmlFor="job-completed" className="text-base font-medium">Job Completed</Label>
-              <p className="text-sm text-gray-500">When a job is marked as completed</p>
-            </div>
-            <Switch 
-              id="job-completed" 
-              checked={settings.jobCompletedNotifications} 
-              onCheckedChange={() => handleToggle('jobCompletedNotifications')} 
-            />
-          </div>
-          
-          <div className="flex items-center justify-between space-x-2">
             <div className="flex items-center space-x-4">
-              <Calendar className="h-5 w-5 text-gray-500" />
+              <UserPlus className="h-5 w-5 text-gray-500" />
               <div>
-                <Label htmlFor="appointment-reminders" className="text-base font-medium">Appointment Reminders</Label>
-                <p className="text-sm text-gray-500">Reminders for upcoming appointments</p>
+                <Label htmlFor="client-creation" className="text-base font-medium">Client Creation</Label>
+                <p className="text-sm text-gray-500">When a new client is created</p>
               </div>
             </div>
             <Switch 
-              id="appointment-reminders" 
-              checked={settings.appointmentReminders} 
-              onCheckedChange={() => handleToggle('appointmentReminders')} 
+              id="client-creation" 
+              checked={settings.types.clientCreation} 
+              onCheckedChange={() => handleTypeToggle('clientCreation')} 
             />
           </div>
+
+          <div className="flex items-center justify-between space-x-2">
+            <div className="flex items-center space-x-4">
+              <Users className="h-5 w-5 text-gray-500" />
+              <div>
+                <Label htmlFor="client-update" className="text-base font-medium">Client Update</Label>
+                <p className="text-sm text-gray-500">When client details are updated</p>
+              </div>
+            </div>
+            <Switch 
+              id="client-update" 
+              checked={settings.types.clientUpdate} 
+              onCheckedChange={() => handleTypeToggle('clientUpdate')} 
+            />
+          </div>
+
+          <div className="flex items-center justify-between space-x-2">
+            <div className="flex items-center space-x-4">
+              <ClipboardList className="h-5 w-5 text-gray-500" />
+              <div>
+                <Label htmlFor="job-creation" className="text-base font-medium">Job Creation</Label>
+                <p className="text-sm text-gray-500">When a new job is created</p>
+              </div>
+            </div>
+            <Switch 
+              id="job-creation" 
+              checked={settings.types.jobCreation} 
+              onCheckedChange={() => handleTypeToggle('jobCreation')} 
+            />
+          </div>
+
+          <div className="flex items-center justify-between space-x-2">
+            <div className="flex items-center space-x-4">
+              <ClipboardList className="h-5 w-5 text-gray-500" />
+              <div>
+                <Label htmlFor="job-update" className="text-base font-medium">Job Update</Label>
+                <p className="text-sm text-gray-500">When a job status is updated</p>
+              </div>
+            </div>
+            <Switch 
+              id="job-update" 
+              checked={settings.types.jobUpdate} 
+              onCheckedChange={() => handleTypeToggle('jobUpdate')} 
+            />
+          </div>
+          
         </CardContent>
       </Card>
     </div>

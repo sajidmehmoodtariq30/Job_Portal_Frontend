@@ -4,6 +4,8 @@ import {
   Search,
   Plus,
   Clipboard,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from "../../components/UI/button";
 import { Input } from "../../components/UI/input";
@@ -35,6 +37,8 @@ const ClientJobs = () => {
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [showAttachmentDialog, setShowAttachmentDialog] = useState(false);
   const [currentJobId, setCurrentJobId] = useState(null);
+  const [visibleJobsCount, setVisibleJobsCount] = useState(10); // Default to showing 10 jobs
+  const [showAllJobs, setShowAllJobs] = useState(false);
   
   // Form state for new job creation
   const [jobForm, setJobForm] = useState({
@@ -71,66 +75,102 @@ const ClientJobs = () => {
   useEffect(() => {
     // Simulate API fetch delay
     setTimeout(() => {
-      const mockJobs = [
-        {
-          id: 'JOB-2025-0423',
-          title: 'Network Installation',
-          status: 'In Progress',
-          date: 'Apr 15, 2025',
-          dueDate: 'Apr 20, 2025',
-          type: 'Work Order',
-          description: 'Install new network infrastructure including switches and access points',
-          assignedTech: 'Alex Johnson',
-          location: 'Main Office',
-          attachments: 2
-        },
-        {
-          id: 'JOB-2025-0422',
-          title: 'Security System Upgrade',
-          status: 'Quote',
-          date: 'Apr 14, 2025',
-          dueDate: 'Apr 25, 2025',
-          type: 'Quote',
-          price: '$4,850.00',
-          description: 'Upgrade existing security cameras to 4K resolution',
-          location: 'Warehouse',
-          attachments: 1
-        },
-        {
-          id: 'JOB-2025-0418',
-          title: 'Digital Signage Installation',
-          status: 'Completed',
-          date: 'Apr 10, 2025',
-          completedDate: 'Apr 12, 2025',
-          type: 'Work Order',
-          description: 'Install 3 digital signage displays in reception area',
-          assignedTech: 'Sarah Davis',
-          location: 'Main Office',
-          attachments: 3
-        },
-        {
-          id: 'JOB-2025-0415',
-          title: 'Surveillance System Maintenance',
-          status: 'Scheduled',
-          date: 'Apr 20, 2025',
-          type: 'Work Order',
-          description: 'Routine maintenance check on surveillance system',
-          assignedTech: 'Miguel Rodriguez',
-          location: 'Branch Office',
-          attachments: 0
-        },
-        {
-          id: 'JOB-2025-0410',
-          title: 'Router Configuration',
-          status: 'On Hold',
-          date: 'Apr 8, 2025',
-          type: 'Work Order',
-          description: 'Configure new router for guest network',
-          location: 'Main Office',
-          attachments: 1
+      // Generate more mock data to demonstrate the pagination feature
+      const generateMockJobs = (count) => {
+        const baseJobs = [
+          {
+            id: 'JOB-2025-0423',
+            title: 'Network Installation',
+            status: 'In Progress',
+            date: 'Apr 15, 2025',
+            dueDate: 'Apr 20, 2025',
+            type: 'Work Order',
+            description: 'Install new network infrastructure including switches and access points',
+            assignedTech: 'Alex Johnson',
+            location: 'Main Office',
+            attachments: 2
+          },
+          {
+            id: 'JOB-2025-0422',
+            title: 'Security System Upgrade',
+            status: 'Quote',
+            date: 'Apr 14, 2025',
+            dueDate: 'Apr 25, 2025',
+            type: 'Quote',
+            price: '$4,850.00',
+            description: 'Upgrade existing security cameras to 4K resolution',
+            location: 'Warehouse',
+            attachments: 1
+          },
+          {
+            id: 'JOB-2025-0418',
+            title: 'Digital Signage Installation',
+            status: 'Completed',
+            date: 'Apr 10, 2025',
+            completedDate: 'Apr 12, 2025',
+            type: 'Work Order',
+            description: 'Install 3 digital signage displays in reception area',
+            assignedTech: 'Sarah Davis',
+            location: 'Main Office',
+            attachments: 3
+          },
+          {
+            id: 'JOB-2025-0415',
+            title: 'Surveillance System Maintenance',
+            status: 'Scheduled',
+            date: 'Apr 20, 2025',
+            type: 'Work Order',
+            description: 'Routine maintenance check on surveillance system',
+            assignedTech: 'Miguel Rodriguez',
+            location: 'Branch Office',
+            attachments: 0
+          },
+          {
+            id: 'JOB-2025-0410',
+            title: 'Router Configuration',
+            status: 'On Hold',
+            date: 'Apr 8, 2025',
+            type: 'Work Order',
+            description: 'Configure new router for guest network',
+            location: 'Main Office',
+            attachments: 1
+          }
+        ];
+
+        // Generate additional jobs if requested count is more than base jobs
+        if (count <= baseJobs.length) return baseJobs.slice(0, count);
+
+        const additionalJobs = [];
+        const statuses = ['In Progress', 'Quote', 'Completed', 'Scheduled', 'On Hold'];
+        const titles = ['Server Maintenance', 'Printer Setup', 'Workstation Installation', 'Firewall Configuration', 
+                        'Software Installation', 'Data Recovery', 'Network Troubleshooting', 'UPS Installation', 
+                        'VoIP Phone Setup', 'Email Migration'];
+        const locations = ['Main Office', 'Warehouse', 'Branch Office', 'Remote Site', 'Data Center'];
+        const techs = ['Alex Johnson', 'Sarah Davis', 'Miguel Rodriguez', 'Emily Wong', 'Carlos Menendez'];
+        
+        for (let i = baseJobs.length; i < count; i++) {
+          const randomDate = new Date(2025, 3, Math.floor(Math.random() * 30) + 1);
+          const formattedDate = randomDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          
+          additionalJobs.push({
+            id: `JOB-2025-0${400 + i}`,
+            title: titles[Math.floor(Math.random() * titles.length)],
+            status: statuses[Math.floor(Math.random() * statuses.length)],
+            date: formattedDate,
+            dueDate: new Date(randomDate.getTime() + Math.random() * 10 * 24 * 60 * 60 * 1000)
+                      .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            type: Math.random() > 0.3 ? 'Work Order' : 'Quote',
+            description: `Job ${i+1} description goes here with detailed information about the requested services and scope of work.`,
+            assignedTech: Math.random() > 0.2 ? techs[Math.floor(Math.random() * techs.length)] : null,
+            location: locations[Math.floor(Math.random() * locations.length)],
+            attachments: Math.floor(Math.random() * 5)
+          });
         }
-      ];
+        
+        return [...baseJobs, ...additionalJobs];
+      };
       
+      const mockJobs = generateMockJobs(25); // Generate 25 mock jobs to demonstrate pagination
       setJobs(mockJobs);
       setLoading(false);
     }, 1000);
@@ -138,11 +178,21 @@ const ClientJobs = () => {
   
   // Filter jobs based on search query
   const filteredJobs = jobs.filter(job => 
-    job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    job.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    job.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    job.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (job.title && job.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (job.id && job.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (job.status && job.status.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (job.description && job.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+  
+  // Get jobs to display based on show all toggle
+  const visibleJobs = showAllJobs ? 
+    filteredJobs : 
+    filteredJobs.slice(0, visibleJobsCount);
+  
+  // Toggle show all jobs
+  const toggleShowAllJobs = () => {
+    setShowAllJobs(!showAllJobs);
+  };
   
   // Status color function
   const getStatusColor = (status) => {
@@ -342,16 +392,41 @@ const ClientJobs = () => {
             </div>
           </div>
         ) : filteredJobs.length > 0 ? (
-          <div className="space-y-4">
-            {filteredJobs.map(job => (
-              <JobCard 
-                key={job.id} 
-                job={job} 
-                onQuoteAction={handleQuoteAction} 
-                onAddAttachment={handleAddAttachment}
-                statusColor={getStatusColor} 
-              />
-            ))}
+          <div>
+            <div className="space-y-4">
+              {visibleJobs.map(job => (
+                <JobCard 
+                  key={job.id} 
+                  job={job} 
+                  onQuoteAction={handleQuoteAction} 
+                  onAddAttachment={handleAddAttachment}
+                  statusColor={getStatusColor} 
+                />
+              ))}
+            </div>
+            
+            {/* Show More/Less Button */}
+            {filteredJobs.length > 10 && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  onClick={toggleShowAllJobs}
+                  className="flex items-center gap-2"
+                >
+                  {showAllJobs ? (
+                    <>
+                      <ChevronUp size={16} />
+                      Show Less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={16} />
+                      Show All ({filteredJobs.length - visibleJobsCount} more)
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12">

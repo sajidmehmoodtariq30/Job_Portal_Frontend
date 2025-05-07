@@ -23,7 +23,6 @@ import AdminProfile from '@/pages/admin/AdminProfile';
 import ClientProfile from '@/pages/client/ClientProfile';
 import AdminSettings from '@/pages/admin/AdminSettings';
 import NotificationsSettings from '@/pages/admin/settings/NotificationsSettings';
-import SecuritySettings from '@/pages/admin/settings/SecuritySettings';
 import ApiPlugin from '@/pages/admin/ApiPlugin';
 import AdminQuotes from '@/pages/admin/AdminQuotes';
 import { JobProvider } from './components/JobContext';
@@ -59,7 +58,6 @@ function App() {
             <Route path="profile" element={<AdminProfile />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="settings/notifications" element={<NotificationsSettings />} />
-            <Route path="settings/security" element={<SecuritySettings />} />
             
             {/* Legacy routes to maintain compatibility */}
             <Route path="schedule" element={<AdminSchedule />} />

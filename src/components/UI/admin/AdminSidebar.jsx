@@ -8,7 +8,6 @@ import {
   Puzzle, 
   Settings,
   Bell,
-  Shield,
   ChevronDown,
   ArrowUpDown
 } from 'lucide-react';
@@ -18,15 +17,14 @@ const AdminSidebar = ({ sidebarOpen }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   
   const navigation = [
-    { name: 'Dashboard / Overview', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { name: 'Users / Clients Management', href: '/admin/clients', icon: <Users className="h-5 w-5" /> },
+    { name: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
+    { name: 'Clients Management', href: '/admin/clients', icon: <Users className="h-5 w-5" /> },
     { name: 'Jobs Management', href: '/admin/jobs', icon: <Briefcase className="h-5 w-5" /> },
     { name: 'API Plugin', href: '/admin/api-plugin', icon: <Puzzle className="h-5 w-5" /> }
   ];
 
   const settingsNavigation = [
-    { name: 'Notifications Settings', href: '/admin/settings/notifications', icon: <Bell className="h-5 w-5" /> },
-    { name: 'Security of Files', href: '/admin/settings/security', icon: <Shield className="h-5 w-5" /> }
+    { name: 'Notifications Settings', href: '/admin/settings/notifications', icon: <Bell className="h-5 w-5" /> }
   ];
 
   return (
