@@ -5,10 +5,12 @@ import {
   Plus,
   Clipboard,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RefreshCw,
+  UploadCloud,
 } from 'lucide-react';
-import { Button } from "../../components/UI/button";
-import { Input } from "../../components/UI/input";
+import { Button } from "@/components/UI/button";
+import { Input } from "@/components/UI/input";
 import { 
   Dialog,
   DialogContent,
@@ -17,43 +19,81 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../../components/UI/dialog";
+} from "@/components/UI/dialog";
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/UI/select";
-import { Textarea } from "../../components/UI/textarea";
-import { Label } from "../../components/UI/label";
-import JobCard from "../../components/UI/client/JobCard";
+} from "@/components/UI/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/UI/tabs";
+import {
+  Card,
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/UI/card";
+import { Textarea } from "@/components/UI/textarea";
+import { Label } from "@/components/UI/label";
+import JobCard from "@/components/UI/client/JobCard";
+import { useJobContext } from '@/components/JobContext';
+import axios from 'axios';
+import API_ENDPOINTS from '@/lib/apiConfig';
+
+// Helper to determine page size
+const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
-  // State for jobs data
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Use the JobContext to access jobs data and methods
+  const {
+    jobs,
+    totalJobs,
+    loading,
+    fetchJobs,
+    resetJobs,
+    activeTab,
+    setActiveTab
+  } = useJobContext();
+
+  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [showAttachmentDialog, setShowAttachmentDialog] = useState(false);
   const [currentJobId, setCurrentJobId] = useState(null);
-  const [visibleJobsCount, setVisibleJobsCount] = useState(10); // Default to showing 10 jobs
-  const [showAllJobs, setShowAllJobs] = useState(false);
+  const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
   
   // Form state for new job creation
   const [jobForm, setJobForm] = useState({
+    uuid: '',
     title: '',
     description: '',
     location: 'Main Office',
     jobType: 'Installation',
-    priority: 'Normal'
+    priority: 'Normal',
+    company_uuid: '', // Will be filled automatically based on the logged-in client
+    job_address: '',
+    status: 'Quote', // Default to Quote
   });
   
-  // Mock locations and job types
+  // Mock locations and job types (can be replaced with real data from API)
   const locations = ['Main Office', 'Warehouse', 'Branch Office'];
   const jobTypes = ['Installation', 'Repair', 'Maintenance', 'Consultation'];
   const priorities = ['Low', 'Normal', 'High', 'Urgent'];
   
+  // Fetch jobs on mount and when active tab changes
+  useEffect(() => {
+    fetchJobs(1, activeTab);
+  }, [activeTab]);
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -71,127 +111,81 @@ const ClientJobs = () => {
     });
   };
   
-  // Load jobs data
-  useEffect(() => {
-    // Simulate API fetch delay
-    setTimeout(() => {
-      // Generate more mock data to demonstrate the pagination feature
-      const generateMockJobs = (count) => {
-        const baseJobs = [
-          {
-            id: 'JOB-2025-0423',
-            title: 'Network Installation',
-            status: 'In Progress',
-            date: 'Apr 15, 2025',
-            dueDate: 'Apr 20, 2025',
-            type: 'Work Order',
-            description: 'Install new network infrastructure including switches and access points',
-            assignedTech: 'Alex Johnson',
-            location: 'Main Office',
-            attachments: 2
-          },
-          {
-            id: 'JOB-2025-0422',
-            title: 'Security System Upgrade',
-            status: 'Quote',
-            date: 'Apr 14, 2025',
-            dueDate: 'Apr 25, 2025',
-            type: 'Quote',
-            price: '$4,850.00',
-            description: 'Upgrade existing security cameras to 4K resolution',
-            location: 'Warehouse',
-            attachments: 1
-          },
-          {
-            id: 'JOB-2025-0418',
-            title: 'Digital Signage Installation',
-            status: 'Completed',
-            date: 'Apr 10, 2025',
-            completedDate: 'Apr 12, 2025',
-            type: 'Work Order',
-            description: 'Install 3 digital signage displays in reception area',
-            assignedTech: 'Sarah Davis',
-            location: 'Main Office',
-            attachments: 3
-          },
-          {
-            id: 'JOB-2025-0415',
-            title: 'Surveillance System Maintenance',
-            status: 'Scheduled',
-            date: 'Apr 20, 2025',
-            type: 'Work Order',
-            description: 'Routine maintenance check on surveillance system',
-            assignedTech: 'Miguel Rodriguez',
-            location: 'Branch Office',
-            attachments: 0
-          },
-          {
-            id: 'JOB-2025-0410',
-            title: 'Router Configuration',
-            status: 'On Hold',
-            date: 'Apr 8, 2025',
-            type: 'Work Order',
-            description: 'Configure new router for guest network',
-            location: 'Main Office',
-            attachments: 1
-          }
-        ];
-
-        // Generate additional jobs if requested count is more than base jobs
-        if (count <= baseJobs.length) return baseJobs.slice(0, count);
-
-        const additionalJobs = [];
-        const statuses = ['In Progress', 'Quote', 'Completed', 'Scheduled', 'On Hold'];
-        const titles = ['Server Maintenance', 'Printer Setup', 'Workstation Installation', 'Firewall Configuration', 
-                        'Software Installation', 'Data Recovery', 'Network Troubleshooting', 'UPS Installation', 
-                        'VoIP Phone Setup', 'Email Migration'];
-        const locations = ['Main Office', 'Warehouse', 'Branch Office', 'Remote Site', 'Data Center'];
-        const techs = ['Alex Johnson', 'Sarah Davis', 'Miguel Rodriguez', 'Emily Wong', 'Carlos Menendez'];
-        
-        for (let i = baseJobs.length; i < count; i++) {
-          const randomDate = new Date(2025, 3, Math.floor(Math.random() * 30) + 1);
-          const formattedDate = randomDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          
-          additionalJobs.push({
-            id: `JOB-2025-0${400 + i}`,
-            title: titles[Math.floor(Math.random() * titles.length)],
-            status: statuses[Math.floor(Math.random() * statuses.length)],
-            date: formattedDate,
-            dueDate: new Date(randomDate.getTime() + Math.random() * 10 * 24 * 60 * 60 * 1000)
-                      .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            type: Math.random() > 0.3 ? 'Work Order' : 'Quote',
-            description: `Job ${i+1} description goes here with detailed information about the requested services and scope of work.`,
-            assignedTech: Math.random() > 0.2 ? techs[Math.floor(Math.random() * techs.length)] : null,
-            location: locations[Math.floor(Math.random() * locations.length)],
-            attachments: Math.floor(Math.random() * 5)
-          });
-        }
-        
-        return [...baseJobs, ...additionalJobs];
-      };
-      
-      const mockJobs = generateMockJobs(25); // Generate 25 mock jobs to demonstrate pagination
-      setJobs(mockJobs);
-      setLoading(false);
-    }, 1000);
-  }, []);
+  // Handle tab changes
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    resetJobs();
+    fetchJobs(1, tab);
+    // Reset search term and visible jobs count when changing tabs for better performance
+    setSearchQuery('');
+    setVisibleJobs(PAGE_SIZE);
+  };
+  
+  // Generate UUID for new job
+  const generateUUID = () => {
+    const uuid = crypto.randomUUID();
+    setJobForm({ 
+      ...jobForm, 
+      uuid,
+      generated_job_id: uuid // Set generated_job_id to match UUID automatically
+    });
+  };
   
   // Filter jobs based on search query
-  const filteredJobs = jobs.filter(job => 
-    (job.title && job.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (job.id && job.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (job.status && job.status.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (job.description && job.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredJobs = jobs.filter(job => {
+    if (!searchQuery.trim()) return true;
+    const searchLower = searchQuery.toLowerCase().trim();
+    
+    // Only check fields that exist to improve performance
+    return (
+      (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+      (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
+      (job.generated_job_id && job.generated_job_id.toLowerCase().includes(searchLower)) ||
+      (job.job_address && job.job_address.toLowerCase().includes(searchLower))
+    );
+  });
   
-  // Get jobs to display based on show all toggle
-  const visibleJobs = showAllJobs ? 
-    filteredJobs : 
-    filteredJobs.slice(0, visibleJobsCount);
+  // Get jobs to display based on pagination
+  const displayedJobs = filteredJobs.slice(0, visibleJobs);
   
-  // Toggle show all jobs
-  const toggleShowAllJobs = () => {
-    setShowAllJobs(!showAllJobs);
+  // Show more jobs
+  const handleShowMore = () => {
+    setVisibleJobs(prev => prev + PAGE_SIZE);
+  };
+  
+  // Show less jobs
+  const handleShowLess = () => {
+    setVisibleJobs(prev => Math.max(prev - PAGE_SIZE, PAGE_SIZE));
+  };
+  
+  // Refresh jobs data
+  const handleRefresh = async () => {
+    setConfirmRefresh(true);
+  };
+  
+  // Confirm refresh data
+  const confirmRefreshData = async () => {
+    try {
+      setIsRefreshing(true);
+      console.log("Manually refreshing job data...");
+      
+      // Reset search query
+      setSearchQuery('');
+      
+      // Force reload with timestamp to prevent caching
+      await fetchJobs(1, activeTab, true);
+      
+      // Reset visible jobs to default
+      setVisibleJobs(PAGE_SIZE);
+      
+      console.log("Job data refreshed successfully");
+      setConfirmRefresh(false);
+    } catch (error) {
+      console.error('Error refreshing jobs:', error);
+    } finally {
+      setIsRefreshing(false);
+      setConfirmRefresh(false);
+    }
   };
   
   // Status color function
@@ -199,6 +193,7 @@ const ClientJobs = () => {
     switch(status) {
       case 'In Progress': return 'bg-blue-600 text-white';
       case 'Quote': return 'bg-amber-500 text-white';
+      case 'Work Order': return 'bg-yellow-100 text-yellow-800';
       case 'Completed': return 'bg-green-600 text-white';
       case 'Scheduled': return 'bg-purple-600 text-white';
       case 'On Hold': return 'bg-gray-600 text-white';
@@ -219,32 +214,54 @@ const ClientJobs = () => {
   };
   
   // Handle create new job form submission
-  const handleCreateJob = () => {
-    // This would integrate with ServiceM8 API to create a new job
+  const handleCreateJob = async () => {
+    // Validate required fields
+    if (!jobForm.uuid || !jobForm.description || !jobForm.job_address) {
+      alert("Please fill in all required fields");
+      return;
+    }
     
-    // For demo purposes, add it to the local state
-    const newJob = {
-      id: `JOB-2025-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: jobForm.title,
-      status: 'New',
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      type: 'Request',
-      description: jobForm.description,
-      location: jobForm.location,
-      attachments: 0
-    };
-    
-    setJobs([newJob, ...jobs]);
-    setShowNewJobDialog(false);
-    
-    // Reset form
-    setJobForm({
-      title: '',
-      description: '',
-      location: 'Main Office',
-      jobType: 'Installation',
-      priority: 'Normal'
-    });
+    try {
+      // Prepare payload to match ServiceM8 API format
+      const payload = {
+        active: 1,
+        uuid: jobForm.uuid,
+        created_by_staff_uuid: jobForm.uuid, // Used as staff UUID
+        company_uuid: localStorage.getItem('clientId') || jobForm.uuid, // Client ID should be in localStorage
+        date: new Date().toISOString().split('T')[0],
+        job_description: jobForm.description,
+        job_address: jobForm.job_address || jobForm.location,
+        status: 'Quote', // Default to Quote for client requests
+        work_done_description: '',
+        generated_job_id: jobForm.uuid,
+      };
+      
+      console.log('Creating job with payload:', payload);
+      const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
+      console.log('Job created successfully:', response.data);
+      
+      // Force refresh jobs list with the current tab
+      await fetchJobs(1, activeTab, true);
+      setShowNewJobDialog(false);
+      
+      // Reset form for next use
+      setJobForm({
+        uuid: '',
+        title: '',
+        description: '',
+        location: 'Main Office',
+        jobType: 'Installation',
+        priority: 'Normal',
+        job_address: '',
+        status: 'Quote',
+      });
+      
+      // Show success message
+      alert("Your service request has been submitted successfully!");
+    } catch (error) {
+      console.error('Error creating job:', error);
+      alert(`Error creating job: ${error.response?.data?.message || error.message}`);
+    }
   };
   
   // Handle file upload
@@ -254,45 +271,68 @@ const ClientJobs = () => {
     setShowAttachmentDialog(false);
   };
 
+  // Convert job data for JobCard component
+  const prepareJobForCard = (job) => {
+    return {
+      id: job.generated_job_id || job.uuid,
+      uuid: job.uuid,
+      title: job.job_description?.slice(0, 50) || 'No description',
+      status: job.status || 'Unknown',
+      date: job.date || 'Unknown date',
+      dueDate: job.work_order_date || job.date,
+      completedDate: job.completion_date,
+      type: job.status === 'Quote' ? 'Quote' : 'Work Order',
+      description: job.job_description || 'No description',
+      location: job.job_address || 'No address',
+      attachments: 0 // Placeholder since we don't have attachment count
+    };
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Jobs</h1>
-        <p className="text-lg mt-1">View and manage all your service jobs</p>
-      </div>
-  
-      {/* Search and filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <div className="w-full md:w-1/2 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
-          <Input
-            placeholder="Search jobs by ID, title, or description..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Jobs</h1>
+          <p className="text-lg mt-1">View and manage all your service jobs</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Filter size={16} />
-            Filter
-          </Button>
-          <Dialog open={showNewJobDialog} onOpenChange={setShowNewJobDialog}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus size={16} />
-                New Request
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Create New Service Request</DialogTitle>
-                <DialogDescription>
-                  Submit a new service request to our team. We'll review it and get back to you promptly.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
+        <Dialog open={showNewJobDialog} onOpenChange={setShowNewJobDialog}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
+              <Plus size={16} />
+              New Request
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Service Request</DialogTitle>
+              <DialogDescription>
+                Submit a new service request to our team. We'll review it and get back to you promptly.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="uuid">Request ID</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="uuid"
+                      name="uuid"
+                      value={jobForm.uuid}
+                      onChange={handleInputChange}
+                      required
+                      className="flex-1"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={generateUUID}
+                      className="whitespace-nowrap"
+                    >
+                      Generate
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="title">Request Title</Label>
                   <Input 
@@ -303,50 +343,46 @@ const ClientJobs = () => {
                     onChange={handleInputChange}
                   />
                 </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea 
+                  id="description" 
+                  name="description" 
+                  placeholder="Please describe what you need..." 
+                  rows={4} 
+                  value={jobForm.description} 
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="job_address">Service Address</Label>
+                <Input
+                  id="job_address"
+                  name="job_address"
+                  placeholder="Enter the address where service is needed"
+                  value={jobForm.job_address}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea 
-                    id="description" 
-                    name="description" 
-                    placeholder="Please describe what you need..." 
-                    rows={4} 
-                    value={jobForm.description} 
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Select 
-                      value={jobForm.location} 
-                      onValueChange={(value) => handleSelectChange('location', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {locations.map((loc) => (
-                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="jobType">Job Type</Label>
-                    <Select 
-                      value={jobForm.jobType} 
-                      onValueChange={(value) => handleSelectChange('jobType', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select job type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {jobTypes.map((type) => (
-                          <SelectItem key={type} value={type}>{type}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label htmlFor="jobType">Job Type</Label>
+                  <Select 
+                    value={jobForm.jobType} 
+                    onValueChange={(value) => handleSelectChange('jobType', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select job type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="priority">Priority</Label>
@@ -365,77 +401,129 @@ const ClientJobs = () => {
                   </Select>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
-                <Button onClick={handleCreateJob}>Submit Request</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
+              <Button onClick={handleCreateJob}>Submit Request</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-      
-      {/* Jobs List */}
-      <div className="space-y-4">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-pulse flex space-x-4">
-              <div className="flex-1 space-y-6 py-1">
-                <div className="h-2 bg-muted rounded"></div>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="h-2 bg-muted rounded col-span-2"></div>
-                    <div className="h-2 bg-muted rounded col-span-1"></div>
-                  </div>
+  
+      {/* Tabs and Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Service Jobs</CardTitle>
+          <CardDescription>View and track your service requests</CardDescription>
+          <div className="flex flex-col space-y-4 mt-2">
+            <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="all">All Jobs</TabsTrigger>
+                <TabsTrigger value="Quote">Quotes</TabsTrigger>
+                <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
+                <TabsTrigger value="In Progress">In Progress</TabsTrigger>
+                <TabsTrigger value="Completed">Completed</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  className="pl-10"
+                  placeholder="Search jobs by ID, description, or address..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Jobs List */}
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-6 py-1">
                   <div className="h-2 bg-muted rounded"></div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="h-2 bg-muted rounded col-span-2"></div>
+                      <div className="h-2 bg-muted rounded col-span-1"></div>
+                    </div>
+                    <div className="h-2 bg-muted rounded"></div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ) : filteredJobs.length > 0 ? (
-          <div>
-            <div className="space-y-4">
-              {visibleJobs.map(job => (
-                <JobCard 
-                  key={job.id} 
-                  job={job} 
-                  onQuoteAction={handleQuoteAction} 
-                  onAddAttachment={handleAddAttachment}
-                  statusColor={getStatusColor} 
-                />
-              ))}
-            </div>
-            
-            {/* Show More/Less Button */}
-            {filteredJobs.length > 10 && (
-              <div className="flex justify-center mt-6">
+          ) : filteredJobs.length > 0 ? (
+            <div>
+              <div className="space-y-4">
+                {displayedJobs.map(job => (
+                  <JobCard 
+                    key={job.uuid} 
+                    job={prepareJobForCard(job)} 
+                    onQuoteAction={handleQuoteAction} 
+                    onAddAttachment={handleAddAttachment}
+                    statusColor={getStatusColor} 
+                  />
+                ))}
+              </div>
+              
+              <div className="flex justify-between items-center mt-6">
                 <Button
                   variant="outline"
-                  onClick={toggleShowAllJobs}
+                  onClick={handleShowLess}
+                  disabled={visibleJobs <= PAGE_SIZE}
                   className="flex items-center gap-2"
                 >
-                  {showAllJobs ? (
-                    <>
-                      <ChevronUp size={16} />
-                      Show Less
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown size={16} />
-                      Show All ({filteredJobs.length - visibleJobsCount} more)
-                    </>
-                  )}
+                  <ChevronUp size={16} />
+                  Show Less
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleShowMore}
+                  disabled={filteredJobs.length <= visibleJobs}
+                  className="flex items-center gap-2"
+                >
+                  <ChevronDown size={16} />
+                  Show More
                 </Button>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Clipboard size={48} className="text-muted-foreground mb-4" />
-            <h3 className="text-xl font-medium mb-2">No jobs found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or create a new request</p>
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Clipboard size={48} className="text-muted-foreground mb-4" />
+              <h3 className="text-xl font-medium mb-2">No jobs found</h3>
+              <p className="text-muted-foreground">Try adjusting your search or create a new request</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Confirm Refresh Dialog */}
+      <Dialog open={confirmRefresh} onOpenChange={setConfirmRefresh}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refresh Job Data</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to refresh all job data? This may take a moment.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRefresh(false)}>Cancel</Button>
+            <Button onClick={confirmRefreshData}>Refresh Data</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* File Upload Dialog */}
       <Dialog open={showAttachmentDialog} onOpenChange={setShowAttachmentDialog}>
@@ -464,26 +552,6 @@ const ClientJobs = () => {
         </DialogContent>
       </Dialog>
     </div>
-  );
-};
-
-// Custom UploadCloud component
-const UploadCloud = ({ className }) => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
-      <path d="M12 12v9" />
-      <path d="m16 16-4-4-4 4" />
-    </svg>
   );
 };
 
