@@ -620,7 +620,7 @@ const AdminJobs = () => {
                 {loading ? (
                   <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
                 ) : filteredJobs.length > 0 ? (
-                  filteredJobs.map((job) => (
+                  displayedJobs.map((job) => (
                     <tr key={job.uuid} className="border-b">
                       <td className="py-3">{job.uuid ? job.uuid.slice(-4) : '...'}</td>
                       <td className="py-3">{job.generated_job_id || '...'}</td>
