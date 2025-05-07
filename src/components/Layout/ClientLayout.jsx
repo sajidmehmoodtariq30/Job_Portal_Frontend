@@ -96,13 +96,6 @@ const ClientLayout = () => {
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => navigate('/client/profile')}>
-                                        Profile
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => navigate('/client/settings')}>
-                                        Settings
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={handleLogout}>
                                         Logout
                                     </DropdownMenuItem>
