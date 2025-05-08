@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/UI/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/UI/avatar'
@@ -17,10 +17,23 @@ const ClientLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const location = useLocation()
     const navigate = useNavigate()
+    const [clientId, setClientId] = useState(null)
 
-    // Mock user data - would come from authentication context
+    // Check for stored client ID on component mount
+    useEffect(() => {
+        const storedClientId = localStorage.getItem('client_id');
+        if (storedClientId) {
+            setClientId(storedClientId);
+        } else {
+            // If no client ID is found, redirect to login
+            navigate('/login');
+        }
+    }, [navigate]);
+
+    // Mock user data - would come from authentication context in a real app
+    // In a production app, you'd fetch user details based on the clientId
     const user = {
-        name: 'Client User',
+        name: clientId || 'Client User',
         email: 'client@company.com',
         avatar: null
     }
@@ -36,9 +49,14 @@ const ClientLayout = () => {
     ]
 
     const handleLogout = () => {
-        // In production would clear auth tokens etc.
-        navigate('/login')
+        // Clear client ID from localStorage
+        localStorage.removeItem('client_id');
+        // Navigate to login page
+        navigate('/login');
     }
+
+    // If not authenticated, don't render anything
+    if (!clientId) return null;
 
     return (
         <>

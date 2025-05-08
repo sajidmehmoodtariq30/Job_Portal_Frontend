@@ -15,12 +15,14 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check for admin token in URL parameters
     const params = new URLSearchParams(window.location.search);
     const access_token = params.get('access_token');
     const refresh_token = params.get('refresh_token');
     const expires_in = params.get('expires_in');
     const token_type = params.get('token_type');
     const scope = params.get('scope');
+    
     if (access_token && refresh_token && expires_in && token_type && scope) {
       const tokenData = {
         access_token,
@@ -32,8 +34,16 @@ const LoginPage = () => {
       localStorage.setItem('admin_token', JSON.stringify(tokenData));
       // Remove tokens from URL for cleanliness
       window.history.replaceState({}, document.title, window.location.pathname);
-      // Optionally, redirect to admin dashboard
+      // Redirect to admin dashboard
       navigate('/admin');
+      return;
+    }
+    
+    // Check if client is already logged in
+    const clientId = localStorage.getItem('client_id');
+    if (clientId) {
+      // Client already logged in, redirect to client dashboard
+      navigate('/client');
     }
   }, [navigate]);
 
@@ -52,6 +62,8 @@ const LoginPage = () => {
     try {
       const response = await axios.get(API_ENDPOINTS.AUTH.CLIENT_LOGIN(email));
       if (response.status === 200) {
+        // Store client ID in localStorage for persistent login
+        localStorage.setItem('client_id', email);
         navigate("/client");
       } else {
         alert("Login failed. Please try again.");
