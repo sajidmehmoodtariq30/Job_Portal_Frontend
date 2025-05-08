@@ -42,26 +42,34 @@ import { API_URL } from '@/lib/apiConfig';
 const ClientHome = () => {
   const navigate = useNavigate();
   // State variables
-  const [jobs, setJobs] = useState([]);
-  const [quotes, setQuotes] = useState([]);
-  const [workOrders, setWorkOrders] = useState([]);
+  const [dashboardData, setDashboardData] = useState({
+    stats: {},
+    jobs: [],
+    quotes: [],
+    upcomingServices: [],
+    recentActivity: []
+  });
   const [loading, setLoading] = useState(true);
   const [dataRefreshing, setDataRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [currentSite, setCurrentSite] = useState('Main Office');
   const [sites, setSites] = useState(['Main Office', 'Warehouse', 'Branch Office']);
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [upcomingServices, setUpcomingServices] = useState([]);
-  const [invoices, setInvoices] = useState([]);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   
-  // Client ID would come from auth context in a real app, using a placeholder for now
-  const clientId = 'client123'; // This should be replaced with actual client ID from auth
+  // Get client ID from localStorage instead of hardcoded value
+  const clientId = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
   
-  // Fetch all data function that can be reused
-  const fetchAllData = useCallback(async (showRefreshIndicator = true) => {
+  // Debugging - check what client ID we have
+  useEffect(() => {
+    console.log('Current clientId:', clientId);
+    // List all localStorage keys for debugging
+    console.log('Available localStorage keys:', Object.keys(localStorage));
+  }, [clientId]);
+  
+  // Fetch dashboard data from the backend
+  const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {
     if (showRefreshIndicator) {
       setDataRefreshing(true);
     } else {
@@ -71,32 +79,31 @@ const ClientHome = () => {
     setError(null);
     
     try {
-      // Use Promise.all to fetch data in parallel
-      const [jobsResponse, notificationsResponse, activitiesResponse, servicesResponse, invoicesResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/jobs?clientId=${clientId}`).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/notifications?clientId=${clientId}`).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/activities?clientId=${clientId}`).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/services/upcoming?clientId=${clientId}`).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/invoices?clientId=${clientId}`).catch(() => ({ data: [] })),
-      ]);
+      // Call our new backend endpoint for dashboard stats with the correct path prefix '/fetch'
+      // Fall back to a generic endpoint if no clientId is available
+      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId || 'default'}`);
+      setDashboardData(response.data);
       
-      // Process data
-      const jobsData = Array.isArray(jobsResponse.data) ? jobsResponse.data : [];
-      setJobs(jobsData);
-      setQuotes(jobsData.filter(job => job.type === 'Quote'));
-      setWorkOrders(jobsData.filter(job => job.type === 'Work Order'));
-      
-      setNotifications(Array.isArray(notificationsResponse.data) ? notificationsResponse.data : []);
-      setRecentActivity(Array.isArray(activitiesResponse.data) ? activitiesResponse.data : []);
-      setUpcomingServices(Array.isArray(servicesResponse.data) ? servicesResponse.data : []);
-      setInvoices(Array.isArray(invoicesResponse.data) ? invoicesResponse.data : []);
+      // Only fetch notifications if we have a valid clientId
+      if (clientId) {
+        try {
+          const notificationsResponse = await axios.get(`${API_URL}/api/notifications?clientId=${clientId}`);
+          setNotifications(Array.isArray(notificationsResponse.data) ? notificationsResponse.data : []);
+        } catch (notificationErr) {
+          console.warn('Error fetching notifications:', notificationErr);
+          // Don't let notification failure block the whole dashboard
+        }
+      }
       
       // Set last updated timestamp
       setLastUpdated(new Date());
       
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load some dashboard data. Please try refreshing.');
+      setError('Failed to load dashboard data. Please try refreshing.');
+      
+      // If API fails, load mock data for development purposes
+      loadMockData();
     } finally {
       setLoading(false);
       setDataRefreshing(false);
@@ -105,115 +112,131 @@ const ClientHome = () => {
   
   // Initial data loading
   useEffect(() => {
-    fetchAllData(false);
+    fetchDashboardData(false);
     
     // Set up interval for real-time updates
     const intervalId = setInterval(() => {
-      fetchAllData(true);
+      fetchDashboardData(true);
     }, 60000); // Refresh every minute
     
     return () => clearInterval(intervalId);
-  }, [fetchAllData]);
+  }, [fetchDashboardData]);
   
   // For demo purposes, if API is not available, load mock data
-  useEffect(() => {
-    if (loading && !jobs.length) {
-      // Simulate API fetch delay
-      const timeoutId = setTimeout(() => {
-        const mockJobs = [
-          {
-            id: 'JOB-2025-0423',
-            title: 'Network Installation',
-            status: 'In Progress',
-            date: '2025-04-15',
-            dueDate: '2025-04-20',
-            type: 'Work Order',
-            description: 'Install new network infrastructure including switches and access points',
-            assignedTech: 'Alex Johnson',
-            location: 'Main Office',
-            attachments: 2
-          },
-          {
-            id: 'JOB-2025-0422',
-            title: 'Security System Upgrade',
-            status: 'Quote',
-            date: '2025-04-14',
-            dueDate: '2025-04-25',
-            type: 'Quote',
-            price: '$4,850.00',
-            description: 'Upgrade existing security cameras to 4K resolution',
-            location: 'Warehouse',
-            attachments: 1
-          },
-          {
-            id: 'JOB-2025-0418',
-            title: 'Digital Signage Installation',
-            status: 'Completed',
-            date: '2025-04-10',
-            completedDate: '2025-04-12',
-            type: 'Work Order',
-            description: 'Install 3 digital signage displays in reception area',
-            assignedTech: 'Sarah Davis',
-            location: 'Main Office',
-            attachments: 3
-          },
-          {
-            id: 'JOB-2025-0415',
-            title: 'Surveillance System Maintenance',
-            status: 'Scheduled',
-            date: '2025-04-20',
-            type: 'Work Order',
-            description: 'Routine maintenance check on surveillance system',
-            assignedTech: 'Miguel Rodriguez',
-            location: 'Branch Office',
-            attachments: 0
-          }
-        ];
-        
-        setJobs(mockJobs);
-        setQuotes(mockJobs.filter(job => job.type === 'Quote'));
-        setWorkOrders(mockJobs.filter(job => job.type === 'Work Order'));
-        
-        // Add notifications
-        setNotifications([
-          { id: 1, type: 'quote', message: 'New quote available for Security System Upgrade', time: '2 hours ago', read: false },
-          { id: 2, type: 'schedule', message: 'Technician scheduled for Apr 20', time: '1 day ago', read: true },
-          { id: 3, type: 'job', message: 'Digital Signage Installation completed', time: '2 days ago', read: true },
-        ]);
-
-        // Add recent activity
-        setRecentActivity([
-          { id: 1, type: 'job_created', title: 'New Job Request Created', description: 'Network Installation', date: '2025-04-15' },
-          { id: 2, type: 'quote_received', title: 'New Quote Received', description: 'Security System Upgrade', date: '2025-04-14' },
-          { id: 3, type: 'job_completed', title: 'Job Completed', description: 'Digital Signage Installation', date: '2025-04-12' },
-          { id: 4, type: 'document_uploaded', title: 'Document Uploaded', description: 'Network Diagram.pdf', date: '2025-04-11' },
-          { id: 5, type: 'invoice_paid', title: 'Invoice Paid', description: 'INV-2025-0056', date: '2025-04-08' }
-        ]);
-
-        // Add upcoming services
-        setUpcomingServices([
-          { id: 1, title: 'Surveillance System Maintenance', date: '2025-04-20', technician: 'Miguel Rodriguez', location: 'Branch Office' },
-          { id: 2, title: 'Network Performance Review', date: '2025-04-28', technician: 'Alex Johnson', location: 'Main Office' }
-        ]);
-
-        // Add invoices
-        setInvoices([
-          { id: 'INV-2025-0056', jobId: 'JOB-2025-0405', amount: 1250.00, status: 'Paid', dueDate: '2025-04-05', paidDate: '2025-04-08' },
-          { id: 'INV-2025-0042', jobId: 'JOB-2025-0389', amount: 3200.00, status: 'Paid', dueDate: '2025-03-25', paidDate: '2025-03-24' },
-          { id: 'INV-2025-0068', jobId: 'JOB-2025-0418', amount: 2750.00, status: 'Due', dueDate: '2025-04-25' }
-        ]);
-        
-        setLastUpdated(new Date());
-        setLoading(false);
-      }, 1500);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [loading, jobs.length]);
+  const loadMockData = () => {
+    // Mock data structure to match our backend API response
+    const mockData = {
+      stats: {
+        activeJobs: 3,
+        inProgressJobs: 1,
+        pendingQuotes: 1,
+        quotesTotalValue: "4850.00",
+        completedJobs: 1,
+        completedJobsLast30Days: 1,
+        upcomingServices: 2,
+        nextServiceDate: "2025-04-20",
+        statusBreakdown: {
+          quotes: "25.0",
+          inProgress: "25.0",
+          scheduled: "25.0",
+          completed: "25.0"
+        }
+      },
+      jobs: [
+        {
+          id: 'JOB-2025-0423',
+          jobNumber: 'JOB-2025-0423',
+          title: 'Network Installation',
+          status: 'In Progress',
+          date: '2025-04-15',
+          dueDate: '2025-04-20',
+          type: 'Work Order',
+          description: 'Install new network infrastructure including switches and access points',
+          assignedTech: 'Alex Johnson',
+          location: 'Main Office',
+          attachments: 2
+        },
+        {
+          id: 'JOB-2025-0418',
+          jobNumber: 'JOB-2025-0418',
+          title: 'Digital Signage Installation',
+          status: 'Completed',
+          date: '2025-04-10',
+          completedDate: '2025-04-12',
+          type: 'Work Order',
+          description: 'Install 3 digital signage displays in reception area',
+          assignedTech: 'Sarah Davis',
+          location: 'Main Office',
+          attachments: 3
+        },
+        {
+          id: 'JOB-2025-0415',
+          jobNumber: 'JOB-2025-0415',
+          title: 'Surveillance System Maintenance',
+          status: 'Scheduled',
+          date: '2025-04-20',
+          type: 'Work Order',
+          description: 'Routine maintenance check on surveillance system',
+          assignedTech: 'Miguel Rodriguez',
+          location: 'Branch Office',
+          attachments: 0
+        }
+      ],
+      quotes: [
+        {
+          id: 'JOB-2025-0422',
+          quoteNumber: 'QUOTE-2025-0422',
+          title: 'Security System Upgrade',
+          status: 'Quote',
+          date: '2025-04-14',
+          dueDate: '2025-04-25',
+          type: 'Quote',
+          price: "4850.00",
+          description: 'Upgrade existing security cameras to 4K resolution',
+          location: 'Warehouse',
+          attachments: 1
+        }
+      ],
+      upcomingServices: [
+        { 
+          id: 1, 
+          title: 'Surveillance System Maintenance', 
+          date: '2025-04-20', 
+          technician: 'Miguel Rodriguez', 
+          location: 'Branch Office' 
+        },
+        { 
+          id: 2, 
+          title: 'Network Performance Review', 
+          date: '2025-04-28', 
+          technician: 'Alex Johnson', 
+          location: 'Main Office' 
+        }
+      ],
+      recentActivity: [
+        { id: 1, type: 'job_created', title: 'New Job Request Created', description: 'Network Installation', date: '2025-04-15' },
+        { id: 2, type: 'quote_received', title: 'New Quote Received', description: 'Security System Upgrade', date: '2025-04-14' },
+        { id: 3, type: 'job_completed', title: 'Job Completed', description: 'Digital Signage Installation', date: '2025-04-12' },
+        { id: 4, type: 'document_uploaded', title: 'Document Uploaded', description: 'Network Diagram.pdf', date: '2025-04-11' },
+        { id: 5, type: 'invoice_paid', title: 'Invoice Paid', description: 'INV-2025-0056', date: '2025-04-08' }
+      ]
+    };
+    
+    setDashboardData(mockData);
+    
+    // Mock notifications
+    setNotifications([
+      { id: 1, type: 'quote', message: 'New quote available for Security System Upgrade', time: '2 hours ago', read: false },
+      { id: 2, type: 'schedule', message: 'Technician scheduled for Apr 20', time: '1 day ago', read: true },
+      { id: 3, type: 'job', message: 'Digital Signage Installation completed', time: '2 days ago', read: true },
+    ]);
+    
+    setLastUpdated(new Date());
+  };
   
   // Handle manual refresh
   const handleRefresh = () => {
-    fetchAllData(true);
+    fetchDashboardData(true);
   };
   
   const getStatusColor = (status) => {
@@ -241,6 +264,9 @@ const ClientHome = () => {
   const markAllNotificationsRead = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
+
+  // Extract data from the dashboard data object for easier use
+  const { stats, jobs, quotes, upcomingServices, recentActivity } = dashboardData;
 
   return (
     <div className="space-y-6">
@@ -344,7 +370,7 @@ const ClientHome = () => {
       )}
       
       {/* Dashboard Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Active Jobs</CardTitle>
@@ -403,7 +429,7 @@ const ClientHome = () => {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Scheduled Services</CardTitle>
+            <CardTitle className="text-lg">Completed Jobs</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -414,24 +440,24 @@ const ClientHome = () => {
             ) : (
               <>
                 <div className="text-3xl font-bold">
-                  {jobs.filter(job => job.status === 'Scheduled').length}
+                  {jobs.filter(job => job.status === 'Completed').length}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Next: {jobs.find(job => job.status === 'Scheduled')?.date || 'None scheduled'}
+                  In the last 30 days
                 </p>
               </>
             )}
           </CardContent>
           <CardFooter>
             <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
-              View schedule <ArrowRight size={16} className="ml-1" />
+              View completed jobs <ArrowRight size={16} className="ml-1" />
             </Button>
           </CardFooter>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Open Invoices</CardTitle>
+            <CardTitle className="text-lg">Upcoming Services</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -442,17 +468,19 @@ const ClientHome = () => {
             ) : (
               <>
                 <div className="text-3xl font-bold">
-                  {invoices.filter(inv => inv.status === 'Due').length}
+                  {upcomingServices.length}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  ${invoices.filter(inv => inv.status === 'Due').reduce((sum, inv) => sum + inv.amount, 0).toLocaleString()} outstanding
+                  Next: {upcomingServices.length > 0 ? 
+                    new Date(upcomingServices[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 
+                    'None scheduled'}
                 </p>
               </>
             )}
           </CardContent>
           <CardFooter>
-            <Button variant="link" className="p-0" onClick={() => navigate('/client/invoices')}>
-              View invoices <ArrowRight size={16} className="ml-1" />
+            <Button variant="link" className="p-0" onClick={() => navigate('/client/schedule')}>
+              View schedule <ArrowRight size={16} className="ml-1" />
             </Button>
           </CardFooter>
         </Card>
@@ -593,152 +621,6 @@ const ClientHome = () => {
                 </Button>
               </CardFooter>
             )}
-          </Card>
-        </div>
-
-        {/* Sidebar - 1/3 width */}
-        <div className="space-y-6">
-          {/* Upcoming Services */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Upcoming Services</CardTitle>
-              {dataRefreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-4">
-                  {[1, 2].map(index => (
-                    <div key={index} className="space-y-2 pb-4 border-b last:border-0 last:pb-0">
-                      <div className="flex items-center justify-between">
-                        <Skeleton className="h-5 w-32" />
-                        <Skeleton className="h-5 w-20" />
-                      </div>
-                      <Skeleton className="h-4 w-40" />
-                      <Skeleton className="h-4 w-36" />
-                    </div>
-                  ))}
-                </div>
-              ) : upcomingServices.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingServices.map(service => (
-                    <div key={service.id} className="flex flex-col space-y-2 pb-4 border-b last:border-0 last:pb-0">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">{service.title}</h4>
-                        <Badge variant="outline" className="font-normal">{service.location}</Badge>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Calendar size={14} className="mr-2" />
-                        {new Date(service.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <User size={14} className="mr-2" />
-                        Technician: {service.technician}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <Clock className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-                  <h3 className="mt-4 text-lg font-medium">No upcoming services</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    You have no scheduled services at this time.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" onClick={() => navigate('/client/jobs')}>
-                View Full Schedule
-              </Button>
-            </CardFooter>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate('/client/quotes')}>
-                <FileText className="mr-2 h-4 w-4" />
-                Request a Quote
-              </Button>
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate('/client/jobs')}>
-                <AlertCircle className="mr-2 h-4 w-4" />
-                Report an Issue
-              </Button>
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate('/client/support')}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Contact Support
-              </Button>
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate('/client/invoices')}>
-                <FileBarChart className="mr-2 h-4 w-4" />
-                View Invoices
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Most Recent Invoice */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Recent Invoice</CardTitle>
-              {dataRefreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-3">
-                  <div className="flex justify-between mb-2">
-                    <Skeleton className="h-5 w-24" />
-                    <Skeleton className="h-5 w-16" />
-                  </div>
-                  <Skeleton className="h-4 w-full" />
-                  <div className="flex justify-between">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                  <div className="flex justify-between">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                </div>
-              ) : invoices.length > 0 ? (
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <div className="font-medium">{invoices[0].id}</div>
-                    <Badge variant={invoices[0].status === 'Paid' ? 'success' : 'secondary'}>
-                      {invoices[0].status}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-3">
-                    Job: {invoices[0].jobId}
-                  </div>
-                  <div className="flex justify-between text-sm mb-3">
-                    <div className="text-muted-foreground">Amount:</div>
-                    <div className="font-medium">${invoices[0].amount.toLocaleString()}</div>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <div className="text-muted-foreground">
-                      {invoices[0].status === 'Paid' ? 'Paid on:' : 'Due by:'}
-                    </div>
-                    <div>
-                      {invoices[0].status === 'Paid' 
-                        ? new Date(invoices[0].paidDate).toLocaleDateString() 
-                        : new Date(invoices[0].dueDate).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  No recent invoices
-                </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full" onClick={() => navigate('/client/invoices')}>
-                View All Invoices
-              </Button>
-            </CardFooter>
           </Card>
         </div>
       </div>
