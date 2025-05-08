@@ -33,15 +33,30 @@ const ClientSettings = () => {
   
   // Get current user ID from localStorage
   const getUserId = () => {
+    // First try to get client_id which is the preferred way for clients
+    const clientId = localStorage.getItem('client_id');
+    if (clientId) {
+      return `client-${clientId}`;
+    }
+    
+    // Fallback to client_token if client_id is not available
     const token = localStorage.getItem('client_token');
     if (!token) return null;
     
     try {
-      const tokenData = JSON.parse(token);
-      // Extract user ID from the token
-      return tokenData.user_id || 'client-user';
+      // Try to parse as JSON
+      try {
+        const tokenData = JSON.parse(token);
+        if (tokenData.user_id) return tokenData.user_id;
+        if (tokenData.uuid) return tokenData.uuid;
+        return tokenData.id || `client-${token}`;
+      } catch {
+        // If not JSON, use as is
+        return `client-${token}`;
+      }
     } catch (e) {
-      return 'client-user'; // Fallback user ID
+      console.error("Error extracting client ID:", e);
+      return null;
     }
   };
   
