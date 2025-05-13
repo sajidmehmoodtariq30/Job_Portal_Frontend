@@ -39,6 +39,13 @@ const LoginPage = () => {
       return;
     }
     
+    // Check if admin is already logged in
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken) {
+      navigate('/admin');
+      return;
+    }
+    
     // Check if client is already logged in
     const clientId = localStorage.getItem('client_id');
     if (clientId) {
