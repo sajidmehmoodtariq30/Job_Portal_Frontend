@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { LifeBuoy, Mail, MessageSquare } from 'lucide-react';
+import { LifeBuoy, Mail, MessageSquare, MapPin, Phone } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/UI/card';
 import { Button } from '@/components/UI/button';
 import { Input } from '@/components/UI/input';
 import { Textarea } from '@/components/UI/textarea';
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
+import logo from '@/assets/logo.jpg';
 
-const SUPPORT_EMAIL = 'ibitbytesoft@gmail.com';
+const SUPPORT_EMAIL = 'Support@mygcce.com.au';
+const SUPPORT_PHONE = '07 5573 2111';
+const COMPANY_ADDRESS = 'Gold Coast, Australia';
 
 const ClientSupport = () => {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
@@ -53,18 +56,35 @@ const ClientSupport = () => {
         <LifeBuoy className="text-blue-600" size={28} />
         <h1 className="text-3xl font-bold">Support</h1>
       </div>
+      
+      <div className="flex items-center space-x-4 mb-6">
+        <img src={logo} alt="Commercial Electricians Australia" className="h-12 w-auto" />
+        <div>
+          <h2 className="text-xl font-semibold">Commercial Electricians Australia</h2>
+          <p className="text-muted-foreground">Your trusted electrical solutions partner</p>
+        </div>
+      </div>
+
       <p className="text-muted-foreground mb-6">Need help? Contact our support team or submit a request below. We aim to respond within 1 business day.</p>
 
       <Card>
         <CardHeader>
           <CardTitle>Contact Information</CardTitle>
-          <CardDescription>Reach us directly by email</CardDescription>
+          <CardDescription>Reach us through any of these channels</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 text-sm">
               <Mail className="text-blue-500" size={18} />
               <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:underline">{SUPPORT_EMAIL}</a>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="text-blue-500" size={18} />
+              <a href={`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`} className="hover:underline">{SUPPORT_PHONE}</a>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="text-blue-500" size={18} />
+              <span>{COMPANY_ADDRESS}</span>
             </div>
           </div>
         </CardContent>

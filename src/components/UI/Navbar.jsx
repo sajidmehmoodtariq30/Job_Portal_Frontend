@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Search, CheckCircle, Calendar, Briefcase, Clock, Filter, ChevronRight, User, Lock, BellRing, FileText, Settings } from 'lucide-react';
+import logo from '../../assets/logo.jpg';
 
 
 const Navbar = () => {
@@ -8,7 +9,7 @@ const Navbar = () => {
     <header className="w-full bg-white shadow-lg text-white">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-4 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <Briefcase className="text-[#d6d6d6]" size={24} />
+          <img src={logo} alt="Job Portal Logo" className="h-8 w-auto" />
           <h1 className="text-xl text-black font-bold">Job Portal</h1>
         </div>
         <div className="flex items-center space-x-4">

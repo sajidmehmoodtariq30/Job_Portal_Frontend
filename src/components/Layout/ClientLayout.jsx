@@ -12,6 +12,7 @@ import {
 } from '@/components/UI/dropdown-menu'
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
+import logo from '../../assets/logo.jpg'
 
 const ClientLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -59,76 +60,60 @@ const ClientLayout = () => {
     if (!clientId) return null;
 
     return (
-        <>
-            <div className="flex h-screen bg-gray-50">
-                {/* Mobile sidebar overlay */}
-                {sidebarOpen && (
-                    <div
-                        className="fixed inset-0 z-30 bg-gray-900/50 lg:hidden"
-                        onClick={() => setSidebarOpen(false)}
-                    />
-                )}
+        <div className="flex h-screen overflow-hidden">
+            {/* Mobile sidebar overlay */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 z-30 bg-gray-900/50 lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
 
-                {/* Sidebar Component */}
-                <ClientSidebar sidebarOpen={sidebarOpen} />
+            {/* Sidebar Component */}
+            <ClientSidebar sidebarOpen={sidebarOpen} />
 
-                {/* Main content */}
-                <div className="flex flex-col flex-1 overflow-hidden">
-                    {/* Top navigation */}
-                    <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 lg:px-6">
+            {/* Main content */}
+            <div className="flex-1 overflow-auto">
+                {/* Top navigation */}
+                <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 bg-white shadow-sm sm:px-6 lg:px-8">
+                    <div className="flex items-center space-x-3">
                         {/* Mobile menu button */}
-                        <button
-                            type="button"
-                            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                            onClick={() => setSidebarOpen(true)}
-                        >
-                            <Menu />
-                        </button>
+                        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="lg:hidden">
+                            <Menu className="h-6 w-6" />
+                        </Button>
+                        <img src={logo} alt="Job Portal Logo" className="h-8 w-auto hidden lg:block" />
+                    </div>
 
-                        {/* Page title - mobile responsive */}
-                        <div className="lg:hidden">
-                            {navigation.map((item) => {
-                                const isActive = location.pathname === item.href ||
-                                    (item.href !== '/client' && location.pathname.startsWith(item.href))
-
-                                if (isActive) {
-                                    return <h1 key={item.name} className="text-lg font-medium">{item.name}</h1>
-                                }
-                                return null
-                            })}
-                        </div>
-
-                        {/* User menu */}
-                        <div className="flex items-center">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={user.avatar || ''} alt={user.name} />
-                                            <AvatarFallback>
-                                                {user.name.split(' ').map(n => n[0]).join('')}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={handleLogout}>
-                                        Logout
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </header>
-
-                    {/* Main content area */}
-                    <main className="flex-1 overflow-auto p-4 lg:p-6">
-                        <Outlet />
-                    </main>
+                    {/* User menu */}
+                    <div className="flex items-center space-x-4">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={user.avatar || ''} alt={user.name} />
+                                        <AvatarFallback>
+                                            {user.name.split(' ').map(n => n[0]).join('')}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleLogout}>
+                                    Logout
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
+
+                {/* Main content area */}
+                <main className="flex-1 overflow-auto p-4 lg:p-6">
+                    <Outlet />
+                </main>
             </div>
-        </>
+        </div>
     )
 }
 

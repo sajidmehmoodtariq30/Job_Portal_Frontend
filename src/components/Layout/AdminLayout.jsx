@@ -13,6 +13,7 @@ import {
 import { Menu } from 'lucide-react'
 import AdminSidebar from '../UI/admin/AdminSidebar.jsx'
 import axios from "axios"
+import logo from '../../assets/logo.jpg'
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -86,6 +87,11 @@ const AdminLayout = () => {
           >
             <Menu />
           </button>
+          
+          {/* Logo - hidden on small screens */}
+          <div className="hidden lg:flex items-center">
+            <img src={logo} alt="Job Portal Logo" className="h-8 w-auto" />
+          </div>
           
           {/* Page title - mobile responsive */}
           <div className="lg:hidden">
