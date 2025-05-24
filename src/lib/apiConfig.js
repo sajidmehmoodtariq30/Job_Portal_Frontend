@@ -27,14 +27,20 @@ export const API_ENDPOINTS = {
   CLIENTS: {
     FETCH_ALL: buildApiEndpoint('fetch/clients'),
     CREATE: buildApiEndpoint('fetch/clients'),
-  },
-  // Chat endpoints
+  },  // Chat endpoints
   CHAT: {
     GET_MESSAGES: (jobId) => buildApiEndpoint(`api/chat/messages/${jobId}`),
     SEND_MESSAGE: buildApiEndpoint('api/chat/messages'),
     MARK_READ: buildApiEndpoint('api/chat/messages/read'),
     GET_UNREAD: (jobId, userType) => buildApiEndpoint(`api/chat/unread/${jobId}/${userType}`),
     GET_UNREAD_JOBS: (userType) => buildApiEndpoint(`api/chat/unread-jobs/${userType}`),
+  },
+  // Attachment endpoints
+  ATTACHMENTS: {
+    UPLOAD: (jobId) => buildApiEndpoint(`api/attachments/upload/${jobId}`),
+    GET_BY_JOB: (jobId) => buildApiEndpoint(`api/attachments/job/${jobId}`),
+    DOWNLOAD: (attachmentId) => buildApiEndpoint(`api/attachments/download/${attachmentId}`),
+    DELETE: (attachmentId) => buildApiEndpoint(`api/attachments/${attachmentId}`),
   },
 };
 

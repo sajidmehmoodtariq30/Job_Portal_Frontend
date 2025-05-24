@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
 import { Textarea } from "@/components/UI/textarea"
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, FileText, Download, Upload } from 'lucide-react'
 import { 
   Card,
   CardContent, 
@@ -73,6 +73,11 @@ const AdminJobs = () => {
   const [visibleJobs, setVisibleJobs] = useState(10);
   const [selectedJob, setSelectedJob] = useState(null);
   const [confirmRefresh, setConfirmRefresh] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const {
     jobs,
     totalJobs,
@@ -290,6 +295,12 @@ const AdminJobs = () => {
 
   const handleViewDetails = (job) => {
     setSelectedJob(job);
+    
+    // Fetch attachments for the selected job
+    const jobId = job.uuid || job.id;
+    if (jobId) {
+      fetchAttachments(jobId);
+    }
   };
 
   // Generate UUID and update generated_job_id to match
@@ -300,6 +311,157 @@ const AdminJobs = () => {
       uuid,
       generated_job_id: uuid // Set generated_job_id to match UUID automatically
     });
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Fetch attachments for selected job
+  const fetchAttachments = async (jobId) => {
+    if (!jobId) return;
+    
+    try {
+      setAttachmentsLoading(true);
+      const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.GET_BY_JOB(jobId));
+      
+      if (response.data && response.data.success) {
+        setAttachments(response.data.data || []);
+      } else {
+        setAttachments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+      setAttachments([]);
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  };
+    // Handle file selection with size validation
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const maxSize = 9 * 1024 * 1024; // 9MB in bytes
+      
+      if (file.size > maxSize) {
+        alert(`File is too large. Please upload a file less than 9MB. Current file size: ${formatFileSize(file.size)}`);
+        e.target.value = ''; // Clear the file input
+        setSelectedFile(null);
+      } else {
+        setSelectedFile(file);
+      }
+    }
+  };
+  
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile || !selectedJob) return;
+    
+    try {
+      setFileUploading(true);
+      
+      // Get admin info for the upload
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const userName = userInfo.name || userInfo.email || 'Admin';
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('userType', 'admin');
+      formData.append('userName', userName);
+      
+      const response = await axios.post(
+        API_ENDPOINTS.ATTACHMENTS.UPLOAD(selectedJob.uuid || selectedJob.id),
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        // Refresh attachments list
+        await fetchAttachments(selectedJob.uuid || selectedJob.id);
+        setSelectedFile(null);
+        setIsUploadingFile(false);
+      }    } catch (error) {
+      console.error('Error uploading file:', error);
+      
+      // Check for common errors and provide specific messages
+      if (error.response) {
+        if (error.response.status === 413) {
+          alert('File is too large. Please upload a file less than 9MB.');
+        } else if (error.response.data && error.response.data.message) {
+          alert(`Upload failed: ${error.response.data.message}`);
+        } else {
+          alert(`Upload failed: ${error.response.statusText}`);
+        }
+      } else if (error.message && error.message.includes('network')) {
+        alert('Network error. Please check your connection and try again.');
+      } else {
+        alert('Failed to upload file. Please try again.');
+      }
+    } finally {
+      setFileUploading(false);
+    }
+  };
+  
+  // Handle file download
+  const handleDownloadFile = async (attachmentId, fileName) => {
+    try {
+      // Using axios to get the file with responseType blob
+      const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
+        responseType: 'blob'
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      
+      // Add to document, click and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file. Please try again.');
+    }
+  };
+
+  // Handle delete attachment
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!attachmentId || !selectedJob) return;
+    
+    if (!confirm('Are you sure you want to delete this attachment? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const response = await axios.delete(API_ENDPOINTS.ATTACHMENTS.DELETE(attachmentId));
+      
+      if (response.data && response.data.success) {
+        // Refresh attachments list
+        await fetchAttachments(selectedJob.uuid || selectedJob.id);
+      }
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      alert('Failed to delete attachment. Please try again.');
+    }
   };
 
   return (
@@ -685,49 +847,49 @@ const AdminJobs = () => {
             </Button>
           </div>
         </CardContent>
-      </Card>      {selectedJob && (
-        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto max-w-4xl">
-            <DialogHeader className="border-b pb-4">
-              <DialogTitle className="text-xl">Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
-              <DialogDescription>
+      </Card>      {selectedJob && (        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
+          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
+            <DialogHeader className="border-b pb-3 md:pb-4">
+              <DialogTitle className="text-lg md:text-2xl font-bold truncate">
+                Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}
+              </DialogTitle>
+              <DialogDescription className="text-xs md:text-sm">
                 Detailed information about the selected job
               </DialogDescription>
             </DialogHeader>
-            
-            <Tabs defaultValue="details" className="mt-4">
-              <TabsList>
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="chat" className="relative">
-                  <div className="flex items-center">
-                    <MessageSquare className="w-4 h-4 mr-2" />
+              <Tabs defaultValue="details" className="mt-3 md:mt-4">
+              <TabsList className="w-full flex-wrap gap-1">
+                <TabsTrigger value="details" className="text-xs md:text-base flex-1 md:flex-none">Details</TabsTrigger>
+                <TabsTrigger value="chat" className="relative text-xs md:text-base flex-1 md:flex-none">
+                  <div className="flex items-center justify-center">
+                    <MessageSquare className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                     Chat
                   </div>
                 </TabsTrigger>
-                <TabsTrigger value="attachments">Attachments</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="details" className="p-0 mt-6">
-                <div className="grid gap-6">
-                  <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
-                    <div className="space-y-2">
-                      <Label className="font-bold text-sm text-gray-600">Job ID</Label>
-                      <p className="text-sm font-medium">{selectedJob.uuid}</p>
+                <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
+              </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">
+                <div className="grid gap-3 md:gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 p-3 md:p-4 bg-gray-50 rounded-lg">
+                    <div className="space-y-1 md:space-y-2 overflow-hidden">
+                      <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
+                      <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid}</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="font-bold text-sm text-gray-600">Generated ID</Label>
-                      <p className="text-sm font-medium">{selectedJob.generated_job_id}</p>
+                    <div className="space-y-1 md:space-y-2 overflow-hidden">
+                      <Label className="font-bold text-xs md:text-sm text-gray-600">Generated ID</Label>
+                      <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.generated_job_id}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                    <Label className="font-bold text-xs md:text-sm">Job Description</Label>
+                    <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
+                      <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-bold">Job Description</Label>
-                    <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="font-bold">Status</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Status</Label>
                       <span className={`px-2 py-1 rounded text-xs inline-block ${
                         selectedJob.status === 'Quote' 
                           ? 'bg-blue-100 text-blue-800' 
@@ -740,53 +902,55 @@ const AdminJobs = () => {
                         {selectedJob.status}
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="font-bold">Active</Label>
-                      <p className="text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Active</Label>
+                      <p className="text-xs md:text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                    </div>
+                  </div>                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Service Address</Label>
+                    <p className="text-xs md:text-sm break-words">{selectedJob.job_address || 'N/A'}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 md:gap-5">
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Created Date</Label>
+                      <p className="text-xs md:text-sm">{selectedJob.date || 'N/A'}</p>
+                    </div>
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
+                      <p className="text-xs md:text-sm">{selectedJob.edit_date || 'N/A'}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-bold">Service Address</Label>
-                    <p className="text-sm">{selectedJob.job_address}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="font-bold">Created Date</Label>
-                      <p className="text-sm">{selectedJob.date}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-bold">Edit Date</Label>
-                      <p className="text-sm">{selectedJob.edit_date}</p>
+                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                    <Label className="font-bold text-xs md:text-sm">Location Details</Label>
+                    <div className="bg-gray-50 p-2 rounded">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                        <p><span className="font-semibold">Street:</span> {selectedJob.geo_number || ''} {selectedJob.geo_street || 'N/A'}</p>
+                        <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
+                        <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
+                        <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
+                        <p><span className="font-semibold">Country:</span> {selectedJob.geo_country || 'N/A'}</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-bold">Location Details</Label>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number} {selectedJob.geo_street}</p>
-                      <p><span className="font-semibold">City:</span> {selectedJob.geo_city}</p>
-                      <p><span className="font-semibold">State:</span> {selectedJob.geo_state}</p>
-                      <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode}</p>
-                      <p><span className="font-semibold">Country:</span> {selectedJob.geo_country}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="font-bold">Payment Details</Label>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
-                      <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
-                      <p><span className="font-semibold">Date:</span> {selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
-                      <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                    <Label className="font-bold text-xs md:text-sm">Payment Details</Label>
+                    <div className="bg-gray-50 p-2 rounded">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                        <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
+                        <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
+                        <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                        <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                      </div>
                     </div>
                   </div>
 
                   {selectedJob.purchase_order_number && (
-                    <div className="space-y-2">
-                      <Label className="font-bold">Purchase Order Number</Label>
-                      <p className="text-sm">{selectedJob.purchase_order_number}</p>
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Purchase Order Number</Label>
+                      <p className="text-xs md:text-sm break-words">{selectedJob.purchase_order_number}</p>
                     </div>
                   )}
                 </div>
@@ -795,46 +959,142 @@ const AdminJobs = () => {
               <TabsContent value="chat" className="p-0 mt-6">
                 <AdminChatRoom jobId={selectedJob.uuid || selectedJob.id} />
               </TabsContent>
-              
-              <TabsContent value="attachments" className="p-0 mt-6">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Attachments</CardTitle>
-                      <Button size="sm">Upload File</Button>
+                <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
+                <Card className="border rounded-lg shadow-sm">
+                  <CardHeader className="py-3 px-3 md:px-4 md:py-4">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <CardTitle className="flex items-center text-base md:text-lg">
+                        <FileText className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+                        Attachments
+                      </CardTitle>
+                      <Button 
+                        size="sm" 
+                        onClick={() => setIsUploadingFile(true)}
+                        className="text-xs md:text-sm h-8"
+                      >
+                        Upload File
+                      </Button>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {/* Sample attachments - in production these would come from the API */}
-                      <div className="flex justify-between items-center p-3 border rounded-md">
-                        <div className="flex items-center">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="mr-2"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
+                  <CardContent className="px-3 py-2 md:p-4">
+                    {isUploadingFile && (
+                      <div className="mb-4 md:mb-6 p-2 md:p-4 border rounded-md bg-gray-50">
+                        <Label htmlFor="fileUpload" className="mb-1 md:mb-2 block text-xs md:text-sm font-medium">Upload File</Label>
+                        <Input
+                          id="fileUpload"
+                          type="file"
+                          onChange={handleFileChange}
+                          className="mb-3 md:mb-4 text-xs md:text-sm"
+                        />
+                        <div className="text-xs md:text-sm text-amber-600 mb-3 md:mb-4 flex items-center bg-amber-50 p-2 rounded-md">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 flex-shrink-0">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
                           </svg>
-                          <div>
-                            <p className="font-medium">Documentation.pdf</p>
-                            <p className="text-xs text-muted-foreground">1.2 MB • Uploaded today</p>
+                          <span>File size must be less than 9MB to ensure successful upload</span>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => {
+                              setIsUploadingFile(false);
+                              setSelectedFile(null);
+                            }}
+                            disabled={fileUploading}
+                            className="text-xs md:text-sm h-8"
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={handleFileUpload} 
+                            disabled={!selectedFile || fileUploading}
+                            className="text-xs md:text-sm h-8"
+                          >
+                            {fileUploading ? 'Uploading...' : 'Upload'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {attachmentsLoading ? (
+                      <div className="py-6 md:py-8 flex justify-center">
+                        <div className="animate-pulse flex space-x-4">
+                          <div className="flex-1 space-y-4 py-1">
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div className="space-y-2">
+                              <div className="h-4 bg-gray-200 rounded"></div>
+                              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                            </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm">Download</Button>
                       </div>
-                    </div>
+                    ) : attachments.length > 0 ? (
+                      <div className="space-y-3 md:space-y-4">
+                        {attachments.map((file) => {
+                          const getFileColor = () => {
+                            const ext = file.fileName.split('.').pop().toLowerCase();
+                            if (['pdf'].includes(ext)) return 'text-red-600';
+                            if (['doc', 'docx'].includes(ext)) return 'text-blue-600';
+                            if (['xls', 'xlsx'].includes(ext)) return 'text-green-600';
+                            if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'text-purple-600';
+                            if (['zip', 'rar'].includes(ext)) return 'text-amber-600';
+                            return 'text-gray-600';
+                          };
+                          
+                          return (
+                            <div 
+                              key={file.id} 
+                              className="p-3 md:p-4 border rounded-md flex flex-col md:flex-row justify-between items-start md:items-center gap-3"
+                            >
+                              <div className="flex items-start gap-3 w-full md:w-auto">
+                                <FileText className={`h-6 w-6 md:h-8 md:w-8 flex-shrink-0 ${getFileColor()}`} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-sm md:text-base break-all">{file.fileName}</p>
+                                  <p className="text-xs md:text-sm text-muted-foreground">
+                                    {formatFileSize(file.fileSize)} • 
+                                    Uploaded by {file.uploadedBy} • 
+                                    {new Date(file.uploadTimestamp).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 w-full md:w-auto">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="flex items-center gap-1 flex-1 md:flex-none justify-center"
+                                  onClick={() => handleDownloadFile(file.id, file.fileName)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                  <span className="hidden md:inline">Download</span>
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive" 
+                                  className="flex items-center gap-1 flex-1 md:flex-none justify-center"
+                                  onClick={() => handleDeleteAttachment(file.id)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="py-8 md:py-12 text-center">
+                        <FileText className="h-8 w-8 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
+                        <p className="text-sm md:text-base text-muted-foreground">No attachments found for this job</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-3 md:mt-4"
+                          onClick={() => setIsUploadingFile(true)}
+                        >
+                          Upload First Attachment
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

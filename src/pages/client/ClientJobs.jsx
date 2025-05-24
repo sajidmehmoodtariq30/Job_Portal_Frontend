@@ -84,9 +84,13 @@ const ClientJobs = () => {
   // New state for job details dialog
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
-  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);
-  const [newNote, setNewNote] = useState('');
+  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);  const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   
   // New job form state modeled after the admin version
   const [newJob, setNewJob] = useState({
@@ -239,8 +243,7 @@ const ClientJobs = () => {
   const handleQuoteAction = (quoteId, action) => {
     // This would integrate with ServiceM8 API to accept/reject quotes
     alert(`${action} quote ${quoteId} - would send to ServiceM8 API`);
-  };
-    // Handle view job details - updated to open dialog instead of navigating
+  };    // Handle view job details - updated to open dialog instead of navigating
   const handleViewDetails = async (job) => {
     try {
       setJobDetailsLoading(true);
@@ -262,6 +265,12 @@ const ClientJobs = () => {
       
       // Open the dialog
       setShowJobDetailsDialog(true);
+      
+      // Fetch attachments for this job
+      const jobId = job.uuid || job.id;
+      if (jobId) {
+        fetchAttachments(jobId);
+      }
     } catch (error) {
       console.error('Error fetching job details:', error);
       // Fallback to existing job data
@@ -285,7 +294,6 @@ const ClientJobs = () => {
       console.error('Error adding note:', error);
     }
   };
-
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -294,6 +302,136 @@ const ClientJobs = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+  
+  // Fetch attachments for selected job
+  const fetchAttachments = async (jobId) => {
+    if (!jobId) return;
+    
+    try {
+      setAttachmentsLoading(true);
+      const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.GET_BY_JOB(jobId));
+      
+      if (response.data && response.data.success) {
+        setAttachments(response.data.data || []);
+      } else {
+        setAttachments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+      setAttachments([]);
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  };
+    // Handle file selection with size validation
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const maxSize = 9 * 1024 * 1024; // 9MB in bytes
+      
+      if (file.size > maxSize) {
+        alert(`File is too large. Please upload a file less than 9MB. Current file size: ${formatFileSize(file.size)}`);
+        e.target.value = ''; // Clear the file input
+        setSelectedFile(null);
+      } else {
+        setSelectedFile(file);
+      }
+    }
+  };
+  
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+  
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile || !selectedJob) return;
+    
+    try {
+      setFileUploading(true);
+      
+      // Get user info for the upload
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const userName = userInfo.name || userInfo.email || 'Client';
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('userType', 'client');
+      formData.append('userName', userName);
+      
+      const response = await axios.post(
+        API_ENDPOINTS.ATTACHMENTS.UPLOAD(selectedJob.uuid || selectedJob.id),
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        // Refresh attachments list
+        await fetchAttachments(selectedJob.uuid || selectedJob.id);
+        setSelectedFile(null);
+        setIsUploadingFile(false);
+      }    } catch (error) {
+      console.error('Error uploading file:', error);
+      
+      // Check for common errors and provide specific messages
+      if (error.response) {
+        if (error.response.status === 413) {
+          alert('File is too large. Please upload a file less than 9MB.');
+        } else if (error.response.data && error.response.data.message) {
+          alert(`Upload failed: ${error.response.data.message}`);
+        } else {
+          alert(`Upload failed: ${error.response.statusText}`);
+        }
+      } else if (error.message && error.message.includes('network')) {
+        alert('Network error. Please check your connection and try again.');
+      } else {
+        alert('Failed to upload file. Please try again.');
+      }
+    } finally {
+      setFileUploading(false);
+    }
+  };
+  
+  // Handle file download
+  const handleDownloadFile = async (attachmentId, fileName) => {
+    try {
+      // Using axios to get the file with responseType blob
+      const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
+        responseType: 'blob'
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      
+      // Add to document, click and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      alert('Failed to download file. Please try again.');
+    }
   };
   
   // Handle create new job form submission - updated to match admin version more closely
@@ -785,8 +923,7 @@ const ClientJobs = () => {
                   <TabsContent value="chat" className="space-y-4">
                     <ChatRoom jobId={selectedJob.uuid || selectedJob.id} />
                   </TabsContent>
-                  
-                  <TabsContent value="attachments" className="space-y-4">
+                    <TabsContent value="attachments" className="space-y-4">
                     <Card>
                       <CardHeader>
                         <div className="flex justify-between items-center">
@@ -794,54 +931,121 @@ const ClientJobs = () => {
                             <FileText className="w-5 h-5 mr-2" />
                             Attachments
                           </CardTitle>
-                          <Button size="sm">Upload File</Button>
+                          <Button 
+                            size="sm" 
+                            onClick={() => setIsUploadingFile(true)}
+                          >
+                            Upload File
+                          </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-4">
-                          {/* Mock file attachments */}
-                          <div className="p-4 border rounded-md flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-8 w-8 text-blue-600" />
-                              <div>
-                                <p className="font-medium">Job Estimate.pdf</p>
-                                <p className="text-sm text-muted-foreground">1.2 MB • Uploaded 3 days ago</p>
+                        {isUploadingFile && (                          <div className="mb-6 p-4 border rounded-md">
+                            <Label htmlFor="fileUpload" className="mb-2 block">Upload File</Label>
+                            <Input
+                              id="fileUpload"
+                              type="file"
+                              onChange={handleFileChange}
+                              className="mb-4"
+                            />
+                            <div className="text-sm text-amber-600 mb-4 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                              </svg>
+                              File size must be less than 9MB to ensure successful upload
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant="outline" 
+                                onClick={() => {
+                                  setIsUploadingFile(false);
+                                  setSelectedFile(null);
+                                }}
+                                disabled={fileUploading}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                onClick={handleFileUpload} 
+                                disabled={!selectedFile || fileUploading}
+                              >
+                                {fileUploading ? 'Uploading...' : 'Upload'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {attachmentsLoading ? (
+                          <div className="py-8 flex justify-center">
+                            <div className="animate-pulse flex space-x-4">
+                              <div className="flex-1 space-y-4 py-1">
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                                <div className="space-y-2">
+                                  <div className="h-4 bg-gray-200 rounded"></div>
+                                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                                </div>
                               </div>
                             </div>
-                            <Button size="sm" variant="outline" className="flex items-center gap-1">
-                              <Download className="h-4 w-4" />
-                              Download
+                          </div>
+                        ) : attachments.length > 0 ? (
+                          <div className="space-y-4">
+                            {attachments.map((file) => {
+                              // Determine icon color based on file type
+                              const getFileColor = () => {
+                                const ext = file.fileName.split('.').pop().toLowerCase();
+                                if (['pdf'].includes(ext)) return 'text-red-600';
+                                if (['doc', 'docx'].includes(ext)) return 'text-blue-600';
+                                if (['xls', 'xlsx'].includes(ext)) return 'text-green-600';
+                                if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'text-purple-600';
+                                if (['zip', 'rar'].includes(ext)) return 'text-amber-600';
+                                return 'text-gray-600';
+                              };
+                              
+                              return (
+                                <div 
+                                  key={file.id} 
+                                  className="p-4 border rounded-md flex justify-between items-center"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <FileText className={`h-8 w-8 ${getFileColor()}`} />
+                                    <div>
+                                      <p className="font-medium">{file.fileName}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {formatFileSize(file.fileSize)} • 
+                                        Uploaded by {file.uploadedBy} • 
+                                        {new Date(file.uploadTimestamp).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="flex items-center gap-1"
+                                    onClick={() => handleDownloadFile(file.id, file.fileName)}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    Download
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="py-12 text-center">
+                            <FileText className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                            <p className="text-muted-foreground">No attachments found for this job</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-4"
+                              onClick={() => setIsUploadingFile(true)}
+                            >
+                              Upload First Attachment
                             </Button>
                           </div>
-                          
-                          <div className="p-4 border rounded-md flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-8 w-8 text-green-600" />
-                              <div>
-                                <p className="font-medium">Service Agreement.docx</p>
-                                <p className="text-sm text-muted-foreground">845 KB • Uploaded 3 days ago</p>
-                              </div>
-                            </div>
-                            <Button size="sm" variant="outline" className="flex items-center gap-1">
-                              <Download className="h-4 w-4" />
-                              Download
-                            </Button>
-                          </div>
-                          
-                          <div className="p-4 border rounded-md flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <FileText className="h-8 w-8 text-red-600" />
-                              <div>
-                                <p className="font-medium">Site Photos.zip</p>
-                                <p className="text-sm text-muted-foreground">4.7 MB • Uploaded 2 days ago</p>
-                              </div>
-                            </div>
-                            <Button size="sm" variant="outline" className="flex items-center gap-1">
-                              <Download className="h-4 w-4" />
-                              Download
-                            </Button>
-                          </div>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>
