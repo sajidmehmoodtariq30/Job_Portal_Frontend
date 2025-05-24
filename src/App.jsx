@@ -15,6 +15,7 @@ import AdminHome from './pages/admin/AdminHome'
 import AdminSchedule from './pages/admin/AdminSchedule'
 import AdminTeam from './pages/admin/AdminTeam'
 import ClientJobs from './pages/client/ClientJobs.jsx'
+import ClientJobDetails from './pages/client/ClientJobDetails.jsx'
 import ClientQuotes from './pages/client/ClientQuotes.jsx'
 import ClientSupport from './pages/client/ClientSupport.jsx'
 import ClientSettings from './pages/client/ClientSettings.jsx'
@@ -61,11 +62,10 @@ function App() {
             {/* Legacy routes to maintain compatibility */}
             <Route path="schedule" element={<AdminSchedule />} />
             <Route path="team" element={<AdminTeam />} />
-          </Route>
-
-          <Route path="/client" element={<ClientLayout />}>
+          </Route>          <Route path="/client" element={<ClientLayout />}>
             <Route index element={<ClientHome />} />
             <Route path="jobs" element={<ClientJobs />} />
+            <Route path="jobs/:jobId" element={<ClientJobDetails />} />
             <Route path="quotes" element={<ClientQuotes />} />
             <Route path="support" element={<ClientSupport />} />
             <Route path="settings" element={<ClientSettings />} />

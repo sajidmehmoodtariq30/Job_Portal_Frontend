@@ -17,16 +17,24 @@ export const API_ENDPOINTS = {
   AUTH: {
     SERVICE_M8: buildApiEndpoint('api/auth/servicem8'),
     CLIENT_LOGIN: (email) => buildApiEndpoint(`fetch/clientLogin/${email}`),
-  },
-  // Jobs endpoints
+  },  // Jobs endpoints
   JOBS: {
     FETCH_ALL: buildApiEndpoint('fetch/jobs'),
+    FETCH_BY_ID: buildApiEndpoint('fetch/job'),
     CREATE: buildApiEndpoint('fetch/jobs/create'),
   },
   // Clients endpoints
   CLIENTS: {
     FETCH_ALL: buildApiEndpoint('fetch/clients'),
     CREATE: buildApiEndpoint('fetch/clients'),
+  },
+  // Chat endpoints
+  CHAT: {
+    GET_MESSAGES: (jobId) => buildApiEndpoint(`api/chat/messages/${jobId}`),
+    SEND_MESSAGE: buildApiEndpoint('api/chat/messages'),
+    MARK_READ: buildApiEndpoint('api/chat/messages/read'),
+    GET_UNREAD: (jobId, userType) => buildApiEndpoint(`api/chat/unread/${jobId}/${userType}`),
+    GET_UNREAD_JOBS: (userType) => buildApiEndpoint(`api/chat/unread-jobs/${userType}`),
   },
 };
 

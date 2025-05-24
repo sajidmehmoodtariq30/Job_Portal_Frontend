@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
 import { Textarea } from "@/components/UI/textarea"
+import { MessageSquare } from 'lucide-react'
 import { 
   Card,
   CardContent, 
@@ -37,6 +38,7 @@ import { Label } from "@/components/UI/label"
 import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS } from '@/lib/apiConfig';
+import AdminChatRoom from "@/components/UI/admin/AdminChatRoom";
 
 // Helper to determine page size
 const PAGE_SIZE = 10;
@@ -683,100 +685,162 @@ const AdminJobs = () => {
             </Button>
           </div>
         </CardContent>
-      </Card>
-
-      {selectedJob && (
+      </Card>      {selectedJob && (
         <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
-          <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto max-w-4xl">
             <DialogHeader className="border-b pb-4">
               <DialogTitle className="text-xl">Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
               <DialogDescription>
                 Detailed information about the selected job
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-6">
-              <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
-                <div className="space-y-2">
-                  <Label className="font-bold text-sm text-gray-600">Job ID</Label>
-                  <p className="text-sm font-medium">{selectedJob.uuid}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold text-sm text-gray-600">Generated ID</Label>
-                  <p className="text-sm font-medium">{selectedJob.generated_job_id}</p>
-                </div>
-              </div>
+            
+            <Tabs defaultValue="details" className="mt-4">
+              <TabsList>
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="chat" className="relative">
+                  <div className="flex items-center">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Chat
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger value="attachments">Attachments</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="p-0 mt-6">
+                <div className="grid gap-6">
+                  <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
+                    <div className="space-y-2">
+                      <Label className="font-bold text-sm text-gray-600">Job ID</Label>
+                      <p className="text-sm font-medium">{selectedJob.uuid}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-bold text-sm text-gray-600">Generated ID</Label>
+                      <p className="text-sm font-medium">{selectedJob.generated_job_id}</p>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="font-bold">Job Description</Label>
-                <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
-              </div>
+                  <div className="space-y-2">
+                    <Label className="font-bold">Job Description</Label>
+                    <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="font-bold">Status</Label>
-                  <span className={`px-2 py-1 rounded text-xs inline-block ${
-                    selectedJob.status === 'Quote' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : selectedJob.status === 'Work Order' 
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : selectedJob.status === 'In Progress'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-green-100 text-green-800'
-                  }`}>
-                    {selectedJob.status}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold">Active</Label>
-                  <p className="text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="font-bold">Status</Label>
+                      <span className={`px-2 py-1 rounded text-xs inline-block ${
+                        selectedJob.status === 'Quote' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : selectedJob.status === 'Work Order' 
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : selectedJob.status === 'In Progress'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-green-100 text-green-800'
+                      }`}>
+                        {selectedJob.status}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-bold">Active</Label>
+                      <p className="text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="font-bold">Service Address</Label>
-                <p className="text-sm">{selectedJob.job_address}</p>
-              </div>
+                  <div className="space-y-2">
+                    <Label className="font-bold">Service Address</Label>
+                    <p className="text-sm">{selectedJob.job_address}</p>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="font-bold">Created Date</Label>
-                  <p className="text-sm">{selectedJob.date}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold">Edit Date</Label>
-                  <p className="text-sm">{selectedJob.edit_date}</p>
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="font-bold">Created Date</Label>
+                      <p className="text-sm">{selectedJob.date}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-bold">Edit Date</Label>
+                      <p className="text-sm">{selectedJob.edit_date}</p>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="font-bold">Location Details</Label>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <p><span className="font-semibold">Street:</span> {selectedJob.geo_number} {selectedJob.geo_street}</p>
-                  <p><span className="font-semibold">City:</span> {selectedJob.geo_city}</p>
-                  <p><span className="font-semibold">State:</span> {selectedJob.geo_state}</p>
-                  <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode}</p>
-                  <p><span className="font-semibold">Country:</span> {selectedJob.geo_country}</p>
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label className="font-bold">Location Details</Label>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number} {selectedJob.geo_street}</p>
+                      <p><span className="font-semibold">City:</span> {selectedJob.geo_city}</p>
+                      <p><span className="font-semibold">State:</span> {selectedJob.geo_state}</p>
+                      <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode}</p>
+                      <p><span className="font-semibold">Country:</span> {selectedJob.geo_country}</p>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="font-bold">Payment Details</Label>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
-                  <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
-                  <p><span className="font-semibold">Date:</span> {selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
-                  <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label className="font-bold">Payment Details</Label>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
+                      <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
+                      <p><span className="font-semibold">Date:</span> {selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                      <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                    </div>
+                  </div>
 
-              {selectedJob.purchase_order_number && (
-                <div className="space-y-2">
-                  <Label className="font-bold">Purchase Order Number</Label>
-                  <p className="text-sm">{selectedJob.purchase_order_number}</p>
+                  {selectedJob.purchase_order_number && (
+                    <div className="space-y-2">
+                      <Label className="font-bold">Purchase Order Number</Label>
+                      <p className="text-sm">{selectedJob.purchase_order_number}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <DialogFooter className="border-t pt-4">
+              </TabsContent>
+              
+              <TabsContent value="chat" className="p-0 mt-6">
+                <AdminChatRoom jobId={selectedJob.uuid || selectedJob.id} />
+              </TabsContent>
+              
+              <TabsContent value="attachments" className="p-0 mt-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>Attachments</CardTitle>
+                      <Button size="sm">Upload File</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {/* Sample attachments - in production these would come from the API */}
+                      <div className="flex justify-between items-center p-3 border rounded-md">
+                        <div className="flex items-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-2"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                          </svg>
+                          <div>
+                            <p className="font-medium">Documentation.pdf</p>
+                            <p className="text-xs text-muted-foreground">1.2 MB • Uploaded today</p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm">Download</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+            
+            <DialogFooter className="border-t pt-4 mt-4">
               <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
             </DialogFooter>
           </DialogContent>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Filter, 
   Search,
@@ -7,6 +8,14 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Calendar,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  FileText,
+  Download,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
@@ -41,7 +50,9 @@ import {
 } from "@/components/UI/card";
 import { Textarea } from "@/components/UI/textarea";
 import { Label } from "@/components/UI/label";
+import { Badge } from "@/components/UI/badge";
 import JobCard from "@/components/UI/client/JobCard";
+import ChatRoom from "@/components/UI/client/ChatRoom";
 import { useJobContext } from '@/components/JobContext';
 import axios from 'axios';
 import API_ENDPOINTS from '@/lib/apiConfig';
@@ -50,6 +61,8 @@ import API_ENDPOINTS from '@/lib/apiConfig';
 const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
+  const navigate = useNavigate();
+  
   // Use the JobContext to access jobs data and methods
   const {
     jobs,
@@ -60,15 +73,20 @@ const ClientJobs = () => {
     activeTab,
     setActiveTab
   } = useJobContext();
-
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [confirmRefresh, setConfirmRefresh] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
   const [clients, setClients] = useState([]);
+  
+  // New state for job details dialog
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
+  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
   
   // New job form state modeled after the admin version
   const [newJob, setNewJob] = useState({
@@ -222,10 +240,60 @@ const ClientJobs = () => {
     // This would integrate with ServiceM8 API to accept/reject quotes
     alert(`${action} quote ${quoteId} - would send to ServiceM8 API`);
   };
-  
-  // Handle view job details
-  const handleViewDetails = (job) => {
-    setSelectedJob(job);
+    // Handle view job details - updated to open dialog instead of navigating
+  const handleViewDetails = async (job) => {
+    try {
+      setJobDetailsLoading(true);
+      setSelectedJob(null); // Reset selected job
+      
+      // Fetch full job details if we only have partial data
+      if (!job.job_description && job.uuid) {
+        const response = await axios.get(`${API_ENDPOINTS.JOBS.FETCH_BY_ID}/${job.uuid}`);
+        if (response.data && response.data.data) {
+          setSelectedJob(response.data.data);
+        } else if (response.data) {
+          setSelectedJob(response.data);
+        } else {
+          setSelectedJob(job); // Fallback to the job we already have
+        }
+      } else {
+        setSelectedJob(job);
+      }
+      
+      // Open the dialog
+      setShowJobDetailsDialog(true);
+    } catch (error) {
+      console.error('Error fetching job details:', error);
+      // Fallback to existing job data
+      setSelectedJob(job);
+      setShowJobDetailsDialog(true);
+    } finally {
+      setJobDetailsLoading(false);
+    }
+  };
+
+  // Handle adding note to job
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+
+    try {
+      // In a real implementation, this would call an API to add the note
+      alert('Adding note functionality would be implemented here');
+      setNewNote('');
+      setIsAddingNote(false);
+    } catch (error) {
+      console.error('Error adding note:', error);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
   
   // Handle create new job form submission - updated to match admin version more closely
@@ -286,16 +354,14 @@ const ClientJobs = () => {
       console.error('Error creating job:', error);
       alert(`Error creating job: ${error.response?.data?.message || error.message}`);
     }
-  };
-
-  // Convert job data for JobCard component
+  };  // Convert job data for JobCard component
   const prepareJobForCard = (job) => {
     return {
       id: job.generated_job_id || job.uuid,
       uuid: job.uuid,
       title: job.job_description || job.description || 'No description',
       status: job.status || 'Unknown',
-      date: job.date || 'Unknown date',
+      date: job.date || 'Unknown',
       dueDate: job.work_order_date || job.date,
       completedDate: job.completion_date,
       type: job.status === 'Quote' ? 'Quote' : 'Work Order',
@@ -503,13 +569,13 @@ const ClientJobs = () => {
               </div>
             </div>
           ) : filteredJobs.length > 0 ? (
-            <div>
-              <div className="space-y-4">
+            <div>              <div className="space-y-4">
                 {displayedJobs.map(job => (
                   <JobCard 
                     key={job.uuid} 
                     job={prepareJobForCard(job)} 
                     onQuoteAction={handleQuoteAction}
+                    onViewDetails={handleViewDetails}
                     statusColor={getStatusColor}
                   />
                 ))}
@@ -572,78 +638,233 @@ const ClientJobs = () => {
       </Dialog>
 
       {/* Job Details Dialog */}
-      {selectedJob && (
-        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
-          <DialogContent className="max-h-[80vh] overflow-y-auto">
-            <DialogHeader className="border-b pb-4">
-              <DialogTitle className="text-xl">Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}</DialogTitle>
-              <DialogDescription>
-                Detailed information about your service request
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-6 py-6">
-              <div className="grid grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
-                <div className="space-y-2">
-                  <Label className="font-bold text-sm text-gray-600">Job ID</Label>
-                  <p className="text-sm font-medium">{selectedJob.uuid}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold text-sm text-gray-600">Generated ID</Label>
-                  <p className="text-sm font-medium">{selectedJob.generated_job_id}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="font-bold">Job Description</Label>
-                <p className="text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="font-bold">Status</Label>
-                  <span className={`px-2 py-1 rounded text-xs inline-block ${
-                    selectedJob.status === 'Quote' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : selectedJob.status === 'Work Order' 
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : selectedJob.status === 'In Progress'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-green-100 text-green-800'
-                  }`}>
-                    {selectedJob.status}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-bold">Created Date</Label>
-                  <p className="text-sm">{selectedJob.date}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="font-bold">Service Address</Label>
-                <p className="text-sm">{selectedJob.job_address}</p>
-              </div>
-
-              {selectedJob.work_done_description && (
-                <div className="space-y-2">
-                  <Label className="font-bold">Work Notes</Label>
-                  <p className="text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
-                </div>
-              )}
-
-              {selectedJob.completion_date && (
-                <div className="space-y-2">
-                  <Label className="font-bold">Completion Date</Label>
-                  <p className="text-sm">{selectedJob.completion_date}</p>
-                </div>
-              )}
+      <Dialog open={showJobDetailsDialog} onOpenChange={setShowJobDetailsDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {jobDetailsLoading || !selectedJob ? (
+            <div className="flex items-center justify-center h-64">
+              <p>Loading job details...</p>
             </div>
-            <DialogFooter className="border-t pt-4">
-              <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+          ) : (
+            <>
+              <DialogHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <DialogTitle className="text-2xl font-bold">
+                      {selectedJob.generated_job_id || selectedJob.uuid || selectedJob.id}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {selectedJob.job_description || selectedJob.description || 'No description available'}
+                    </DialogDescription>
+                  </div>
+                  <Badge className={getStatusColor(selectedJob.status)}>
+                    {selectedJob.status}
+                  </Badge>
+                </div>
+              </DialogHeader>
+                <div className="py-4">
+                <Tabs defaultValue="details" className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="details">Job Details</TabsTrigger>
+                    <TabsTrigger value="chat">Chat Room</TabsTrigger>
+                    <TabsTrigger value="attachments">Attachments</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="details" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Job Information */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center">
+                            <FileText className="w-5 h-5 mr-2" />
+                            Job Information
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <Label className="text-sm font-medium text-gray-500">Job ID</Label>
+                            <p>{selectedJob.generated_job_id || selectedJob.uuid || selectedJob.id}</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-500">Description</Label>
+                            <p>{selectedJob.job_description || selectedJob.description || 'No description available'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-500">Status</Label>
+                            <Badge className={getStatusColor(selectedJob.status)}>{selectedJob.status}</Badge>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-500">Created Date</Label>
+                            <p className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-2" />
+                              {formatDate(selectedJob.date)}
+                            </p>
+                          </div>
+                          {selectedJob.work_order_date && (
+                            <div>
+                              <Label className="text-sm font-medium text-gray-500">Scheduled Date</Label>
+                              <p className="flex items-center">
+                                <Calendar className="w-4 h-4 mr-2" />
+                                {formatDate(selectedJob.work_order_date)}
+                              </p>
+                            </div>
+                          )}
+                          {selectedJob.completion_date && (
+                            <div>
+                              <Label className="text-sm font-medium text-gray-500">Completed Date</Label>
+                              <p className="flex items-center">
+                                <Calendar className="w-4 h-4 mr-2" />
+                                {formatDate(selectedJob.completion_date)}
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Location & Contact */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center">
+                            <MapPin className="w-5 h-5 mr-2" />
+                            Location & Contact
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <Label className="text-sm font-medium text-gray-500">Job Address</Label>
+                            <p className="flex items-start">
+                              <MapPin className="w-4 h-4 mr-2 mt-1 flex-shrink-0" />
+                              {selectedJob.job_address || selectedJob.location || 'No address specified'}
+                            </p>
+                          </div>
+                          {selectedJob.contact_name && (
+                            <div>
+                              <Label className="text-sm font-medium text-gray-500">Contact Name</Label>
+                              <p className="flex items-center">
+                                <User className="w-4 h-4 mr-2" />
+                                {selectedJob.contact_name}
+                              </p>
+                            </div>
+                          )}
+                          {selectedJob.contact_email && (
+                            <div>
+                              <Label className="text-sm font-medium text-gray-500">Contact Email</Label>
+                              <p className="flex items-center">
+                                <Mail className="w-4 h-4 mr-2" />
+                                <a href={`mailto:${selectedJob.contact_email}`} className="text-blue-600 hover:underline">
+                                  {selectedJob.contact_email}
+                                </a>
+                              </p>
+                            </div>
+                          )}
+                          {selectedJob.contact_phone && (
+                            <div>
+                              <Label className="text-sm font-medium text-gray-500">Contact Phone</Label>
+                              <p className="flex items-center">
+                                <Phone className="w-4 h-4 mr-2" />
+                                <a href={`tel:${selectedJob.contact_phone}`} className="text-blue-600 hover:underline">
+                                  {selectedJob.contact_phone}
+                                </a>
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Work Description */}
+                    {selectedJob.work_done_description && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Work Description</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="whitespace-pre-wrap">{selectedJob.work_done_description}</p>
+                        </CardContent>
+                      </Card>
+                    )}                  </TabsContent>
+                  <TabsContent value="chat" className="space-y-4">
+                    <ChatRoom jobId={selectedJob.uuid || selectedJob.id} />
+                  </TabsContent>
+                  
+                  <TabsContent value="attachments" className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="flex items-center">
+                            <FileText className="w-5 h-5 mr-2" />
+                            Attachments
+                          </CardTitle>
+                          <Button size="sm">Upload File</Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {/* Mock file attachments */}
+                          <div className="p-4 border rounded-md flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-8 w-8 text-blue-600" />
+                              <div>
+                                <p className="font-medium">Job Estimate.pdf</p>
+                                <p className="text-sm text-muted-foreground">1.2 MB • Uploaded 3 days ago</p>
+                              </div>
+                            </div>
+                            <Button size="sm" variant="outline" className="flex items-center gap-1">
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                          </div>
+                          
+                          <div className="p-4 border rounded-md flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-8 w-8 text-green-600" />
+                              <div>
+                                <p className="font-medium">Service Agreement.docx</p>
+                                <p className="text-sm text-muted-foreground">845 KB • Uploaded 3 days ago</p>
+                              </div>
+                            </div>
+                            <Button size="sm" variant="outline" className="flex items-center gap-1">
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                          </div>
+                          
+                          <div className="p-4 border rounded-md flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-8 w-8 text-red-600" />
+                              <div>
+                                <p className="font-medium">Site Photos.zip</p>
+                                <p className="text-sm text-muted-foreground">4.7 MB • Uploaded 2 days ago</p>
+                              </div>
+                            </div>
+                            <Button size="sm" variant="outline" className="flex items-center gap-1">
+                              <Download className="h-4 w-4" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>              <DialogFooter>
+                {selectedJob.status === 'Quote' && (
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Accept')}>
+                      Accept Quote
+                    </Button>
+                    <Button variant="outline" onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Reject')}>
+                      Reject Quote
+                    </Button>
+                  </div>
+                )}
+                <Button variant="outline" onClick={() => setShowJobDetailsDialog(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

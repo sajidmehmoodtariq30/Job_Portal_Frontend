@@ -33,6 +33,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/UI/select"
+import { MessageSquare } from 'lucide-react'
+import AdminChatRoom from "@/components/UI/admin/AdminChatRoom"
 
 // Mock job data - in production would fetch from ServiceM8 API
 const mockJobDetails = {
@@ -358,12 +360,14 @@ const AdminJobDetails = () => {
                         )}
                     </CardContent>
                 </Card>
-            </div>
-
-            <Tabs defaultValue="notes">
+            </div>            <Tabs defaultValue="notes">
                 <TabsList>
                     <TabsTrigger value="notes">Notes</TabsTrigger>
-                    <TabsTrigger value="attachments">Attachments</TabsTrigger>
+                    <TabsTrigger value="attachments">Attachments</TabsTrigger>                    <TabsTrigger value="chat" className="relative">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Chat
+                        {/* Badge for unread messages would be added here in production */}
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="notes" className="p-0 mt-6">
@@ -476,7 +480,9 @@ const AdminJobDetails = () => {
                                 </div>
                             )}
                         </CardContent>
-                    </Card>
+                    </Card>                </TabsContent>
+                  <TabsContent value="chat" className="p-0 mt-6">
+                    <AdminChatRoom jobId={job.id || job.uuid} />
                 </TabsContent>
             </Tabs>
         </div>

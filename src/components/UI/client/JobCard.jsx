@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertCircle, Calendar, FileText } from "lucide-react";
 import { Button } from "../button";
 
-const JobCard = ({ job, onQuoteAction, statusColor }) => {
+const JobCard = ({ job, onQuoteAction, statusColor, onViewDetails }) => {
     return (
         <Card>
             <CardHeader className="pb-2">
@@ -46,8 +46,15 @@ const JobCard = ({ job, onQuoteAction, statusColor }) => {
                         </div>
                     </div>
                 </div>
-            </CardContent>
-            <CardFooter className="flex justify-end">
+            </CardContent>            
+            <CardFooter className="flex justify-between">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewDetails(job)}
+                >
+                    View Details
+                </Button>
                 {job.type === 'Quote' && (
                     <div className="flex gap-2">
                         <Button
