@@ -430,11 +430,9 @@ const ClientJobs = () => {
   const handleStatusUpdate = async () => {
     if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
       return;
-    }
-
-    try {      setIsUpdatingStatus(true);
+    }    try {      setIsUpdatingStatus(true);
         const response = await axios.put(
-        `${API_URL}/fetch/jobs/${selectedJob.uuid}/status`,
+        `${API_BASE_URL}/fetch/jobs/${selectedJob.uuid}/status`,
         { status: selectedStatus }
       );
 
