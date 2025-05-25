@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
     CLIENT_LOGIN: (email) => buildApiEndpoint(`fetch/clientLogin/${email}`),
   },  // Jobs endpoints
   JOBS: {
+    BASE: buildApiEndpoint('api/jobs'),
     FETCH_ALL: buildApiEndpoint('fetch/jobs'),
     FETCH_BY_CLIENT: (clientUuid) => buildApiEndpoint(`fetch/jobs/client/${clientUuid}`),
     FETCH_BY_ID: buildApiEndpoint('fetch/job'),

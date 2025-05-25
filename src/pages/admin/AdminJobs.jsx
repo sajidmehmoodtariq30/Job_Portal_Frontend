@@ -37,7 +37,7 @@ import {
 import { Label } from "@/components/UI/label"
 import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
-import { API_ENDPOINTS } from '@/lib/apiConfig';
+import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom";
 
 // Helper to determine page size
@@ -76,8 +76,12 @@ const AdminJobs = () => {
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [fileUploading, setFileUploading] = useState(false);
-  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  
+  // New state for job status update
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState('');
+  
   const {
     jobs,
     totalJobs,
@@ -87,12 +91,18 @@ const AdminJobs = () => {
     activeTab,
     setActiveTab
   } = useJobContext();
-
   // Fetch jobs on mount and when tab changes
   useEffect(() => {
     fetchJobs(1, activeTab);
     fetchClients(); // Fetch clients for the dropdown
   }, [activeTab]);
+
+  // Set selected status when job changes
+  useEffect(() => {
+    if (selectedJob) {
+      setSelectedStatus(selectedJob.status);
+    }
+  }, [selectedJob]);
 
   // Fetch clients for the dropdown
   const fetchClients = async () => {
@@ -292,7 +302,6 @@ const AdminJobs = () => {
   const handleViewJob = (jobId) => {
     navigate(`/admin/jobs/${jobId}`)
   }
-
   const handleViewDetails = (job) => {
     setSelectedJob(job);
     
@@ -300,6 +309,37 @@ const AdminJobs = () => {
     const jobId = job.uuid || job.id;
     if (jobId) {
       fetchAttachments(jobId);
+    }
+  };
+  // Handle job status update
+  const handleStatusUpdate = async () => {
+    if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
+      return;
+    }    try {      setIsUpdatingStatus(true);
+        const response = await axios.put(
+        `${API_URL}/fetch/jobs/${selectedJob.uuid}/status`,
+        { 
+          status: selectedStatus,
+          userId: 'admin-user'
+        }
+      );
+
+      if (response.data.success) {
+        // Update the job in the local state
+        setSelectedJob(prev => ({ ...prev, status: selectedStatus }));
+        
+        // Refresh the jobs list to reflect the change
+        await fetchJobs(1, activeTab, true);
+        
+        alert('Job status updated successfully!');
+      } else {
+        alert('Failed to update job status: ' + (response.data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating job status:', error);
+      alert('Error updating job status: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -885,9 +925,7 @@ const AdminJobs = () => {
                     <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
                       <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+                  </div>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
                     <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                       <Label className="font-bold text-xs md:text-sm">Status</Label>
                       <span className={`px-2 py-1 rounded text-xs inline-block ${
@@ -906,7 +944,43 @@ const AdminJobs = () => {
                       <Label className="font-bold text-xs md:text-sm">Active</Label>
                       <p className="text-xs md:text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
                     </div>
-                  </div>                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                  </div>
+
+                  {/* Job Status Update Section */}
+                  <div className="space-y-3 border border-gray-200 rounded-lg p-3 md:p-4 bg-blue-50">
+                    <Label className="font-bold text-sm md:text-base text-gray-800">Update Job Status</Label>
+                    <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                      <div className="flex-1 space-y-2">
+                        <Label className="text-xs md:text-sm text-gray-600">Select New Status</Label>
+                        <Select 
+                          value={selectedStatus || selectedJob.status} 
+                          onValueChange={setSelectedStatus}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Quote">Quote</SelectItem>
+                            <SelectItem value="Work Order">Work Order</SelectItem>
+                            <SelectItem value="Unsuccessful">Unsuccessful</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button 
+                        onClick={handleStatusUpdate}
+                        disabled={isUpdatingStatus || !selectedStatus || selectedStatus === selectedJob.status}
+                        className="w-full md:w-auto"
+                      >
+                        {isUpdatingStatus ? 'Updating...' : 'Save Changes'}
+                      </Button>
+                    </div>
+                    {selectedStatus && selectedStatus !== selectedJob.status && (
+                      <p className="text-xs text-gray-600">
+                        Status will be updated from <strong>{selectedJob.status}</strong> to <strong>{selectedStatus}</strong>
+                      </p>
+                    )}
+                  </div><div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                     <Label className="font-bold text-xs md:text-sm">Service Address</Label>
                     <p className="text-xs md:text-sm break-words">{selectedJob.job_address || 'N/A'}</p>
                   </div>
