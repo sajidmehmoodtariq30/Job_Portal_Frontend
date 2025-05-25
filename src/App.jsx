@@ -9,6 +9,7 @@ import AdminJobs from '@/pages/admin/AdminJobs'
 import AdminJobDetails from '@/pages/admin/AdminJobDetails'
 import AdminClientDetails from '@/pages/admin/AdminClientDetails.jsx'
 import AdminClients from '@/pages/admin/AdminClients'
+import AdminCategories from '@/pages/admin/AdminCategories'
 import Home from './pages/Home'
 import ClientHome from './pages/client/ClientHome'
 import AdminHome from './pages/admin/AdminHome'
@@ -47,10 +48,10 @@ function App() {
             <ProtectedRoute>
               <AdminLayout />
             </ProtectedRoute>
-          }>
-            <Route index element={<AdminHome />} />
+          }>            <Route index element={<AdminHome />} />
             <Route path="jobs" element={<AdminJobs />} />
             <Route path="jobs/:jobId" element={<AdminJobDetails />} />
+            <Route path="categories" element={<AdminCategories />} />
             <Route path="quotes" element={<AdminQuotes />} />
             <Route path="clients" element={<AdminClients />} />
             <Route path="clients/:clientId" element={<AdminClientDetails />} />

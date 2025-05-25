@@ -39,6 +39,7 @@ import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom";
+import JobFilters from "@/components/UI/admin/JobFilters";
 
 // Helper to determine page size
 const PAGE_SIZE = 10;
@@ -47,7 +48,18 @@ const AdminJobs = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [clients, setClients] = useState([]);  const [newJob, setNewJob] = useState({
+  const [clients, setClients] = useState([]);
+  const [categories, setCategories] = useState([]);
+  
+  // Role-based filtering state
+  const [userRole, setUserRole] = useState('');
+  const [activeFilters, setActiveFilters] = useState({
+    search: '',
+    status: '',
+    category_uuid: '',
+    type: ''
+  });
+  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);const [newJob, setNewJob] = useState({
     created_by_staff_uuid: '', 
     date: new Date().toISOString().split('T')[0], 
     company_uuid: '',
@@ -84,21 +96,44 @@ const AdminJobs = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
   const [deletingFiles, setDeletingFiles] = useState(new Set());
-  
-  const {
+    const {
     jobs,
     totalJobs,
     loading,
     fetchJobs,
+    fetchJobsByRole,
+    fetchCategoriesByRole,
     resetJobs,
     activeTab,
     setActiveTab
-  } = useJobContext();
-  // Fetch jobs on mount and when tab changes
+  } = useJobContext();  // Fetch jobs on mount and when tab changes
   useEffect(() => {
-    fetchJobs(1, activeTab);
-    fetchClients(); // Fetch clients for the dropdown
+    // Get user role from localStorage
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const role = userInfo.role || 'Administrator';
+    setUserRole(role);
+    
+    // Use role-based filtering for non-admin roles
+    if (role !== 'Administrator' && role !== 'Office Manager') {
+      setUseRoleBasedFiltering(true);
+      fetchJobsByRole(role, { ...activeFilters, status: activeTab !== 'all' ? activeTab : '' });
+    } else {
+      fetchJobs(1, activeTab);
+    }
+      fetchClients(); // Fetch clients for the dropdown
+    fetchCategories(); // Fetch categories for the dropdown
   }, [activeTab]);
+
+  // Fetch jobs when filters change (for role-based filtering)
+  useEffect(() => {
+    if (useRoleBasedFiltering && userRole) {
+      const filters = { ...activeFilters };
+      if (activeTab !== 'all') {
+        filters.status = activeTab;
+      }
+      fetchJobsByRole(userRole, filters);
+    }
+  }, [activeFilters, useRoleBasedFiltering, userRole]);
 
   // Set selected status when job changes
   useEffect(() => {
@@ -106,7 +141,6 @@ const AdminJobs = () => {
       setSelectedStatus(selectedJob.status);
     }
   }, [selectedJob]);
-
   // Fetch clients for the dropdown
   const fetchClients = async () => {
     try {
@@ -126,17 +160,60 @@ const AdminJobs = () => {
     }
   };
 
+  // Fetch categories for the dropdown
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES.FETCH_ALL);
+      console.log('Categories data response:', response.data);
+      if (response.data && response.data.success) {
+        setCategories(response.data.data || []);
+      } else if (Array.isArray(response.data)) {
+        setCategories(response.data);
+      } else {
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setCategories([]);
+    }
+  };
   // Reset jobs when tab changes
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     resetJobs();
-    fetchJobs(1, tab);
+    
+    if (useRoleBasedFiltering && userRole) {
+      const filters = { ...activeFilters };
+      if (tab !== 'all') {
+        filters.status = tab;
+      } else {
+        delete filters.status;
+      }
+      fetchJobsByRole(userRole, filters);
+    } else {
+      fetchJobs(1, tab);
+    }
+    
     // Reset search term and visible jobs count when changing tabs for better performance
     setSearchTerm('');
+    setVisibleJobs(10);  };
+  
+  // Handle filter changes from JobFilters component
+  const handleFiltersChange = (newFilters) => {
+    setActiveFilters(newFilters);
+    // Reset visible jobs when filters change
     setVisibleJobs(10);
   };
-  // Filter jobs based on search term
-  const filteredJobs = jobs.filter(job => {
+
+  // Handle search term changes (for backward compatibility with basic search)
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    if (useRoleBasedFiltering) {
+      setActiveFilters(prev => ({ ...prev, search: value }));
+    }
+  };
+    // Filter jobs based on search term (for legacy admin search only)
+  const filteredJobs = useRoleBasedFiltering ? jobs : jobs.filter(job => {
     if (!searchTerm.trim()) return true;
     const searchLower = searchTerm.toLowerCase().trim();
     
@@ -162,17 +239,22 @@ const AdminJobs = () => {
   const handleRefresh = async () => {
     // Show confirmation dialog first
     setConfirmRefresh(true);
-  };
-  const confirmRefreshData = async () => {
+  };  const confirmRefreshData = async () => {
     try {
       setIsRefreshing(true);
       console.log("Manually refreshing job data...");
       
       // Reset any search term to show all jobs
       setSearchTerm('');
+      setActiveFilters({ search: '', status: '', category_uuid: '', type: '' });
       
       // Force reload with timestamp to prevent caching
-      await fetchJobs(1, activeTab, true);
+      if (useRoleBasedFiltering && userRole) {
+        const filters = activeTab !== 'all' ? { status: activeTab } : {};
+        await fetchJobsByRole(userRole, filters, true);
+      } else {
+        await fetchJobs(1, activeTab, true);
+      }
       
       // Reset visible jobs to default
       setVisibleJobs(10);
@@ -233,8 +315,7 @@ const AdminJobs = () => {
     }
     
     try {
-        setIsCreatingJob(true);
-        // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
+        setIsCreatingJob(true);        // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
         const payload = {
             active: 1,
             created_by_staff_uuid: newJob.created_by_staff_uuid, // This is the client UUID
@@ -255,8 +336,10 @@ const AdminJobs = () => {
             work_order_date: newJob.work_order_date,
             completion_date: newJob.completion_date
         };
-        
-        // Exclude category_uuid from payload as it's optional and causing errors
+          // Add category_uuid if selected
+        if (newJob.category_uuid && newJob.category_uuid !== 'none') {
+            payload.category_uuid = newJob.category_uuid;
+        }
         
         console.log('Creating job with payload:', payload);
         const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
@@ -604,13 +687,23 @@ const AdminJobs = () => {
                     onChange={handleInputChange}
                   />
                 </div>                <div className="grid gap-2">
-                  <Label htmlFor="category_uuid">Category UUID</Label>
-                  <Input
-                    id="category_uuid"
-                    name="category_uuid"
+                  <Label htmlFor="category_uuid">Category</Label>
+                  <Select
                     value={newJob.category_uuid}
-                    onChange={handleInputChange}
-                  />
+                    onValueChange={(value) => handleSelectChange('category_uuid', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Category</SelectItem>
+                      {categories.map(category => (
+                        <SelectItem key={category.uuid} value={category.uuid}>
+                          {category.name} ({category.category_type || 'General'})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -745,29 +838,41 @@ const AdminJobs = () => {
           </DialogContent>
         </Dialog>
       </div>
-      
-      <Card>
+        <Card>
         <CardHeader>
           <CardTitle>Jobs</CardTitle>
           <CardDescription>View and manage all jobs in the system</CardDescription>
           <div className="flex flex-col space-y-4 mt-2">
-            <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="all">All Jobs</TabsTrigger>
-                <TabsTrigger value="Quote">Quotes</TabsTrigger>
-                <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
-                <TabsTrigger value="In Progress">In Progress</TabsTrigger>
-                <TabsTrigger value="Completed">Completed</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="w-full">
-              <Input
-                className="w-full"
-                placeholder="Search jobs by ID, description, or generated ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+            {useRoleBasedFiltering ? (
+              // Use advanced JobFilters for role-based filtering
+              <JobFilters
+                userRole={userRole}
+                onFiltersChange={handleFiltersChange}
+                activeFilters={activeFilters}
+                fetchCategoriesByRole={fetchCategoriesByRole}
               />
-            </div>
+            ) : (
+              // Use simple tabs and search for Administrators
+              <>
+                <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="all">All Jobs</TabsTrigger>
+                    <TabsTrigger value="Quote">Quotes</TabsTrigger>
+                    <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
+                    <TabsTrigger value="In Progress">In Progress</TabsTrigger>
+                    <TabsTrigger value="Completed">Completed</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="w-full">
+                  <Input
+                    className="w-full"
+                    placeholder="Search jobs by ID, description, or address..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -776,19 +881,28 @@ const AdminJobs = () => {
                 <tr className="border-b">
                   <th className="py-3 text-left">Job ID</th>
                   <th className="py-3 text-left">Description</th>
+                  <th className="py-3 text-left">Category</th>
                   <th className="py-3 text-left">Status</th>
                   <th className="py-3 text-left">Created</th>
                   <th className="py-3 text-left">Actions</th>
                 </tr>
-              </thead>
-              <tbody>
+              </thead>              <tbody>
                 {loading ? (
-                  <tr><td colSpan="5" className="py-4 text-center">Loading...</td></tr>
+                  <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
                 ) : filteredJobs.length > 0 ? (
                   displayedJobs.map((job) => (
                     <tr key={job.uuid} className="border-b">
                       <td className="py-3">{job.uuid ? job.uuid.slice(-8) : '...'}</td>
                       <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
+                      <td className="py-3">
+                        {job.category_name ? (
+                          <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                            {job.category_name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">No Category</span>
+                        )}
+                      </td>
                       <td className="py-3">
                         <span className={`px-2 py-1 rounded text-xs ${
                           job.status === 'Quote' 
@@ -1128,10 +1242,29 @@ const AdminJobs = () => {
             
             <DialogFooter className="border-t pt-4 mt-4">
               <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
+            </DialogFooter>          </DialogContent>
         </Dialog>
       )}
+      
+      {/* Refresh Confirmation Dialog */}
+      <Dialog open={confirmRefresh} onOpenChange={setConfirmRefresh}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refresh Job Data</DialogTitle>
+            <DialogDescription>
+              This will reload all job data from the server. This may take a moment.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRefresh(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmRefreshData} disabled={isRefreshing}>
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

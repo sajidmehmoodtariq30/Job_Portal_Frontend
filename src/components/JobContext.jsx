@@ -97,6 +97,48 @@ export const JobProvider = ({ children }) => {
       setTotalJobs(0);
     } finally {
       setLoading(false);
+    }  };
+  // Fetch jobs with role-based filtering
+  const fetchJobsByRole = async (userRole, filters = {}, forceRefresh = false) => {
+    if (loading && !forceRefresh) return;
+    setLoading(true);
+    
+    try {
+      console.log(`Fetching jobs for role: ${userRole} with filters:`, filters);
+      
+      const params = {
+        timestamp: new Date().getTime(),
+        ...filters // Include search, status, category_uuid, type filters
+      };
+      
+      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_BY_ROLE(userRole), { params });
+      
+      const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs || [];
+      console.log(`Fetched ${jobsData.length} role-filtered jobs from API`);
+      
+      setJobs(jobsData);
+      setTotalJobs(jobsData.length);
+      setLastFetchedPage(1);
+    } catch (error) {
+      console.error('Error fetching role-based jobs:', error);
+      setJobs([]);
+      setTotalJobs(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Fetch categories available to a specific role
+  const fetchCategoriesByRole = async (userRole) => {
+    try {
+      console.log(`Fetching categories for role: ${userRole}`);
+      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_CATEGORIES_BY_ROLE(userRole), {
+        params: { timestamp: new Date().getTime() }
+      });
+      
+      return Array.isArray(response.data) ? response.data : response.data.categories || [];
+    } catch (error) {
+      console.error('Error fetching role-based categories:', error);
+      return [];
     }
   };
 
@@ -107,7 +149,19 @@ export const JobProvider = ({ children }) => {
   };
 
   return (
-    <JobContext.Provider value={{ jobs, totalJobs, loading, fetchJobs, fetchJobsByClient, resetJobs, lastFetchedPage, activeTab, setActiveTab }}>
+    <JobContext.Provider value={{ 
+      jobs, 
+      totalJobs, 
+      loading, 
+      fetchJobs, 
+      fetchJobsByClient, 
+      fetchJobsByRole,
+      fetchCategoriesByRole,
+      resetJobs, 
+      lastFetchedPage, 
+      activeTab, 
+      setActiveTab 
+    }}>
       {children}
     </JobContext.Provider>
   );

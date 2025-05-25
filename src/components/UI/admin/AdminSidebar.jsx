@@ -10,17 +10,18 @@ import {
   Bell,
   ChevronDown,
   ArrowUpDown,
-  FileText
+  FileText,
+  Tags
 } from 'lucide-react';
 
 const AdminSidebar = ({ sidebarOpen }) => {
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  
-  const navigation = [
+    const navigation = [
     { name: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="h-5 w-5" /> },
     { name: 'Clients Management', href: '/admin/clients', icon: <Users className="h-5 w-5" /> },
     { name: 'Jobs Management', href: '/admin/jobs', icon: <Briefcase className="h-5 w-5" /> },
+    { name: 'Categories Management', href: '/admin/categories', icon: <Tags className="h-5 w-5" /> },
     { name: 'Quotes Management', href: '/admin/quotes', icon: <FileText className="h-5 w-5" /> },
     { name: 'API Plugin', href: '/admin/api-plugin', icon: <Puzzle className="h-5 w-5" /> }
   ];
