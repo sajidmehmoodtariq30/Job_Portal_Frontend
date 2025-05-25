@@ -1,5 +1,5 @@
 // src/components/UI/client/ClientSidebar.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
@@ -10,9 +10,28 @@ import {
   Settings,
   Building
 } from 'lucide-react';
+import { getClientNameByUuid } from '@/utils/clientUtils';
 
 const ClientSidebar = ({ sidebarOpen }) => {
-  const location = useLocation();
+  const location = useLocation();  const [clientName, setClientName] = useState('Client Portal');
+  
+  // Fetch client name on component mount
+  useEffect(() => {
+    const fetchClientName = async () => {
+      const clientId = localStorage.getItem('client_id');
+      if (clientId) {
+        try {
+          const name = await getClientNameByUuid(clientId);
+          setClientName(name);
+        } catch (error) {
+          console.error('Error fetching client name in sidebar:', error);
+          setClientName('Client Portal');
+        }
+      }
+    };
+    
+    fetchClientName();
+  }, []);
   
   const navigation = [
     { name: 'Dashboard', href: '/client', icon: <LayoutDashboard className="h-5 w-5" /> },
@@ -29,11 +48,10 @@ const ClientSidebar = ({ sidebarOpen }) => {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}
     >
-      {/* Sidebar header */}
-      <div className="h-16 flex items-center justify-center border-b px-4">
+      {/* Sidebar header */}      <div className="h-16 flex items-center justify-center border-b px-4">
         <Link to="/client" className="flex items-center">
           <Building className="h-8 w-8 text-primary" />
-          <span className="ml-2 text-xl font-bold">Client Portal</span>
+          <span className="ml-2 text-xl font-bold">{clientName}</span>
         </Link>
       </div>
       

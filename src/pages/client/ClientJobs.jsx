@@ -62,12 +62,11 @@ const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
   const navigate = useNavigate();
-    // Use the JobContext to access jobs data and methods
-  const {
+    // Use the JobContext to access jobs data and methods  const {
+      const {
     jobs,
     totalJobs,
     loading,
-    fetchJobs,
     fetchJobsByClient,
     resetJobs,
     activeTab,
@@ -278,19 +277,21 @@ const ClientJobs = () => {
     setNewJob({
       ...newJob,
       [name]: value
-    });
-  };
+    });  };
   
   // Handle tab changes
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     resetJobs();
-    fetchJobs(1, tab);
+    fetchJobsByClient(clientUuid, tab);
     // Reset search term and visible jobs count when changing tabs for better performance
     setSearchQuery('');
     setVisibleJobs(PAGE_SIZE);
   };
-    // Remove the generateUUID function since ServiceM8 will handle job ID generation  // Filter jobs based on search query only (server-side filtering already applied for client ownership)
+  
+  // Remove the generateUUID function since ServiceM8 will handle job ID generation
+  
+  // Filter jobs based on search query only (server-side filtering already applied for client ownership)
   const filteredJobs = jobs.filter(job => {
     // Only search query filter since client filtering is handled server-side
     if (!searchQuery.trim()) return true;
@@ -439,9 +440,8 @@ const ClientJobs = () => {
       if (response.data.success) {
         // Update the job in the local state
         setSelectedJob(prev => ({ ...prev, status: selectedStatus }));
-        
-        // Refresh the jobs list to reflect the change
-        await fetchJobs(1, activeTab, true);
+          // Refresh the jobs list to reflect the change
+        await fetchJobsByClient(clientUuid, activeTab, true);
         
         alert('Job status updated successfully!');
       } else {
@@ -626,11 +626,10 @@ const ClientJobs = () => {
       };
       
       console.log('Creating job with payload:', payload);
-      const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
-      console.log('Job created successfully:', response.data);
+      const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);      console.log('Job created successfully:', response.data);
       
       // Force refresh jobs list with the current tab - use true to force refresh
-      await fetchJobs(1, activeTab, true);
+      await fetchJobsByClient(clientUuid, activeTab, true);
       
       // Reset search to ensure new job is visible
       setSearchQuery('');

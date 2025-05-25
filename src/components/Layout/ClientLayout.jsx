@@ -12,6 +12,7 @@ import {
 } from '@/components/UI/dropdown-menu'
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
+import { getClientNameByUuid } from '@/utils/clientUtils'
 import logo from '../../assets/logo.jpg'
 
 const ClientLayout = () => {
@@ -19,22 +20,35 @@ const ClientLayout = () => {
     const location = useLocation()
     const navigate = useNavigate()
     const [clientId, setClientId] = useState(null)
+    const [clientName, setClientName] = useState('Client User')
 
-    // Check for stored client ID on component mount
+    // Check for stored client ID on component mount and fetch client name
     useEffect(() => {
         const storedClientId = localStorage.getItem('client_id');
         if (storedClientId) {
             setClientId(storedClientId);
+            
+            // Fetch client name
+            const fetchClientName = async () => {
+                try {
+                    const name = await getClientNameByUuid(storedClientId);
+                    setClientName(name);
+                } catch (error) {
+                    console.error('Error fetching client name in layout:', error);
+                    setClientName('Client User');
+                }
+            };
+            
+            fetchClientName();
         } else {
             // If no client ID is found, redirect to login
             navigate('/login');
         }
     }, [navigate]);
 
-    // Mock user data - would come from authentication context in a real app
-    // In a production app, you'd fetch user details based on the clientId
+    // User data with actual client name
     const user = {
-        name: clientId || 'Client User',
+        name: clientName,
         email: 'client@company.com',
         avatar: null
     }

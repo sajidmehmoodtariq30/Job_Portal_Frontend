@@ -38,6 +38,7 @@ import { Progress } from "@/components/UI/progress";
 import { Skeleton } from "@/components/UI/skeleton";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
+import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
 
 const ClientHome = () => {
   const navigate = useNavigate();
@@ -57,15 +58,39 @@ const ClientHome = () => {
   const [sites, setSites] = useState(['Main Office', 'Warehouse', 'Branch Office']);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
+  const [clientName, setClientName] = useState('');
   
   // Get client ID from localStorage instead of hardcoded value
   const clientId = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
-  
-  // Debugging - check what client ID we have
+    // Debugging - check what client ID we have
   useEffect(() => {
     console.log('Current clientId:', clientId);
     // List all localStorage keys for debugging
     console.log('Available localStorage keys:', Object.keys(localStorage));
+  }, [clientId]);
+  
+  // Fetch client name and welcome message
+  useEffect(() => {
+    const fetchClientName = async () => {
+      if (clientId) {
+        try {
+          const name = await getClientNameByUuid(clientId);
+          setClientName(name);
+          const welcome = await getWelcomeMessage(clientId);
+          setWelcomeMessage(welcome);
+        } catch (error) {
+          console.error('Error fetching client name:', error);
+          setWelcomeMessage('Welcome back');
+          setClientName('Unknown Client');
+        }
+      } else {
+        setWelcomeMessage('Welcome back');
+        setClientName('');
+      }
+    };
+    
+    fetchClientName();
   }, [clientId]);
   
   // Fetch dashboard data from the backend
@@ -271,9 +296,8 @@ const ClientHome = () => {
   return (
     <div className="space-y-6">
       {/* Header with welcome message, notifications and site selector */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Welcome back, TechSolutions Inc</h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">        <div>
+          <h1 className="text-3xl font-bold">{welcomeMessage}</h1>
           <p className="text-muted-foreground mt-1">
             Here's what's happening with your services today
             {lastUpdated && !loading && (
