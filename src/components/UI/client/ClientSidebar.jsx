@@ -51,7 +51,7 @@ const ClientSidebar = ({ sidebarOpen }) => {
       {/* Sidebar header */}      <div className="h-16 flex items-center justify-center border-b px-4">
         <Link to="/client" className="flex items-center">
           <Building className="h-8 w-8 text-primary" />
-          <span className="ml-2 text-xl font-bold">{clientName}</span>
+          <span className="ml-2 text-xl font-bold">Job Portal</span>
         </Link>
       </div>
       
