@@ -1,4 +1,4 @@
-// src/components/UI/admin/JobFilters.jsx
+// src/components/UI/admin/QuoteFilters.jsx
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/UI/select'
@@ -6,13 +6,13 @@ import { Input } from '@/components/UI/input'
 import { Label } from '@/components/UI/label'
 import { Badge } from '@/components/UI/badge'
 import { Button } from '@/components/UI/button'
-import { Filter, X, RefreshCw, AlertCircle, Save, Trash2 } from 'lucide-react'
+import { Filter, X, RefreshCw, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/UI/alert'
 import { Skeleton } from '@/components/UI/skeleton'
 import axios from 'axios'
 import { API_URL } from '@/lib/apiConfig'
 
-const JobFilters = ({ 
+const QuoteFilters = ({ 
     onFiltersChange, 
     currentFilters = {}, 
     userRole = 'Administrator',
@@ -25,31 +25,52 @@ const JobFilters = ({
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
-    const [lastFilterUpdate, setLastFilterUpdate] = useState(Date.now())
     
     const [filters, setFilters] = useState({
         search: '',
         status: '',
         category: '',
         type: '',
+        dateRange: '',
+        amountRange: '',
         role: userRole,
         ...currentFilters
     })
 
-    // Available job statuses
-    const jobStatuses = [
-        'Quote',
-        'Work Order', 
-        'In Progress',
-        'Completed',
-        'Cancelled'
+    // Available quote statuses
+    const quoteStatuses = [
+        'Pending',
+        'Sent', 
+        'Approved',
+        'Rejected',
+        'Converted',
+        'Expired'
     ]
 
-    // Job types
-    const jobTypes = [
+    // Quote types
+    const quoteTypes = [
         { value: 'maintenance', label: 'Maintenance' },
         { value: 'project', label: 'Project' },
-        { value: 'general', label: 'General' }
+        { value: 'general', label: 'General' },
+        { value: 'emergency', label: 'Emergency' }
+    ]
+
+    // Date range options
+    const dateRanges = [
+        { value: 'today', label: 'Today' },
+        { value: 'week', label: 'This Week' },
+        { value: 'month', label: 'This Month' },
+        { value: 'quarter', label: 'This Quarter' },
+        { value: 'year', label: 'This Year' }
+    ]
+
+    // Amount range options
+    const amountRanges = [
+        { value: '0-1000', label: '$0 - $1,000' },
+        { value: '1000-5000', label: '$1,000 - $5,000' },
+        { value: '5000-10000', label: '$5,000 - $10,000' },
+        { value: '10000-50000', label: '$10,000 - $50,000' },
+        { value: '50000+', label: '$50,000+' }
     ]
 
     // User roles for filtering (admin only)
@@ -68,10 +89,9 @@ const JobFilters = ({
     }, [filters.role])
 
     useEffect(() => {
-        // Debounce filter changes to prevent excessive API calls
+        // Notify parent component of filter changes with debouncing
         const timeoutId = setTimeout(() => {
             onFiltersChange(filters)
-            setLastFilterUpdate(Date.now())
         }, 300)
 
         return () => clearTimeout(timeoutId)
@@ -95,7 +115,7 @@ const JobFilters = ({
 
     const loadSavedFilters = () => {
         try {
-            const saved = localStorage.getItem(`jobFilters_${userRole}`)
+            const saved = localStorage.getItem(`quoteFilters_${userRole}`)
             if (saved) {
                 setSavedFilters(JSON.parse(saved))
             }
@@ -118,7 +138,7 @@ const JobFilters = ({
 
             const updatedSavedFilters = [...savedFilters, filterToSave]
             setSavedFilters(updatedSavedFilters)
-            localStorage.setItem(`jobFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
+            localStorage.setItem(`quoteFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
             
             setFilterName('')
         } catch (error) {
@@ -135,7 +155,7 @@ const JobFilters = ({
     const deleteSavedFilter = (index) => {
         const updatedSavedFilters = savedFilters.filter((_, i) => i !== index)
         setSavedFilters(updatedSavedFilters)
-        localStorage.setItem(`jobFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
+        localStorage.setItem(`quoteFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
     }
 
     const updateFilter = (key, value) => {
@@ -151,21 +171,23 @@ const JobFilters = ({
             status: '',
             category: '',
             type: '',
+            dateRange: '',
+            amountRange: '',
             role: userRole
         })
     }
 
-    const retryFetchCategories = () => {
-        fetchCategoriesForRole(filters.role)
-    }
-
     const getActiveFiltersCount = () => {
         return Object.entries(filters).filter(([key, value]) => 
-            value && value !== '' && key !== 'role'
+            value && value !== '' && value !== 'all' && key !== 'role'
         ).length
     }
 
     const isAdminOrManager = userRole === 'Administrator' || userRole === 'Office Manager'
+
+    const retryFetchCategories = () => {
+        fetchCategoriesForRole(filters.role)
+    }
 
     return (
         <Card className={className}>
@@ -173,7 +195,7 @@ const JobFilters = ({
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <Filter className="h-5 w-5" />
-                        Job Filters
+                        Quote Filters
                         {getActiveFiltersCount() > 0 && (
                             <Badge variant="secondary">
                                 {getActiveFiltersCount()} active
@@ -219,16 +241,16 @@ const JobFilters = ({
 
                     {/* Search */}
                     <div>
-                        <Label htmlFor="search">Search Jobs</Label>
+                        <Label htmlFor="search">Search Quotes</Label>
                         <Input
                             id="search"
-                            placeholder="Search by description, address, or job details..."
+                            placeholder="Search by description, client, amount, or details..."
                             value={filters.search}
                             onChange={(e) => updateFilter('search', e.target.value)}
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Role Filter (Admin only) */}
                         {isAdminOrManager && (
                             <div>
@@ -257,7 +279,7 @@ const JobFilters = ({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">All statuses</SelectItem>
-                                    {jobStatuses.map(status => (
+                                    {quoteStatuses.map(status => (
                                         <SelectItem key={status} value={status}>
                                             {status}
                                         </SelectItem>
@@ -303,9 +325,45 @@ const JobFilters = ({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">All types</SelectItem>
-                                    {jobTypes.map(type => (
+                                    {quoteTypes.map(type => (
                                         <SelectItem key={type.value} value={type.value}>
                                             {type.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Date Range Filter */}
+                        <div>
+                            <Label htmlFor="dateRange">Date Range</Label>
+                            <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All dates" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All dates</SelectItem>
+                                    {dateRanges.map(range => (
+                                        <SelectItem key={range.value} value={range.value}>
+                                            {range.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Amount Range Filter */}
+                        <div>
+                            <Label htmlFor="amountRange">Amount Range</Label>
+                            <Select value={filters.amountRange} onValueChange={(value) => updateFilter('amountRange', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All amounts" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All amounts</SelectItem>
+                                    {amountRanges.map(range => (
+                                        <SelectItem key={range.value} value={range.value}>
+                                            {range.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -329,7 +387,6 @@ const JobFilters = ({
                                     disabled={!filterName.trim() || savingFilter}
                                     size="sm"
                                 >
-                                    <Save className="h-4 w-4 mr-1" />
                                     {savingFilter ? 'Saving...' : 'Save'}
                                 </Button>
                             </div>
@@ -356,7 +413,7 @@ const JobFilters = ({
                                             onClick={() => deleteSavedFilter(index)}
                                             className="h-8 w-8 p-0"
                                         >
-                                            <Trash2 className="h-3 w-3" />
+                                            <X className="h-3 w-3" />
                                         </Button>
                                     </div>
                                 ))}
@@ -398,10 +455,28 @@ const JobFilters = ({
                                 )}
                                 {filters.type && (
                                     <Badge variant="outline" className="gap-1">
-                                        Type: {jobTypes.find(t => t.value === filters.type)?.label || filters.type}
+                                        Type: {quoteTypes.find(t => t.value === filters.type)?.label || filters.type}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
                                             onClick={() => updateFilter('type', '')}
+                                        />
+                                    </Badge>
+                                )}
+                                {filters.dateRange && (
+                                    <Badge variant="outline" className="gap-1">
+                                        Date: {dateRanges.find(d => d.value === filters.dateRange)?.label || filters.dateRange}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer" 
+                                            onClick={() => updateFilter('dateRange', '')}
+                                        />
+                                    </Badge>
+                                )}
+                                {filters.amountRange && (
+                                    <Badge variant="outline" className="gap-1">
+                                        Amount: {amountRanges.find(a => a.value === filters.amountRange)?.label || filters.amountRange}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer" 
+                                            onClick={() => updateFilter('amountRange', '')}
                                         />
                                     </Badge>
                                 )}
@@ -423,4 +498,4 @@ const JobFilters = ({
     )
 }
 
-export default JobFilters
+export default QuoteFilters

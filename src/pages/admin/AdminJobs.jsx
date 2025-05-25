@@ -5,12 +5,12 @@ import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
 import { Textarea } from "@/components/UI/textarea"
 import { MessageSquare, FileText, Download, Upload } from 'lucide-react'
-import { 
+import {
   Card,
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "@/components/UI/card"
 import {
   Tabs,
@@ -50,7 +50,6 @@ const AdminJobs = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [clients, setClients] = useState([]);
   const [categories, setCategories] = useState([]);
-  
   // Role-based filtering state
   const [userRole, setUserRole] = useState('');
   const [activeFilters, setActiveFilters] = useState({
@@ -59,9 +58,13 @@ const AdminJobs = () => {
     category_uuid: '',
     type: ''
   });
-  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);const [newJob, setNewJob] = useState({
-    created_by_staff_uuid: '', 
-    date: new Date().toISOString().split('T')[0], 
+  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);
+
+  // Filter state for JobFilters component
+  const [filteredJobs, setFilteredJobs] = useState([]);
+  const [filterLoading, setFilterLoading] = useState(false); const [newJob, setNewJob] = useState({
+    created_by_staff_uuid: '',
+    date: new Date().toISOString().split('T')[0],
     company_uuid: '',
     job_description: '',
     job_address: '',
@@ -85,18 +88,18 @@ const AdminJobs = () => {
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  
+  const [fileUploading, setFileUploading] = useState(false); const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+
   // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
-  
+
   // Loading states for various actions
   const [isCreatingJob, setIsCreatingJob] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
   const [deletingFiles, setDeletingFiles] = useState(new Set());
-    const {
+  const {
     jobs,
     totalJobs,
     loading,
@@ -112,7 +115,7 @@ const AdminJobs = () => {
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const role = userInfo.role || 'Administrator';
     setUserRole(role);
-    
+
     // Use role-based filtering for non-admin roles
     if (role !== 'Administrator' && role !== 'Office Manager') {
       setUseRoleBasedFiltering(true);
@@ -120,7 +123,7 @@ const AdminJobs = () => {
     } else {
       fetchJobs(1, activeTab);
     }
-      fetchClients(); // Fetch clients for the dropdown
+    fetchClients(); // Fetch clients for the dropdown
     fetchCategories(); // Fetch categories for the dropdown
   }, [activeTab]);
 
@@ -181,7 +184,7 @@ const AdminJobs = () => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     resetJobs();
-    
+
     if (useRoleBasedFiltering && userRole) {
       const filters = { ...activeFilters };
       if (tab !== 'all') {
@@ -193,14 +196,30 @@ const AdminJobs = () => {
     } else {
       fetchJobs(1, tab);
     }
-    
+
     // Reset search term and visible jobs count when changing tabs for better performance
     setSearchTerm('');
-    setVisibleJobs(10);  };
-  
+    setVisibleJobs(10);
+  };
   // Handle filter changes from JobFilters component
-  const handleFiltersChange = (newFilters) => {
+  const handleFiltersChange = async (newFilters) => {
     setActiveFilters(newFilters);
+    setFilterLoading(true);
+
+    try {
+      // Apply filters to current jobs or fetch new filtered jobs
+      if (useRoleBasedFiltering && userRole) {
+        await fetchJobsByRole(userRole, newFilters);
+      } else {
+        // For backward compatibility, we'll use local filtering
+        setSearchTerm(newFilters.search || '');
+      }
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
+      setFilterLoading(false);
+    }
+
     // Reset visible jobs when filters change
     setVisibleJobs(10);
   };
@@ -210,646 +229,666 @@ const AdminJobs = () => {
     setSearchTerm(value);
     if (useRoleBasedFiltering) {
       setActiveFilters(prev => ({ ...prev, search: value }));
-    }
-  };
-    // Filter jobs based on search term (for legacy admin search only)
-  const filteredJobs = useRoleBasedFiltering ? jobs : jobs.filter(job => {
-    if (!searchTerm.trim()) return true;
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    // Only check fields that exist to improve performance
-    return (
-      (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
-      (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
-      (job.job_address && job.job_address.toLowerCase().includes(searchLower))
-    );
-  });
+    };
 
-  // Limit visible jobs for pagination AFTER filtering
-  const displayedJobs = filteredJobs.slice(0, visibleJobs);
-
-  const handleShowMore = () => {
-    setVisibleJobs(prev => prev + 10);
-  };
-
-  const handleShowLess = () => {
-    setVisibleJobs(prev => Math.max(prev - 10, 10));
-  };
-
-  const handleRefresh = async () => {
-    // Show confirmation dialog first
-    setConfirmRefresh(true);
-  };  const confirmRefreshData = async () => {
-    try {
-      setIsRefreshing(true);
-      console.log("Manually refreshing job data...");
-      
-      // Reset any search term to show all jobs
-      setSearchTerm('');
-      setActiveFilters({ search: '', status: '', category_uuid: '', type: '' });
-      
-      // Force reload with timestamp to prevent caching
-      if (useRoleBasedFiltering && userRole) {
-        const filters = activeTab !== 'all' ? { status: activeTab } : {};
-        await fetchJobsByRole(userRole, filters, true);
-      } else {
-        await fetchJobs(1, activeTab, true);
+    // Filter jobs based on search term and active filters
+    const filteredJobs = useRoleBasedFiltering ? jobs : jobs.filter(job => {
+      // Search filter
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        const matchesSearch = (
+          (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+          (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
+          (job.job_address && job.job_address.toLowerCase().includes(searchLower))
+        );
+        if (!matchesSearch) return false;
       }
-      
-      // Reset visible jobs to default
-      setVisibleJobs(10);
-      
-      console.log("Job data refreshed successfully");
 
-      // Close the confirmation dialog
-      setConfirmRefresh(false);
-    } catch (error) {
-      console.error('Error refreshing jobs:', error);
-      setConfirmRefresh(false);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+      // Status filter (when not using role-based filtering but filters are applied)
+      if (activeFilters.status && activeFilters.status !== '' && job.status !== activeFilters.status) {
+        return false;
+      }
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewJob({ ...newJob, [name]: value });
-  };
-  
-  // Fixed handler for select dropdowns
-  const handleSelectChange = (name, value) => {
-    setNewJob({ ...newJob, [name]: value });
-  };
-  
-  // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
-  const handleClientChange = (value) => {
-    setNewJob({ 
-      ...newJob, 
-      company_uuid: value,
-      created_by_staff_uuid: value // Using client UUID for staff UUID as requested
+      // Category filter
+      if (activeFilters.category && activeFilters.category !== '' && job.category_uuid !== activeFilters.category) {
+        return false;
+      }
+
+      // Type filter (if you have a type field)
+      if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
+        return false;
+      }
+
+      return true;
     });
-    
-    // Optionally, pre-fill address if available
-    const selectedClient = clients.find(client => client.uuid === value);
-    if (selectedClient) {
-      const formattedAddress = [
-        selectedClient.address,
-        selectedClient.address_city,
-        selectedClient.address_state,
-        selectedClient.address_postcode,
-        selectedClient.address_country
-      ].filter(Boolean).join(', ');
-      
-      setNewJob(prev => ({
-        ...prev,
-        job_address: formattedAddress || prev.job_address
-      }));
-    }
-  };    const handleCreateJob = async (e) => {
-    e.preventDefault();
-    
-    // Validate required fields - removed uuid validation since ServiceM8 will generate it
-    if (!newJob.company_uuid || !newJob.job_description || !newJob.job_address) {
-      alert("Please fill in all required fields");
-      return;
-    }
-    
-    try {
+
+    // Limit visible jobs for pagination AFTER filtering
+    const displayedJobs = filteredJobs.slice(0, visibleJobs);
+
+    const handleShowMore = () => {
+      setVisibleJobs(prev => prev + 10);
+    };
+
+    const handleShowLess = () => {
+      setVisibleJobs(prev => Math.max(prev - 10, 10));
+    };
+
+    const handleRefresh = async () => {
+      // Show confirmation dialog first
+      setConfirmRefresh(true);
+    }; const confirmRefreshData = async () => {
+      try {
+        setIsRefreshing(true);
+        console.log("Manually refreshing job data...");
+
+        // Reset any search term to show all jobs
+        setSearchTerm('');
+        setActiveFilters({ search: '', status: '', category_uuid: '', type: '' });
+
+        // Force reload with timestamp to prevent caching
+        if (useRoleBasedFiltering && userRole) {
+          const filters = activeTab !== 'all' ? { status: activeTab } : {};
+          await fetchJobsByRole(userRole, filters, true);
+        } else {
+          await fetchJobs(1, activeTab, true);
+        }
+
+        // Reset visible jobs to default
+        setVisibleJobs(10);
+
+        console.log("Job data refreshed successfully");
+
+        // Close the confirmation dialog
+        setConfirmRefresh(false);
+      } catch (error) {
+        console.error('Error refreshing jobs:', error);
+        setConfirmRefresh(false);
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
+
+    const handleInputChange = (e) => {
+      const { name, value } = e.target;
+      setNewJob({ ...newJob, [name]: value });
+    };
+
+    // Fixed handler for select dropdowns
+    const handleSelectChange = (name, value) => {
+      setNewJob({ ...newJob, [name]: value });
+    };
+
+    // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
+    const handleClientChange = (value) => {
+      setNewJob({
+        ...newJob,
+        company_uuid: value,
+        created_by_staff_uuid: value // Using client UUID for staff UUID as requested
+      });
+
+      // Optionally, pre-fill address if available
+      const selectedClient = clients.find(client => client.uuid === value);
+      if (selectedClient) {
+        const formattedAddress = [
+          selectedClient.address,
+          selectedClient.address_city,
+          selectedClient.address_state,
+          selectedClient.address_postcode,
+          selectedClient.address_country
+        ].filter(Boolean).join(', ');
+
+        setNewJob(prev => ({
+          ...prev,
+          job_address: formattedAddress || prev.job_address
+        }));
+      }
+    }; const handleCreateJob = async (e) => {
+      e.preventDefault();
+
+      // Validate required fields - removed uuid validation since ServiceM8 will generate it
+      if (!newJob.company_uuid || !newJob.job_description || !newJob.job_address) {
+        alert("Please fill in all required fields");
+        return;
+      }
+
+      try {
         setIsCreatingJob(true);        // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
         const payload = {
-            active: 1,
-            created_by_staff_uuid: newJob.created_by_staff_uuid, // This is the client UUID
-            company_uuid: newJob.company_uuid,
-            date: newJob.date,
-            job_description: newJob.job_description,
-            job_address: newJob.job_address,
-            status: newJob.status,
-            work_done_description: newJob.work_done_description,
-            payment_date: newJob.payment_date,
-            payment_method: newJob.payment_method,
-            payment_amount: newJob.payment_amount,
-            total_invoice_amount: newJob.total_invoice_amount,
-            quote_date: newJob.quote_date,
-            quote_sent: newJob.quote_sent,
-            invoice_sent: newJob.invoice_sent,
-            quote_sent_stamp: newJob.quote_sent_stamp,
-            work_order_date: newJob.work_order_date,
-            completion_date: newJob.completion_date
+          active: 1,
+          created_by_staff_uuid: newJob.created_by_staff_uuid, // This is the client UUID
+          company_uuid: newJob.company_uuid,
+          date: newJob.date,
+          job_description: newJob.job_description,
+          job_address: newJob.job_address,
+          status: newJob.status,
+          work_done_description: newJob.work_done_description,
+          payment_date: newJob.payment_date,
+          payment_method: newJob.payment_method,
+          payment_amount: newJob.payment_amount,
+          total_invoice_amount: newJob.total_invoice_amount,
+          quote_date: newJob.quote_date,
+          quote_sent: newJob.quote_sent,
+          invoice_sent: newJob.invoice_sent,
+          quote_sent_stamp: newJob.quote_sent_stamp,
+          work_order_date: newJob.work_order_date,
+          completion_date: newJob.completion_date
         };
-          // Add category_uuid if selected
+        // Add category_uuid if selected
         if (newJob.category_uuid && newJob.category_uuid !== 'none') {
-            payload.category_uuid = newJob.category_uuid;
+          payload.category_uuid = newJob.category_uuid;
         }
-        
+
         console.log('Creating job with payload:', payload);
         const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);
         console.log('Job created successfully:', response.data);
-        
+
         // Force refresh jobs list with the current tab and close dialog
         // Use forceRefresh=true to ensure we get fresh data
         await fetchJobs(1, activeTab, true);
         setIsDialogOpen(false);
-        
+
         // Clear search term to make it easier to see new job
         setSearchTerm('');
-        
+
         // Reset form for next use
         setNewJob({
-            created_by_staff_uuid: '',
-            date: new Date().toISOString().split('T')[0],
-            company_uuid: '',
-            job_description: '',
-            job_address: '',
-            status: 'Quote',
-            work_done_description: '',
-            payment_date: '',
-            payment_method: '',
-            payment_amount: '',
-            category_uuid: '',
-            total_invoice_amount: '',
-            quote_date: '',
-            quote_sent: '0',
-            invoice_sent: '0',
-            quote_sent_stamp: '',
-            work_order_date: '',
-            completion_date: ''
+          created_by_staff_uuid: '',
+          date: new Date().toISOString().split('T')[0],
+          company_uuid: '',
+          job_description: '',
+          job_address: '',
+          status: 'Quote',
+          work_done_description: '',
+          payment_date: '',
+          payment_method: '',
+          payment_amount: '',
+          category_uuid: '',
+          total_invoice_amount: '',
+          quote_date: '',
+          quote_sent: '0',
+          invoice_sent: '0',
+          quote_sent_stamp: '',
+          work_order_date: '',
+          completion_date: ''
         });
-    } catch (error) {
+      } catch (error) {
         console.error('Error creating job:', error);
         alert(`Error creating job: ${error.response?.data?.message || error.message}`);
-    } finally {
+      } finally {
         setIsCreatingJob(false);
-    }
-  };
-  
-  const handleViewJob = (jobId) => {
-    navigate(`/admin/jobs/${jobId}`)
-  }
-  const handleViewDetails = (job) => {
-    setSelectedJob(job);
-    
-    // Fetch attachments for the selected job
-    const jobId = job.uuid || job.id;
-    if (jobId) {
-      fetchAttachments(jobId);
-    }
-  };
-  // Handle job status update
-  const handleStatusUpdate = async () => {
-    if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
-      return;
-    }    try {      setIsUpdatingStatus(true);
+      }
+    };
+    const handleViewJob = (jobId) => {
+      navigate(`/admin/jobs/${jobId}`);
+    };
+
+    const handleViewDetails = (job) => {
+      setSelectedJob(job);
+
+      // Fetch attachments for the selected job
+      const jobId = job.uuid || job.id;
+      if (jobId) {
+        fetchAttachments(jobId);
+      }
+    };
+    // Handle job status update
+    const handleStatusUpdate = async () => {
+      if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
+        return;
+      } try {
+        setIsUpdatingStatus(true);
         const response = await axios.put(
-        `${API_URL}/fetch/jobs/${selectedJob.uuid}/status`,
-        { 
-          status: selectedStatus,
-          userId: 'admin-user'
-        }
-      );
-
-      if (response.data.success) {
-        // Update the job in the local state
-        setSelectedJob(prev => ({ ...prev, status: selectedStatus }));
-        
-        // Refresh the jobs list to reflect the change
-        await fetchJobs(1, activeTab, true);
-        
-        alert('Job status updated successfully!');
-      } else {
-        alert('Failed to update job status: ' + (response.data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error updating job status:', error);
-      alert('Error updating job status: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-  // Remove the generateUUID function since ServiceM8 will handle job ID generation
-
-  // Format file size
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // Fetch attachments for selected job
-  const fetchAttachments = async (jobId) => {
-    if (!jobId) return;
-    
-    try {
-      setAttachmentsLoading(true);
-      const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.GET_BY_JOB(jobId));
-      
-      if (response.data && response.data.success) {
-        setAttachments(response.data.data || []);
-      } else {
-        setAttachments([]);
-      }
-    } catch (error) {
-      console.error('Error fetching attachments:', error);
-      setAttachments([]);
-    } finally {
-      setAttachmentsLoading(false);
-    }
-  };
-    // Handle file selection with size validation
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const maxSize = 9 * 1024 * 1024; // 9MB in bytes
-      
-      if (file.size > maxSize) {
-        alert(`File is too large. Please upload a file less than 9MB. Current file size: ${formatFileSize(file.size)}`);
-        e.target.value = ''; // Clear the file input
-        setSelectedFile(null);
-      } else {
-        setSelectedFile(file);
-      }
-    }
-  };
-  
-  // Handle file upload
-  const handleFileUpload = async () => {
-    if (!selectedFile || !selectedJob) return;
-    
-    try {
-      setFileUploading(true);
-      
-      // Get admin info for the upload
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      const userName = userInfo.name || userInfo.email || 'Admin';
-      
-      // Create form data
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('userType', 'admin');
-      formData.append('userName', userName);
-      
-      const response = await axios.post(
-        API_ENDPOINTS.ATTACHMENTS.UPLOAD(selectedJob.uuid || selectedJob.id),
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
+          `${API_URL}/fetch/jobs/${selectedJob.uuid}/status`,
+          {
+            status: selectedStatus,
+            userId: 'admin-user'
           }
-        }
-      );
-      
-      if (response.data && response.data.success) {
-        // Refresh attachments list
-        await fetchAttachments(selectedJob.uuid || selectedJob.id);
-        setSelectedFile(null);
-        setIsUploadingFile(false);
-      }    } catch (error) {
-      console.error('Error uploading file:', error);
-      
-      // Check for common errors and provide specific messages
-      if (error.response) {
-        if (error.response.status === 413) {
-          alert('File is too large. Please upload a file less than 9MB.');
-        } else if (error.response.data && error.response.data.message) {
-          alert(`Upload failed: ${error.response.data.message}`);
+        );
+
+        if (response.data.success) {
+          // Update the job in the local state
+          setSelectedJob(prev => ({ ...prev, status: selectedStatus }));
+
+          // Refresh the jobs list to reflect the change
+          await fetchJobs(1, activeTab, true);
+
+          alert('Job status updated successfully!');
         } else {
-          alert(`Upload failed: ${error.response.statusText}`);
+          alert('Failed to update job status: ' + (response.data.message || 'Unknown error'));
         }
-      } else if (error.message && error.message.includes('network')) {
-        alert('Network error. Please check your connection and try again.');
-      } else {
-        alert('Failed to upload file. Please try again.');
+      } catch (error) {
+        console.error('Error updating job status:', error);
+        alert('Error updating job status: ' + (error.response?.data?.message || error.message));
+      } finally {
+        setIsUpdatingStatus(false);
       }
-    } finally {
-      setFileUploading(false);
-    }
-  };
+    };
+    // Remove the generateUUID function since ServiceM8 will handle job ID generation
+
+    // Format file size
+    const formatFileSize = (bytes) => {
+      if (bytes === 0) return '0 Bytes';
+
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // Fetch attachments for selected job
+    const fetchAttachments = async (jobId) => {
+      if (!jobId) return;
+
+      try {
+        setAttachmentsLoading(true);
+        const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.GET_BY_JOB(jobId));
+
+        if (response.data && response.data.success) {
+          setAttachments(response.data.data || []);
+        } else {
+          setAttachments([]);
+        }
+      } catch (error) {
+        console.error('Error fetching attachments:', error);
+        setAttachments([]);
+      } finally {
+        setAttachmentsLoading(false);
+      }
+    };
+    // Handle file selection with size validation
+    const handleFileChange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const maxSize = 9 * 1024 * 1024; // 9MB in bytes
+
+        if (file.size > maxSize) {
+          alert(`File is too large. Please upload a file less than 9MB. Current file size: ${formatFileSize(file.size)}`);
+          e.target.value = ''; // Clear the file input
+          setSelectedFile(null);
+        } else {
+          setSelectedFile(file);
+        }
+      }
+    };
+
+    // Handle file upload
+    const handleFileUpload = async () => {
+      if (!selectedFile || !selectedJob) return;
+
+      try {
+        setFileUploading(true);
+
+        // Get admin info for the upload
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const userName = userInfo.name || userInfo.email || 'Admin';
+
+        // Create form data
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('userType', 'admin');
+        formData.append('userName', userName);
+
+        const response = await axios.post(
+          API_ENDPOINTS.ATTACHMENTS.UPLOAD(selectedJob.uuid || selectedJob.id),
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+
+        if (response.data && response.data.success) {
+          // Refresh attachments list
+          await fetchAttachments(selectedJob.uuid || selectedJob.id);
+          setSelectedFile(null);
+          setIsUploadingFile(false);
+        }
+      } catch (error) {
+        console.error('Error uploading file:', error);
+
+        // Check for common errors and provide specific messages
+        if (error.response) {
+          if (error.response.status === 413) {
+            alert('File is too large. Please upload a file less than 9MB.');
+          } else if (error.response.data && error.response.data.message) {
+            alert(`Upload failed: ${error.response.data.message}`);
+          } else {
+            alert(`Upload failed: ${error.response.statusText}`);
+          }
+        } else if (error.message && error.message.includes('network')) {
+          alert('Network error. Please check your connection and try again.');
+        } else {
+          alert('Failed to upload file. Please try again.');
+        }
+      } finally {
+        setFileUploading(false);
+      }
+    };
     // Handle file download
-  const handleDownloadFile = async (attachmentId, fileName) => {
-    try {
-      // Add this file to downloading set
-      setDownloadingFiles(prev => new Set(prev).add(attachmentId));
-      
-      // Using axios to get the file with responseType blob
-      const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
-        responseType: 'blob'
-      });
-      
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      
-      // Create a temporary anchor element
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileName);
-      
-      // Add to document, click and remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Clean up the URL object
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      alert('Failed to download file. Please try again.');
-    } finally {
-      // Remove from downloading set
-      setDownloadingFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(attachmentId);
-        return newSet;
-      });
-    }
-  };
+    const handleDownloadFile = async (attachmentId, fileName) => {
+      try {
+        // Add this file to downloading set
+        setDownloadingFiles(prev => new Set(prev).add(attachmentId));
 
-  // Handle delete attachment
-  const handleDeleteAttachment = async (attachmentId) => {
-    if (!attachmentId || !selectedJob) return;
-    
-    if (!confirm('Are you sure you want to delete this attachment? This action cannot be undone.')) {
-      return;
-    }
-    
-    try {
-      const response = await axios.delete(API_ENDPOINTS.ATTACHMENTS.DELETE(attachmentId));
-      
-      if (response.data && response.data.success) {
-        // Refresh attachments list
-        await fetchAttachments(selectedJob.uuid || selectedJob.id);
+        // Using axios to get the file with responseType blob
+        const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
+          responseType: 'blob'
+        });
+
+        // Create a URL for the blob
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+
+        // Create a temporary anchor element
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName);
+
+        // Add to document, click and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the URL object
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading file:', error);
+        alert('Failed to download file. Please try again.');
+      } finally {
+        // Remove from downloading set
+        setDownloadingFiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(attachmentId);
+          return newSet;
+        });
       }
-    } catch (error) {
-      console.error('Error deleting attachment:', error);
-      alert('Failed to delete attachment. Please try again.');
-    }
-  };
+    };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Job Management</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>Create New Job</Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Job</DialogTitle>
-              <DialogDescription>
-                Enter the details for the new job. This will create a job in ServiceM8.
-              </DialogDescription>
-            </DialogHeader>            <form onSubmit={handleCreateJob} className="overflow-y-auto">
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    name="date"
-                    type="date"
-                    value={newJob.date}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="company_uuid">Client</Label>
-                  <Select
-                    value={newJob.company_uuid}
-                    onValueChange={handleClientChange}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map(client => (
-                        <SelectItem key={client.uuid} value={client.uuid}>
-                          {client.name} ({client.uuid.slice(-4)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Client UUID will also be used as staff UUID for ServiceM8
-                  </p>
-                </div>
+    // Handle delete attachment
+    const handleDeleteAttachment = async (attachmentId) => {
+      if (!attachmentId || !selectedJob) return;
 
-                <div className="grid gap-2">
-                  <Label htmlFor="job_address">Service Address</Label>
-                  <Input
-                    id="job_address"
-                    name="job_address"
-                    value={newJob.job_address}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+      if (!confirm('Are you sure you want to delete this attachment? This action cannot be undone.')) {
+        return;
+      }
 
-                <div className="grid gap-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={newJob.status}
-                    onValueChange={(value) => handleSelectChange('status', value)}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Quote">Quote</SelectItem>
-                      <SelectItem value="Work Order">Work Order</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+      try {
+        const response = await axios.delete(API_ENDPOINTS.ATTACHMENTS.DELETE(attachmentId));
 
-                <div className="grid gap-2">
-                  <Label htmlFor="job_description">Job Description</Label>
-                  <Textarea
-                    id="job_description"
-                    name="job_description"
-                    value={newJob.job_description}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+        if (response.data && response.data.success) {
+          // Refresh attachments list
+          await fetchAttachments(selectedJob.uuid || selectedJob.id);
+        }
+      } catch (error) {
+        console.error('Error deleting attachment:', error);
+        alert('Failed to delete attachment. Please try again.');
+      }
+    };
 
-                <div className="grid gap-2">
-                  <Label htmlFor="work_done_description">Work Done Description</Label>
-                  <Textarea
-                    id="work_done_description"
-                    name="work_done_description"
-                    value={newJob.work_done_description}
-                    onChange={handleInputChange}
-                  />
-                </div>                <div className="grid gap-2">
-                  <Label htmlFor="category_uuid">Category</Label>
-                  <Select
-                    value={newJob.category_uuid}
-                    onValueChange={(value) => handleSelectChange('category_uuid', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Category</SelectItem>
-                      {categories.map(category => (
-                        <SelectItem key={category.uuid} value={category.uuid}>
-                          {category.name} ({category.category_type || 'General'})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Job Management</h1>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>Create New Job</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Job</DialogTitle>
+                <DialogDescription>
+                  Enter the details for the new job. This will create a job in ServiceM8.
+                </DialogDescription>
+              </DialogHeader>            <form onSubmit={handleCreateJob} className="overflow-y-auto">
+                <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="total_invoice_amount">Invoice Amount</Label>
+                    <Label htmlFor="date">Date</Label>
                     <Input
-                      id="total_invoice_amount"
-                      name="total_invoice_amount"
-                      type="number"
-                      step="0.01"
-                      value={newJob.total_invoice_amount}
+                      id="date"
+                      name="date"
+                      type="date"
+                      value={newJob.date}
                       onChange={handleInputChange}
+                      required
                     />
                   </div>
+
                   <div className="grid gap-2">
-                    <Label htmlFor="invoice_sent">Invoice Sent</Label>
+                    <Label htmlFor="company_uuid">Client</Label>
                     <Select
-                      value={newJob.invoice_sent}
-                      onValueChange={(value) => handleSelectChange('invoice_sent', value)}
+                      value={newJob.company_uuid}
+                      onValueChange={handleClientChange}
+                      required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select" />
+                        <SelectValue placeholder="Select client" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Yes</SelectItem>
-                        <SelectItem value="0">No</SelectItem>
+                        {clients.map(client => (
+                          <SelectItem key={client.uuid} value={client.uuid}>
+                            {client.name} ({client.uuid.slice(-4)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Client UUID will also be used as staff UUID for ServiceM8
+                    </p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="job_address">Service Address</Label>
+                    <Input
+                      id="job_address"
+                      name="job_address"
+                      value={newJob.job_address}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={newJob.status}
+                      onValueChange={(value) => handleSelectChange('status', value)}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Quote">Quote</SelectItem>
+                        <SelectItem value="Work Order">Work Order</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="quote_date">Quote Date</Label>
-                    <Input
-                      id="quote_date"
-                      name="quote_date"
-                      type="date"
-                      value={newJob.quote_date}
+                    <Label htmlFor="job_description">Job Description</Label>
+                    <Textarea
+                      id="job_description"
+                      name="job_description"
+                      value={newJob.job_description}
                       onChange={handleInputChange}
+                      required
                     />
                   </div>
+
                   <div className="grid gap-2">
-                    <Label htmlFor="quote_sent">Quote Sent</Label>
+                    <Label htmlFor="work_done_description">Work Done Description</Label>
+                    <Textarea
+                      id="work_done_description"
+                      name="work_done_description"
+                      value={newJob.work_done_description}
+                      onChange={handleInputChange}
+                    />
+                  </div>                <div className="grid gap-2">
+                    <Label htmlFor="category_uuid">Category</Label>
                     <Select
-                      value={newJob.quote_sent}
-                      onValueChange={(value) => handleSelectChange('quote_sent', value)}
+                      value={newJob.category_uuid}
+                      onValueChange={(value) => handleSelectChange('category_uuid', value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select" />
+                        <SelectValue placeholder="Select category (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Yes</SelectItem>
-                        <SelectItem value="0">No</SelectItem>
+                        <SelectItem value="none">No Category</SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category.uuid} value={category.uuid}>
+                            {category.name} ({category.category_type || 'General'})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="work_order_date">Work Order Date</Label>
-                    <Input
-                      id="work_order_date"
-                      name="work_order_date"
-                      type="date"
-                      value={newJob.work_order_date}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="completion_date">Completion Date</Label>
-                    <Input
-                      id="completion_date"
-                      name="completion_date"
-                      type="date"
-                      value={newJob.completion_date}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 mt-2">
-                  <h3 className="text-lg font-medium mb-3">Payment Details</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="payment_date">Payment Date</Label>
+                      <Label htmlFor="total_invoice_amount">Invoice Amount</Label>
                       <Input
-                        id="payment_date"
-                        name="payment_date"
-                        type="date"
-                        value={newJob.payment_date}
+                        id="total_invoice_amount"
+                        name="total_invoice_amount"
+                        type="number"
+                        step="0.01"
+                        value={newJob.total_invoice_amount}
                         onChange={handleInputChange}
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="payment_method">Payment Method</Label>
+                      <Label htmlFor="invoice_sent">Invoice Sent</Label>
                       <Select
-                        value={newJob.payment_method}
-                        onValueChange={(value) => handleSelectChange('payment_method', value)}
+                        value={newJob.invoice_sent}
+                        onValueChange={(value) => handleSelectChange('invoice_sent', value)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select method" />
+                          <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Credit Card">Credit Card</SelectItem>
-                          <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                          <SelectItem value="Cash">Cash</SelectItem>
-                          <SelectItem value="Check">Check</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
+                          <SelectItem value="1">Yes</SelectItem>
+                          <SelectItem value="0">No</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="payment_amount">Payment Amount</Label>
+                      <Label htmlFor="quote_date">Quote Date</Label>
                       <Input
-                        id="payment_amount"
-                        name="payment_amount"
-                        type="number"
-                        step="0.01"
-                        value={newJob.payment_amount}
+                        id="quote_date"
+                        name="quote_date"
+                        type="date"
+                        value={newJob.quote_date}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="quote_sent">Quote Sent</Label>
+                      <Select
+                        value={newJob.quote_sent}
+                        onValueChange={(value) => handleSelectChange('quote_sent', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Yes</SelectItem>
+                          <SelectItem value="0">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="work_order_date">Work Order Date</Label>
+                      <Input
+                        id="work_order_date"
+                        name="work_order_date"
+                        type="date"
+                        value={newJob.work_order_date}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="completion_date">Completion Date</Label>
+                      <Input
+                        id="completion_date"
+                        name="completion_date"
+                        type="date"
+                        value={newJob.completion_date}
                         onChange={handleInputChange}
                       />
                     </div>
                   </div>
+
+                  <div className="border-t pt-4 mt-2">
+                    <h3 className="text-lg font-medium mb-3">Payment Details</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="payment_date">Payment Date</Label>
+                        <Input
+                          id="payment_date"
+                          name="payment_date"
+                          type="date"
+                          value={newJob.payment_date}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="payment_method">Payment Method</Label>
+                        <Select
+                          value={newJob.payment_method}
+                          onValueChange={(value) => handleSelectChange('payment_method', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Credit Card">Credit Card</SelectItem>
+                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                            <SelectItem value="Cash">Cash</SelectItem>
+                            <SelectItem value="Check">Check</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="payment_amount">Payment Amount</Label>
+                        <Input
+                          id="payment_amount"
+                          name="payment_amount"
+                          type="number"
+                          step="0.01"
+                          value={newJob.payment_amount}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Create Job</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <DialogFooter>
+                  <Button type="submit">Create Job</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
         <Card>
-        <CardHeader>
-          <CardTitle>Jobs</CardTitle>
-          <CardDescription>View and manage all jobs in the system</CardDescription>
-          <div className="flex flex-col space-y-4 mt-2">
-            {useRoleBasedFiltering ? (
+          <CardHeader>
+            <CardTitle>Jobs</CardTitle>
+            <CardDescription>View and manage all jobs in the system</CardDescription>
+            <div className="flex flex-col space-y-4 mt-2">            {useRoleBasedFiltering ? (
               // Use advanced JobFilters for role-based filtering
               <JobFilters
                 userRole={userRole}
                 onFiltersChange={handleFiltersChange}
-                activeFilters={activeFilters}
-                fetchCategoriesByRole={fetchCategoriesByRole}
+                currentFilters={activeFilters}
+                className="mb-4"
+                showSavedFilters={true}
               />
             ) : (
               // Use simple tabs and search for Administrators
@@ -873,11 +912,11 @@ const AdminJobs = () => {
                 </div>
               </>
             )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">              <thead>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">              <thead>
                 <tr className="border-b">
                   <th className="py-3 text-left">Job ID</th>
                   <th className="py-3 text-left">Description</th>
@@ -887,90 +926,89 @@ const AdminJobs = () => {
                   <th className="py-3 text-left">Actions</th>
                 </tr>
               </thead>              <tbody>
-                {loading ? (
-                  <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
-                ) : filteredJobs.length > 0 ? (
-                  displayedJobs.map((job) => (
-                    <tr key={job.uuid} className="border-b">
-                      <td className="py-3">{job.uuid ? job.uuid.slice(-8) : '...'}</td>
-                      <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
-                      <td className="py-3">
-                        {job.category_name ? (
-                          <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
-                            {job.category_name}
+                  {loading ? (
+                    <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
+                  ) : filteredJobs.length > 0 ? (
+                    displayedJobs.map((job) => (
+                      <tr key={job.uuid} className="border-b">
+                        <td className="py-3">{job.uuid ? job.uuid.slice(-8) : '...'}</td>
+                        <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
+                        <td className="py-3">
+                          {job.category_name ? (
+                            <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                              {job.category_name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">No Category</span>
+                          )}
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
+                              ? 'bg-blue-100 text-blue-800'
+                              : job.status === 'Work Order'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : job.status === 'In Progress'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-green-100 text-green-800'
+                            }`}>
+                            {job.status}
                           </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">No Category</span>
-                        )}
-                      </td>
-                      <td className="py-3">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          job.status === 'Quote' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : job.status === 'Work Order' 
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : job.status === 'In Progress'
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-green-100 text-green-800'
-                        }`}>
-                          {job.status}
-                        </span>
-                      </td>
-                      <td className="py-3">{job.date || '...'}</td>
-                      <td className="py-3">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleViewDetails(job)}
-                        >
-                          View Details
-                        </Button>
+                        </td>
+                        <td className="py-3">{job.date || '...'}</td>
+                        <td className="py-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetails(job)}
+                          >
+                            View Details
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="py-4 text-center text-muted-foreground">
+                        No jobs found
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="py-4 text-center text-muted-foreground">
-                      No jobs found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-between items-center mt-4">
-            <Button
-              variant="outline"
-              onClick={handleShowLess}
-              disabled={visibleJobs <= 10}
-            >
-              Show Less
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-            >
-              Refresh Data
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleShowMore}
-              disabled={filteredJobs.length < visibleJobs}
-            >
-              Show More
-            </Button>
-          </div>
-        </CardContent>
-      </Card>      {selectedJob && (        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-between items-center mt-4">
+              <Button
+                variant="outline"
+                onClick={handleShowLess}
+                disabled={visibleJobs <= 10}
+              >
+                Show Less
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+              >
+                Refresh Data
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleShowMore}
+                disabled={filteredJobs.length < visibleJobs}
+              >
+                Show More
+              </Button>
+            </div>
+          </CardContent>
+        </Card>      {selectedJob && (<Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
           <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">            <DialogHeader className="border-b pb-3 md:pb-4">
-              <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-                Job Details - {selectedJob.uuid?.slice(-8)}
-              </DialogTitle>
-              <DialogDescription className="text-xs md:text-sm">
-                Detailed information about the selected job
-              </DialogDescription>
-            </DialogHeader>
-              <Tabs defaultValue="details" className="mt-3 md:mt-4">
+            <DialogTitle className="text-lg md:text-2xl font-bold truncate">
+              Job Details - {selectedJob.uuid?.slice(-8)}
+            </DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              Detailed information about the selected job
+            </DialogDescription>
+          </DialogHeader>
+            <Tabs defaultValue="details" className="mt-3 md:mt-4">
               <TabsList className="w-full flex-wrap gap-1">
                 <TabsTrigger value="details" className="text-xs md:text-base flex-1 md:flex-none">Details</TabsTrigger>
                 <TabsTrigger value="chat" className="relative text-xs md:text-base flex-1 md:flex-none">
@@ -981,125 +1019,124 @@ const AdminJobs = () => {
                 </TabsTrigger>
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
               </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">
-                  <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-gray-50 rounded-lg">
-                    <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
-                    <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid}</p>
-                  </div>
-                  
-                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
-                    <Label className="font-bold text-xs md:text-sm">Job Description</Label>
-                    <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
-                      <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
-                    </div>
-                  </div><div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
-                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Status</Label>
-                      <span className={`px-2 py-1 rounded text-xs inline-block ${
-                        selectedJob.status === 'Quote' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : selectedJob.status === 'Work Order' 
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : selectedJob.status === 'In Progress'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-green-100 text-green-800'
-                      }`}>
-                        {selectedJob.status}
-                      </span>
-                    </div>
-                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Active</Label>
-                      <p className="text-xs md:text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-
-                  {/* Job Status Update Section */}
-                  <div className="space-y-3 border border-gray-200 rounded-lg p-3 md:p-4 bg-blue-50">
-                    <Label className="font-bold text-sm md:text-base text-gray-800">Update Job Status</Label>
-                    <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
-                      <div className="flex-1 space-y-2">
-                        <Label className="text-xs md:text-sm text-gray-600">Select New Status</Label>
-                        <Select 
-                          value={selectedStatus || selectedJob.status} 
-                          onValueChange={setSelectedStatus}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Quote">Quote</SelectItem>
-                            <SelectItem value="Work Order">Work Order</SelectItem>
-                            <SelectItem value="Unsuccessful">Unsuccessful</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button 
-                        onClick={handleStatusUpdate}
-                        disabled={isUpdatingStatus || !selectedStatus || selectedStatus === selectedJob.status}
-                        className="w-full md:w-auto"
-                      >
-                        {isUpdatingStatus ? 'Updating...' : 'Save Changes'}
-                      </Button>
-                    </div>
-                    {selectedStatus && selectedStatus !== selectedJob.status && (
-                      <p className="text-xs text-gray-600">
-                        Status will be updated from <strong>{selectedJob.status}</strong> to <strong>{selectedStatus}</strong>
-                      </p>
-                    )}
-                  </div><div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                    <Label className="font-bold text-xs md:text-sm">Service Address</Label>
-                    <p className="text-xs md:text-sm break-words">{selectedJob.job_address || 'N/A'}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 md:gap-5">
-                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Created Date</Label>
-                      <p className="text-xs md:text-sm">{selectedJob.date || 'N/A'}</p>
-                    </div>
-                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
-                      <p className="text-xs md:text-sm">{selectedJob.edit_date || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
-                    <Label className="font-bold text-xs md:text-sm">Location Details</Label>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
-                        <p><span className="font-semibold">Street:</span> {selectedJob.geo_number || ''} {selectedJob.geo_street || 'N/A'}</p>
-                        <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
-                        <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
-                        <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
-                        <p><span className="font-semibold">Country:</span> {selectedJob.geo_country || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
-                    <Label className="font-bold text-xs md:text-sm">Payment Details</Label>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
-                        <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
-                        <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
-                        <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
-                        <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedJob.purchase_order_number && (
-                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Purchase Order Number</Label>
-                      <p className="text-xs md:text-sm break-words">{selectedJob.purchase_order_number}</p>
-                    </div>
-                  )}
+                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-gray-50 rounded-lg">
+                  <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
+                  <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid}</p>
                 </div>
+
+                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                  <Label className="font-bold text-xs md:text-sm">Job Description</Label>
+                  <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
+                    <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
+                  </div>
+                </div><div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Status</Label>
+                    <span className={`px-2 py-1 rounded text-xs inline-block ${selectedJob.status === 'Quote'
+                        ? 'bg-blue-100 text-blue-800'
+                        : selectedJob.status === 'Work Order'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : selectedJob.status === 'In Progress'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-green-100 text-green-800'
+                      }`}>
+                      {selectedJob.status}
+                    </span>
+                  </div>
+                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Active</Label>
+                    <p className="text-xs md:text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+
+                {/* Job Status Update Section */}
+                <div className="space-y-3 border border-gray-200 rounded-lg p-3 md:p-4 bg-blue-50">
+                  <Label className="font-bold text-sm md:text-base text-gray-800">Update Job Status</Label>
+                  <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label className="text-xs md:text-sm text-gray-600">Select New Status</Label>
+                      <Select
+                        value={selectedStatus || selectedJob.status}
+                        onValueChange={setSelectedStatus}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Quote">Quote</SelectItem>
+                          <SelectItem value="Work Order">Work Order</SelectItem>
+                          <SelectItem value="Unsuccessful">Unsuccessful</SelectItem>
+                          <SelectItem value="Completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      onClick={handleStatusUpdate}
+                      disabled={isUpdatingStatus || !selectedStatus || selectedStatus === selectedJob.status}
+                      className="w-full md:w-auto"
+                    >
+                      {isUpdatingStatus ? 'Updating...' : 'Save Changes'}
+                    </Button>
+                  </div>
+                  {selectedStatus && selectedStatus !== selectedJob.status && (
+                    <p className="text-xs text-gray-600">
+                      Status will be updated from <strong>{selectedJob.status}</strong> to <strong>{selectedStatus}</strong>
+                    </p>
+                  )}
+                </div><div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                  <Label className="font-bold text-xs md:text-sm">Service Address</Label>
+                  <p className="text-xs md:text-sm break-words">{selectedJob.job_address || 'N/A'}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:gap-5">
+                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Created Date</Label>
+                    <p className="text-xs md:text-sm">{selectedJob.date || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
+                    <p className="text-xs md:text-sm">{selectedJob.edit_date || 'N/A'}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                  <Label className="font-bold text-xs md:text-sm">Location Details</Label>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number || ''} {selectedJob.geo_street || 'N/A'}</p>
+                      <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
+                      <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
+                      <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
+                      <p><span className="font-semibold">Country:</span> {selectedJob.geo_country || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                  <Label className="font-bold text-xs md:text-sm">Payment Details</Label>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                      <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
+                      <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
+                      <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                      <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedJob.purchase_order_number && (
+                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Purchase Order Number</Label>
+                    <p className="text-xs md:text-sm break-words">{selectedJob.purchase_order_number}</p>
+                  </div>
+                )}
+              </div>
               </TabsContent>
-              
+
               <TabsContent value="chat" className="p-0 mt-6">
                 <AdminChatRoom jobId={selectedJob.uuid || selectedJob.id} />
               </TabsContent>
-                <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
+              <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
                 <Card className="border rounded-lg shadow-sm">
                   <CardHeader className="py-3 px-3 md:px-4 md:py-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
@@ -1107,8 +1144,8 @@ const AdminJobs = () => {
                         <FileText className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
                         Attachments
                       </CardTitle>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => setIsUploadingFile(true)}
                         className="text-xs md:text-sm h-8"
                       >
@@ -1135,8 +1172,8 @@ const AdminJobs = () => {
                           <span>File size must be less than 9MB to ensure successful upload</span>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             onClick={() => {
                               setIsUploadingFile(false);
                               setSelectedFile(null);
@@ -1146,8 +1183,8 @@ const AdminJobs = () => {
                           >
                             Cancel
                           </Button>
-                          <Button 
-                            onClick={handleFileUpload} 
+                          <Button
+                            onClick={handleFileUpload}
                             disabled={!selectedFile || fileUploading}
                             className="text-xs md:text-sm h-8"
                           >
@@ -1156,7 +1193,7 @@ const AdminJobs = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     {attachmentsLoading ? (
                       <div className="py-6 md:py-8 flex justify-center">
                         <div className="animate-pulse flex space-x-4">
@@ -1181,10 +1218,10 @@ const AdminJobs = () => {
                             if (['zip', 'rar'].includes(ext)) return 'text-amber-600';
                             return 'text-gray-600';
                           };
-                          
+
                           return (
-                            <div 
-                              key={file.id} 
+                            <div
+                              key={file.id}
                               className="p-3 md:p-4 border rounded-md flex flex-col md:flex-row justify-between items-start md:items-center gap-3"
                             >
                               <div className="flex items-start gap-3 w-full md:w-auto">
@@ -1192,25 +1229,25 @@ const AdminJobs = () => {
                                 <div className="min-w-0 flex-1">
                                   <p className="font-medium text-sm md:text-base break-all">{file.fileName}</p>
                                   <p className="text-xs md:text-sm text-muted-foreground">
-                                    {formatFileSize(file.fileSize)} • 
-                                    Uploaded by {file.uploadedBy} • 
+                                    {formatFileSize(file.fileSize)} •
+                                    Uploaded by {file.uploadedBy} •
                                     {new Date(file.uploadTimestamp).toLocaleDateString()}
                                   </p>
                                 </div>
                               </div>
                               <div className="flex gap-2 w-full md:w-auto">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   className="flex items-center gap-1 flex-1 md:flex-none justify-center"
                                   onClick={() => handleDownloadFile(file.id, file.fileName)}
                                 >
                                   <Download className="h-4 w-4" />
                                   <span className="hidden md:inline">Download</span>
                                 </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="destructive" 
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
                                   className="flex items-center gap-1 flex-1 md:flex-none justify-center"
                                   onClick={() => handleDeleteAttachment(file.id)}
                                 >
@@ -1225,9 +1262,9 @@ const AdminJobs = () => {
                       <div className="py-8 md:py-12 text-center">
                         <FileText className="h-8 w-8 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
                         <p className="text-sm md:text-base text-muted-foreground">No attachments found for this job</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="mt-3 md:mt-4"
                           onClick={() => setIsUploadingFile(true)}
                         >
@@ -1239,34 +1276,35 @@ const AdminJobs = () => {
                 </Card>
               </TabsContent>
             </Tabs>
-            
+
             <DialogFooter className="border-t pt-4 mt-4">
               <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
             </DialogFooter>          </DialogContent>
         </Dialog>
-      )}
-      
-      {/* Refresh Confirmation Dialog */}
-      <Dialog open={confirmRefresh} onOpenChange={setConfirmRefresh}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Refresh Job Data</DialogTitle>
-            <DialogDescription>
-              This will reload all job data from the server. This may take a moment.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmRefresh(false)}>
-              Cancel
-            </Button>
-            <Button onClick={confirmRefreshData} disabled={isRefreshing}>
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
+        )}
+
+        {/* Refresh Confirmation Dialog */}
+        <Dialog open={confirmRefresh} onOpenChange={setConfirmRefresh}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Refresh Job Data</DialogTitle>
+              <DialogDescription>
+                This will reload all job data from the server. This may take a moment.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmRefresh(false)}>
+                Cancel
+              </Button>
+              <Button onClick={confirmRefreshData} disabled={isRefreshing}>
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  };
+}
 
 export default AdminJobs;

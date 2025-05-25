@@ -1,4 +1,4 @@
-// src/components/UI/admin/JobFilters.jsx
+// src/components/UI/client/ClientJobFilters.jsx
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/UI/select'
@@ -6,16 +6,15 @@ import { Input } from '@/components/UI/input'
 import { Label } from '@/components/UI/label'
 import { Badge } from '@/components/UI/badge'
 import { Button } from '@/components/UI/button'
-import { Filter, X, RefreshCw, AlertCircle, Save, Trash2 } from 'lucide-react'
+import { Filter, X, RefreshCw, AlertCircle, Save, Trash2, Calendar } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/UI/alert'
 import { Skeleton } from '@/components/UI/skeleton'
 import axios from 'axios'
 import { API_URL } from '@/lib/apiConfig'
 
-const JobFilters = ({ 
+const ClientJobFilters = ({ 
     onFiltersChange, 
     currentFilters = {}, 
-    userRole = 'Administrator',
     className = '',
     showSavedFilters = true 
 }) => {
@@ -25,18 +24,18 @@ const JobFilters = ({
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
-    const [lastFilterUpdate, setLastFilterUpdate] = useState(Date.now())
     
     const [filters, setFilters] = useState({
         search: '',
         status: '',
         category: '',
         type: '',
-        role: userRole,
+        dateRange: '',
+        priority: '',
         ...currentFilters
     })
 
-    // Available job statuses
+    // Available job statuses for clients
     const jobStatuses = [
         'Quote',
         'Work Order', 
@@ -49,43 +48,54 @@ const JobFilters = ({
     const jobTypes = [
         { value: 'maintenance', label: 'Maintenance' },
         { value: 'project', label: 'Project' },
-        { value: 'general', label: 'General' }
+        { value: 'general', label: 'General' },
+        { value: 'emergency', label: 'Emergency' }
     ]
 
-    // User roles for filtering (admin only)
-    const userRoles = [
-        'Administrator',
-        'Office Manager',
-        'Technician', 
-        'Technician Apprentice',
-        'Client Admin',
-        'Client User'
+    // Date range options
+    const dateRanges = [
+        { value: 'today', label: 'Today' },
+        { value: 'week', label: 'This Week' },
+        { value: 'month', label: 'This Month' },
+        { value: 'quarter', label: 'This Quarter' },
+        { value: 'year', label: 'This Year' }
+    ]
+
+    // Priority levels
+    const priorityLevels = [
+        { value: 'low', label: 'Low' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'high', label: 'High' },
+        { value: 'urgent', label: 'Urgent' }
     ]
 
     useEffect(() => {
-        fetchCategoriesForRole(filters.role)
+        fetchCategories()
         loadSavedFilters()
-    }, [filters.role])
+    }, [])
 
     useEffect(() => {
         // Debounce filter changes to prevent excessive API calls
         const timeoutId = setTimeout(() => {
             onFiltersChange(filters)
-            setLastFilterUpdate(Date.now())
         }, 300)
 
         return () => clearTimeout(timeoutId)
     }, [filters, onFiltersChange])
 
-    const fetchCategoriesForRole = async (role) => {
+    const fetchCategories = async () => {
         try {
             setLoadingCategories(true)
             setCategoryError(null)
             
+            // Get user info for client filtering
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+            const role = userInfo.role || 'Client User'
+            
             const response = await axios.get(`${API_URL}/fetch/jobs/categories/role/${role}`)
             setCategories(response.data)
         } catch (error) {
-            console.error('Error fetching categories for role:', error)
+            console.error('Error fetching categories:', error)
             setCategoryError('Failed to load categories')
             setCategories([])
         } finally {
@@ -95,7 +105,9 @@ const JobFilters = ({
 
     const loadSavedFilters = () => {
         try {
-            const saved = localStorage.getItem(`jobFilters_${userRole}`)
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+            const userId = userInfo.uuid || 'default'
+            const saved = localStorage.getItem(`clientJobFilters_${userId}`)
             if (saved) {
                 setSavedFilters(JSON.parse(saved))
             }
@@ -118,7 +130,10 @@ const JobFilters = ({
 
             const updatedSavedFilters = [...savedFilters, filterToSave]
             setSavedFilters(updatedSavedFilters)
-            localStorage.setItem(`jobFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
+            
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+            const userId = userInfo.uuid || 'default'
+            localStorage.setItem(`clientJobFilters_${userId}`, JSON.stringify(updatedSavedFilters))
             
             setFilterName('')
         } catch (error) {
@@ -135,7 +150,10 @@ const JobFilters = ({
     const deleteSavedFilter = (index) => {
         const updatedSavedFilters = savedFilters.filter((_, i) => i !== index)
         setSavedFilters(updatedSavedFilters)
-        localStorage.setItem(`jobFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
+        
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+        const userId = userInfo.uuid || 'default'
+        localStorage.setItem(`clientJobFilters_${userId}`, JSON.stringify(updatedSavedFilters))
     }
 
     const updateFilter = (key, value) => {
@@ -151,21 +169,20 @@ const JobFilters = ({
             status: '',
             category: '',
             type: '',
-            role: userRole
+            dateRange: '',
+            priority: ''
         })
     }
 
     const retryFetchCategories = () => {
-        fetchCategoriesForRole(filters.role)
+        fetchCategories()
     }
 
     const getActiveFiltersCount = () => {
         return Object.entries(filters).filter(([key, value]) => 
-            value && value !== '' && key !== 'role'
+            value && value !== ''
         ).length
     }
-
-    const isAdminOrManager = userRole === 'Administrator' || userRole === 'Office Manager'
 
     return (
         <Card className={className}>
@@ -228,26 +245,7 @@ const JobFilters = ({
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Role Filter (Admin only) */}
-                        {isAdminOrManager && (
-                            <div>
-                                <Label htmlFor="role">View as Role</Label>
-                                <Select value={filters.role} onValueChange={(value) => updateFilter('role', value)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {userRoles.map(role => (
-                                            <SelectItem key={role} value={role}>
-                                                {role}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Status Filter */}
                         <div>
                             <Label htmlFor="status">Status</Label>
@@ -306,6 +304,43 @@ const JobFilters = ({
                                     {jobTypes.map(type => (
                                         <SelectItem key={type.value} value={type.value}>
                                             {type.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Date Range Filter */}
+                        <div>
+                            <Label htmlFor="dateRange">Date Range</Label>
+                            <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All dates" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All dates</SelectItem>
+                                    {dateRanges.map(range => (
+                                        <SelectItem key={range.value} value={range.value}>
+                                            <Calendar className="h-4 w-4 mr-2" />
+                                            {range.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Priority Filter */}
+                        <div>
+                            <Label htmlFor="priority">Priority</Label>
+                            <Select value={filters.priority} onValueChange={(value) => updateFilter('priority', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All priorities" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All priorities</SelectItem>
+                                    {priorityLevels.map(priority => (
+                                        <SelectItem key={priority.value} value={priority.value}>
+                                            {priority.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -405,12 +440,21 @@ const JobFilters = ({
                                         />
                                     </Badge>
                                 )}
-                                {filters.role !== userRole && (
+                                {filters.dateRange && (
                                     <Badge variant="outline" className="gap-1">
-                                        View as: {filters.role}
+                                        Date: {dateRanges.find(d => d.value === filters.dateRange)?.label || filters.dateRange}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('role', userRole)}
+                                            onClick={() => updateFilter('dateRange', '')}
+                                        />
+                                    </Badge>
+                                )}
+                                {filters.priority && (
+                                    <Badge variant="outline" className="gap-1">
+                                        Priority: {priorityLevels.find(p => p.value === filters.priority)?.label || filters.priority}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer" 
+                                            onClick={() => updateFilter('priority', '')}
                                         />
                                     </Badge>
                                 )}
@@ -423,4 +467,4 @@ const JobFilters = ({
     )
 }
 
-export default JobFilters
+export default ClientJobFilters

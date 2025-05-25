@@ -53,6 +53,7 @@ import { Label } from "@/components/UI/label";
 import { Badge } from "@/components/UI/badge";
 import JobCard from "@/components/UI/client/JobCard";
 import ChatRoom from "@/components/UI/client/ChatRoom";
+import ClientJobFilters from "@/components/UI/client/ClientJobFilters";
 import { useJobContext } from '@/components/JobContext';
 import axios from 'axios';
 import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
@@ -95,10 +96,22 @@ const ClientJobs = () => {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  
   // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
+  
+  // Filter state for ClientJobFilters component
+  const [activeFilters, setActiveFilters] = useState({
+    search: '',
+    status: '',
+    category: '',
+    type: '',
+    dateFrom: '',
+    dateTo: '',
+    priority: ''
+  });
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
       // Get client UUID from localStorage
   const clientUuid = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
 
@@ -271,13 +284,41 @@ const ClientJobs = () => {
       [name]: value
     });
   };
-  
-  // Handle select changes
+    // Handle select changes
   const handleSelectChange = (name, value) => {
     setNewJob({
       ...newJob,
       [name]: value
-    });  };
+    });
+  };
+
+  // Handle filter changes from ClientJobFilters component
+  const handleFiltersChange = async (newFilters) => {
+    setActiveFilters(newFilters);
+    setFilterLoading(true);
+    
+    try {
+      // Update search query if it's part of the filters
+      if (newFilters.search !== undefined) {
+        setSearchQuery(newFilters.search);
+      }
+      
+      // In a full implementation, you might want to make an API call here
+      // For now, the filtering is handled in the filteredJobs computation below
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
+      setFilterLoading(false);
+    }
+    
+    // Reset visible jobs when filters change
+    setVisibleJobs(PAGE_SIZE);
+  };
+
+  // Toggle filters visibility
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
   
   // Handle tab changes
   const handleTabChange = (tab) => {
@@ -290,14 +331,55 @@ const ClientJobs = () => {
   };
   
   // Remove the generateUUID function since ServiceM8 will handle job ID generation
-  
-  // Filter jobs based on search query only (server-side filtering already applied for client ownership)
+    // Filter jobs based on search query and active filters
   const filteredJobs = jobs.filter(job => {
-    // Only search query filter since client filtering is handled server-side
-    if (!searchQuery.trim()) return true;
-    const searchLower = searchQuery.toLowerCase().trim();
+    // Search filter (from both searchQuery and activeFilters.search)
+    const searchTerm = activeFilters.search || searchQuery;
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      const matchesSearch = (
+        (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+        (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
+        (job.job_address && job.job_address.toLowerCase().includes(searchLower)) ||
+        (job.category_name && job.category_name.toLowerCase().includes(searchLower))
+      );
+      if (!matchesSearch) return false;
+    }
     
-    // Check fields that exist to improve performance
+    // Status filter
+    if (activeFilters.status && activeFilters.status !== '' && job.status !== activeFilters.status) {
+      return false;
+    }
+    
+    // Category filter
+    if (activeFilters.category && activeFilters.category !== '' && job.category_uuid !== activeFilters.category) {
+      return false;
+    }
+    
+    // Type filter (if you have a type field)
+    if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
+      return false;
+    }
+    
+    // Date range filter
+    if (activeFilters.dateFrom && activeFilters.dateFrom !== '') {
+      const jobDate = new Date(job.date || job.created_at);
+      const fromDate = new Date(activeFilters.dateFrom);
+      if (jobDate < fromDate) return false;
+    }
+    
+    if (activeFilters.dateTo && activeFilters.dateTo !== '') {
+      const jobDate = new Date(job.date || job.created_at);
+      const toDate = new Date(activeFilters.dateTo);
+      if (jobDate > toDate) return false;
+    }
+    
+    // Priority filter (if you have a priority field)
+    if (activeFilters.priority && activeFilters.priority !== '' && job.priority !== activeFilters.priority) {
+      return false;
+    }
+    
+    return true;
     // Check both description and job_description fields to handle different API response formats
     return (
       (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
@@ -781,10 +863,9 @@ const ClientJobs = () => {
                 <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
                 <TabsTrigger value="In Progress">In Progress</TabsTrigger>
                 <TabsTrigger value="Completed">Completed</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="w-full">
-              <div className="relative">
+              </TabsList>            </Tabs>
+            <div className="flex items-center gap-2 w-full">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
                 <Input
                   className="pl-10"
@@ -793,7 +874,30 @@ const ClientJobs = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleFilters}
+                className="flex items-center gap-2"
+              >
+                <Filter size={16} />
+                Filters
+                {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </Button>
             </div>
+            
+            {/* Enhanced Filters */}
+            {showFilters && (
+              <div className="mt-4">
+                <ClientJobFilters
+                  onFiltersChange={handleFiltersChange}
+                  currentFilters={activeFilters}
+                  className="mb-4"
+                  showSavedFilters={true}
+                  loading={filterLoading}
+                />
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
