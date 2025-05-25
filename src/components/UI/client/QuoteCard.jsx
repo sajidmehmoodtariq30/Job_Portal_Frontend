@@ -36,24 +36,43 @@ const QuoteCard = ({ quote, onQuoteAction, statusColor }) => {
                             <span>Attachments: {quote.attachments}</span>
                         </div>
                     </div>
-                </div>
-            </CardContent>            <CardFooter className="flex justify-end">
-                <div className="flex gap-2">
-                    <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => onQuoteAction(quote.id, 'Accept')}
-                    >
-                        Accept Quote
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onQuoteAction(quote.id, 'Reject')}
-                    >
-                        Reject
-                    </Button>
-                </div>
+                </div>            </CardContent>            
+            <CardFooter className="flex justify-end">
+                {quote.status === 'Pending' && (
+                    <div className="flex gap-2">
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => onQuoteAction(quote.id, 'Accept')}
+                        >
+                            Accept Quote
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onQuoteAction(quote.id, 'Reject')}
+                        >
+                            Reject
+                        </Button>
+                    </div>
+                )}
+                {quote.status === 'Accepted' && (
+                    <div className="flex items-center gap-2 text-green-600 font-medium">
+                        <span>✓ Quote Accepted</span>
+                        {quote.acceptedDate && <span className="text-sm text-muted-foreground">on {quote.acceptedDate}</span>}
+                    </div>
+                )}
+                {quote.status === 'Rejected' && (
+                    <div className="flex items-center gap-2 text-red-600 font-medium">
+                        <span>✗ Quote Rejected</span>
+                        {quote.rejectedDate && <span className="text-sm text-muted-foreground">on {quote.rejectedDate}</span>}
+                    </div>
+                )}
+                {quote.status === 'Expired' && (
+                    <div className="flex items-center gap-2 text-gray-600 font-medium">
+                        <span>⏰ Quote Expired</span>
+                    </div>
+                )}
             </CardFooter>
         </Card>
     );

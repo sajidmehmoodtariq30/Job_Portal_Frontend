@@ -22,12 +22,22 @@ export const API_ENDPOINTS = {
     FETCH_ALL: buildApiEndpoint('fetch/jobs'),
     FETCH_BY_ID: buildApiEndpoint('fetch/job'),
     CREATE: buildApiEndpoint('fetch/jobs/create'),
-  },
-  // Clients endpoints
+  },  // Clients endpoints
   CLIENTS: {
     FETCH_ALL: buildApiEndpoint('fetch/clients'),
     CREATE: buildApiEndpoint('fetch/clients'),
-  },  // Chat endpoints
+  },
+
+  // Quotes endpoints
+  QUOTES: {
+    GET_ALL: buildApiEndpoint('api/quotes'),
+    GET_BY_ID: (id) => buildApiEndpoint(`api/quotes/${id}`),
+    CREATE: buildApiEndpoint('api/quotes'),
+    ACCEPT: (id) => buildApiEndpoint(`api/quotes/${id}/accept`),
+    REJECT: (id) => buildApiEndpoint(`api/quotes/${id}/reject`),
+  },
+
+  // Chat endpoints
   CHAT: {
     GET_MESSAGES: (jobId) => buildApiEndpoint(`api/chat/messages/${jobId}`),
     SEND_MESSAGE: buildApiEndpoint('api/chat/messages'),

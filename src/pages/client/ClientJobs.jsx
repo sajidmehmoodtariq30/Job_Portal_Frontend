@@ -72,16 +72,25 @@ const ClientJobs = () => {
     resetJobs,
     activeTab,
     setActiveTab
-  } = useJobContext();
-  // Local state
+  } = useJobContext();  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [confirmRefresh, setConfirmRefresh] = useState(false);  // New state for job details dialog
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
+    // Quotes state
+  const [quotes, setQuotes] = useState([]);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+    // Attachment counts state
+  const [attachmentCounts, setAttachmentCounts] = useState({});
+  const [attachmentCountsLoading, setAttachmentCountsLoading] = useState(false);
+  
+  // New state for job details dialog
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
-  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);  const [newNote, setNewNote] = useState('');
+  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);
+
+  const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -102,17 +111,151 @@ const ClientJobs = () => {
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
     generated_job_id: '',
-  });
-
-  // Fetch jobs on mount and when active tab changes
+  });  // Fetch jobs on mount and when active tab changes
   useEffect(() => {
     if (!clientUuid) {
       console.error('No client UUID found in localStorage');
       return;
     }
     fetchJobs(1, activeTab);
-  }, [activeTab, clientUuid]);
-  
+    fetchQuotes(); // Fetch quotes when component mounts
+  }, [activeTab, clientUuid]);  // Fetch attachment counts when jobs change
+  useEffect(() => {
+    if (jobs && jobs.length > 0) {
+      // Use the optimized approach for smaller datasets, full fetch for larger ones
+      if (jobs.length <= 20) {
+        fetchAttachmentCounts();
+      }
+    }
+  }, [jobs]);// Fetch quotes for the client
+  const fetchQuotes = async () => {
+    if (!clientUuid) return;
+    
+    try {
+      setQuotesLoading(true);
+      const response = await axios.get(`${API_ENDPOINTS.QUOTES.GET_ALL}?clientId=${clientUuid}`);
+      setQuotes(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching quotes:', error);
+      setQuotes([]);
+    } finally {
+      setQuotesLoading(false);
+    }
+  };  // Fetch attachment counts for all jobs with rate limiting
+  const fetchAttachmentCounts = async () => {
+    if (!jobs || jobs.length === 0) return;
+    
+    try {
+      setAttachmentCountsLoading(true);
+      const counts = {};
+      const BATCH_SIZE = 3; // Process 3 jobs at a time to prevent overwhelming the browser
+      const DELAY_BETWEEN_BATCHES = 100; // 100ms delay between batches
+      
+      // Helper function to delay execution
+      const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      
+      console.log(`Fetching attachment counts for ${jobs.length} jobs in batches of ${BATCH_SIZE}...`);
+      
+      // Process jobs in batches
+      for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
+        const batch = jobs.slice(i, i + BATCH_SIZE);
+        
+        // Process current batch
+        await Promise.all(
+          batch.map(async (job) => {
+            try {
+              const jobId = job.uuid || job.id;
+              if (jobId) {
+                const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.GET_BY_JOB(jobId));
+                if (response.data && response.data.success) {
+                  counts[jobId] = response.data.data ? response.data.data.length : 0;
+                } else {
+                  counts[jobId] = 0;
+                }
+              }
+            } catch (error) {
+              // If there's an error fetching attachments for a specific job, set count to 0
+              console.error(`Error fetching attachments for job ${job.uuid || job.id}:`, error);
+              counts[job.uuid || job.id] = 0;
+            }
+          })
+        );
+        
+        // Update state with current progress
+        setAttachmentCounts(prevCounts => ({ ...prevCounts, ...counts }));
+        
+        // Add delay between batches (except for the last batch)
+        if (i + BATCH_SIZE < jobs.length) {
+          await delay(DELAY_BETWEEN_BATCHES);
+        }
+      }
+      
+      console.log('Attachment counts fetching completed:', counts);
+    } catch (error) {
+      console.error('Error fetching attachment counts:', error);
+    } finally {
+      setAttachmentCountsLoading(false);
+    }
+  };
+    // Optimized version: Fetch attachment counts only for visible jobs
+  const fetchAttachmentCountsForVisibleJobs = async (visibleJobList) => {
+    if (!visibleJobList || visibleJobList.length === 0) return;
+    
+    try {
+      setAttachmentCountsLoading(true);
+      const counts = { ...attachmentCounts }; // Keep existing counts
+      
+      // Only fetch for jobs that don't have counts yet
+      const jobsToFetch = visibleJobList.filter(job => {
+        const jobId = job.uuid || job.id;
+        return jobId && !(jobId in counts);
+      });
+      
+      if (jobsToFetch.length === 0) {
+        setAttachmentCountsLoading(false);
+        return;
+      }
+      
+      console.log(`Fetching attachment counts for ${jobsToFetch.length} visible jobs...`);
+      
+      // Process all visible jobs at once since there are fewer of them
+      const fetchPromises = jobsToFetch.map(async (job) => {
+        try {
+          const jobId = job.uuid || job.id;
+          if (jobId) {
+            // Add timeout to prevent hanging requests
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Request timeout')), 10000)
+            );
+            
+            const requestPromise = axios.get(API_ENDPOINTS.ATTACHMENTS.GET_BY_JOB(jobId));
+            
+            const response = await Promise.race([requestPromise, timeoutPromise]);
+            
+            if (response.data && response.data.success) {
+              counts[jobId] = response.data.data ? response.data.data.length : 0;
+            } else {
+              counts[jobId] = 0;
+            }
+          }
+        } catch (error) {
+          const jobId = job.uuid || job.id;
+          console.error(`Error fetching attachments for job ${jobId}:`, error);
+          counts[jobId] = 0;
+        }
+      });
+      
+      await Promise.all(fetchPromises);
+      
+      setAttachmentCounts(counts);
+      console.log('Visible jobs attachment counts updated:', counts);
+    } catch (error) {
+      console.error('Error fetching attachment counts for visible jobs:', error);
+    } finally {
+      setAttachmentCountsLoading(false);
+    }
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -169,6 +312,15 @@ const ClientJobs = () => {
   // Get jobs to display based on pagination
   const displayedJobs = filteredJobs.slice(0, visibleJobs);
   
+  // Fetch attachment counts for visible jobs when they change (effect placed after filteredJobs definition)
+  useEffect(() => {
+    if (jobs && jobs.length > 20 && filteredJobs && filteredJobs.length > 0) {
+      // Only use optimized approach for larger datasets
+      const visibleJobsList = filteredJobs.slice(0, visibleJobs);
+      fetchAttachmentCountsForVisibleJobs(visibleJobsList);
+    }
+  }, [jobs, searchQuery, visibleJobs]); // Dependencies include searchQuery to refetch when filter changes
+
   // Show more jobs
   const handleShowMore = () => {
     setVisibleJobs(prev => prev + PAGE_SIZE);
@@ -183,7 +335,6 @@ const ClientJobs = () => {
   const handleRefresh = async () => {
     setConfirmRefresh(true);
   };
-  
   // Confirm refresh data
   const confirmRefreshData = async () => {
     try {
@@ -195,6 +346,14 @@ const ClientJobs = () => {
       
       // Force reload with timestamp to prevent caching
       await fetchJobs(1, activeTab, true);
+      
+      // Also refresh quotes data
+      await fetchQuotes();
+      
+      // Refresh attachment counts after jobs are fetched
+      setTimeout(() => {
+        fetchAttachmentCounts();
+      }, 500); // Small delay to ensure jobs are updated first
       
       // Reset visible jobs to default
       setVisibleJobs(PAGE_SIZE);
@@ -217,16 +376,11 @@ const ClientJobs = () => {
       case 'Work Order': return 'bg-yellow-100 text-yellow-800';
       case 'Completed': return 'bg-green-600 text-white';
       case 'Scheduled': return 'bg-purple-600 text-white';
-      case 'On Hold': return 'bg-gray-600 text-white';
-      default: return 'bg-gray-600 text-white';
+      case 'On Hold': return 'bg-gray-600 text-white';      default: return 'bg-gray-600 text-white';
     }
   };
   
-  // Handle quote actions
-  const handleQuoteAction = (quoteId, action) => {
-    // This would integrate with ServiceM8 API to accept/reject quotes
-    alert(`${action} quote ${quoteId} - would send to ServiceM8 API`);
-  };    // Handle view job details - updated to open dialog instead of navigating
+  // Handle view job details - updated to open dialog instead of navigating
   const handleViewDetails = async (job) => {
     try {
       setJobDetailsLoading(true);
@@ -483,6 +637,9 @@ const ClientJobs = () => {
     }
   };  // Convert job data for JobCard component
   const prepareJobForCard = (job) => {
+    const jobId = job.uuid || job.id;
+    const attachmentCount = attachmentCounts[jobId];
+    
     return {
       id: job.generated_job_id || job.uuid,
       uuid: job.uuid,
@@ -494,7 +651,7 @@ const ClientJobs = () => {
       type: job.status === 'Quote' ? 'Quote' : 'Work Order',
       description: job.job_description || job.description || 'No description',
       location: job.job_address || 'No address',
-      attachments: 0 // Placeholder since we don't have attachment count
+      attachments: attachmentCount !== undefined ? attachmentCount : '...' // Show loading indicator if count not yet loaded
     };
   };
   // Reset form with client UUID
@@ -672,9 +829,9 @@ const ClientJobs = () => {
                   <JobCard 
                     key={job.uuid} 
                     job={prepareJobForCard(job)} 
-                    onQuoteAction={handleQuoteAction}
                     onViewDetails={handleViewDetails}
                     statusColor={getStatusColor}
+                    quotes={quotes}
                   />
                 ))}
               </div>
@@ -1049,23 +1206,6 @@ const ClientJobs = () => {
                   </TabsContent>
                 </Tabs>
               </div>              <DialogFooter className="mt-4 border-t pt-4 flex flex-col sm:flex-row gap-2">
-                {selectedJob.status === 'Quote' && (
-                  <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
-                    <Button 
-                      className="text-xs md:text-sm h-8 md:h-9"
-                      onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Accept')}
-                    >
-                      Accept Quote
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="text-xs md:text-sm h-8 md:h-9"
-                      onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Reject')}
-                    >
-                      Reject Quote
-                    </Button>
-                  </div>
-                )}
                 <Button 
                   variant="outline" 
                   className="text-xs md:text-sm h-8 md:h-9"

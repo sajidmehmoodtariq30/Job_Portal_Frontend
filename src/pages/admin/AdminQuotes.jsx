@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/UI/select";
 import { Label } from "@/components/UI/label";
+import SearchableJobSelect from "@/components/UI/SearchableJobSelect";
 import { PlusCircle, Search, RefreshCw, AlertCircle, Eye, Send, FileText, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
@@ -468,28 +469,16 @@ const AdminQuotes = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <form onSubmit={handleCreateQuote} className="space-y-6 my-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleCreateQuote} className="space-y-6 my-2">            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="jobId" className="font-medium">
                   Select Job <span className="text-red-500">*</span>
-                </Label>
-                <Select 
-                  value={newQuote.jobId} 
+                </Label>                <SearchableJobSelect
+                  jobs={jobs}
+                  value={newQuote.jobId}
                   onValueChange={handleJobChange}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select related job" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobs.map(job => (
-                      <SelectItem key={job.uuid} value={job.uuid}>
-                        {job.job_description?.slice(0, 30)}... - {job.uuid.slice(-6)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Search and select a job..."
+                />
               </div>
 
               <div className="space-y-2">
