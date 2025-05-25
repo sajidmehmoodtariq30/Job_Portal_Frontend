@@ -1,4 +1,4 @@
-import { AlertCircle, Badge, Calendar, FileText } from "lucide-react";
+import { AlertCircle, Badge, Calendar } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
 import { Button } from "../button";
 
@@ -26,17 +26,12 @@ const QuoteCard = ({ quote, onQuoteAction, statusColor }) => {
                             <div className="flex items-center gap-2 text-sm font-medium">
                                 <span>Quote Amount: {quote.price}</span>
                             </div>
-                        )}
-                        <div className="flex items-center gap-2 text-sm">
+                        )}                        <div className="flex items-center gap-2 text-sm">
                             <AlertCircle size={16} className="text-muted-foreground" />
                             <span>Location: {quote.location}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                            <FileText size={16} className="text-muted-foreground" />
-                            <span>Attachments: {quote.attachments}</span>
-                        </div>
                     </div>
-                </div>            </CardContent>            
+                </div>            </CardContent>
             <CardFooter className="flex justify-end">
                 {quote.status === 'Pending' && (
                     <div className="flex gap-2">

@@ -20,9 +20,10 @@ export const API_ENDPOINTS = {
   },  // Jobs endpoints
   JOBS: {
     FETCH_ALL: buildApiEndpoint('fetch/jobs'),
+    FETCH_BY_CLIENT: (clientUuid) => buildApiEndpoint(`fetch/jobs/client/${clientUuid}`),
     FETCH_BY_ID: buildApiEndpoint('fetch/job'),
     CREATE: buildApiEndpoint('fetch/jobs/create'),
-  },  // Clients endpoints
+  },// Clients endpoints
   CLIENTS: {
     FETCH_ALL: buildApiEndpoint('fetch/clients'),
     CREATE: buildApiEndpoint('fetch/clients'),

@@ -4,7 +4,7 @@ import { Button } from '@/components/UI/button';
 import { Label } from '@/components/UI/label';
 import { Switch } from "@/components/UI/switch";
 import { Input } from "@/components/UI/input";
-import { Mail, Info, AlertCircle, Loader2, BadgeCheck } from "lucide-react";
+import { Mail, Info, AlertCircle, Loader2, BadgeCheck, Trash2 } from "lucide-react";
 import { API_URL } from "@/lib/apiConfig";
 import axios from 'axios';
 
@@ -269,6 +269,47 @@ const ClientSettings = () => {
     setShowAddEmailForm(true);
   };
 
+  const handleRemoveEmail = async (emailAddress) => {
+    if (!userId) {
+      setError('User ID is required. Please log in again.');
+      return;
+    }
+
+    // Don't allow removing the last email
+    if (verifiedEmails.length <= 1) {
+      setError('Cannot remove the last verified email address. You must have at least one verified email.');
+      return;
+    }
+
+    // Confirm removal
+    if (!window.confirm(`Are you sure you want to remove "${emailAddress}" from your verified emails?`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await axios.delete(`${API_URL}/api/user-emails/remove`, {
+        data: {
+          userId,
+          email: emailAddress
+        }
+      });
+
+      if (response.status === 200) {
+        setSuccess('Email address removed successfully');
+        // Refresh the list of verified emails
+        fetchUserEmails();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to remove email address');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-xl mx-auto space-y-8">
       <h1 className="text-3xl font-bold mb-2">Settings</h1>
@@ -300,8 +341,7 @@ const ClientSettings = () => {
           {verifiedEmails.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-medium mb-2">Your verified email addresses:</h3>
-              <div className="space-y-2">
-                {verifiedEmails.map((emailAddress) => (
+              <div className="space-y-2">                {verifiedEmails.map((emailAddress) => (
                   <div 
                     key={emailAddress} 
                     className={`flex items-center justify-between p-3 rounded border ${primaryEmail === emailAddress ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}
@@ -313,16 +353,29 @@ const ClientSettings = () => {
                         <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">Primary</span>
                       )}
                     </div>
-                    {primaryEmail !== emailAddress && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleSetPrimaryEmail(emailAddress)}
-                        disabled={isLoading}
-                      >
-                        Set as Primary
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {primaryEmail !== emailAddress && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleSetPrimaryEmail(emailAddress)}
+                          disabled={isLoading}
+                        >
+                          Set as Primary
+                        </Button>
+                      )}
+                      {verifiedEmails.length > 1 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleRemoveEmail(emailAddress)}
+                          disabled={isLoading}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

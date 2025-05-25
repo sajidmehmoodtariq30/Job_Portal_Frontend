@@ -62,17 +62,17 @@ const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
   const navigate = useNavigate();
-  
-  // Use the JobContext to access jobs data and methods
+    // Use the JobContext to access jobs data and methods
   const {
     jobs,
     totalJobs,
     loading,
     fetchJobs,
+    fetchJobsByClient,
     resetJobs,
     activeTab,
     setActiveTab
-  } = useJobContext();  // Local state
+  } = useJobContext();// Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
@@ -111,15 +111,16 @@ const ClientJobs = () => {
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
     generated_job_id: '',
-  });  // Fetch jobs on mount and when active tab changes
+  });  // Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
   useEffect(() => {
     if (!clientUuid) {
       console.error('No client UUID found in localStorage');
       return;
     }
-    fetchJobs(1, activeTab);
+    // Use server-side filtering for better performance
+    fetchJobsByClient(clientUuid, activeTab);
     fetchQuotes(); // Fetch quotes when component mounts
-  }, [activeTab, clientUuid]);  // Fetch attachment counts when jobs change
+  }, [activeTab, clientUuid]);// Fetch attachment counts when jobs change
   useEffect(() => {
     if (jobs && jobs.length > 0) {
       // Use the optimized approach for smaller datasets, full fetch for larger ones
@@ -292,20 +293,13 @@ const ClientJobs = () => {
       generated_job_id: uuid // Set generated_job_id to match UUID automatically
     });
   };
-    // Filter jobs based on client ownership and search query
+  // Filter jobs based on search query only (server-side filtering already applied for client ownership)
   const filteredJobs = jobs.filter(job => {
-    // First filter: Only show jobs created by or assigned to the logged-in client
-    const isClientJob = job.company_uuid === clientUuid || 
-                       job.created_by_staff_uuid === clientUuid ||
-                       job.client_uuid === clientUuid;
-    
-    if (!isClientJob) return false;
-    
-    // Second filter: Search query filter
+    // Only search query filter since client filtering is handled server-side
     if (!searchQuery.trim()) return true;
     const searchLower = searchQuery.toLowerCase().trim();
     
-    // Only check fields that exist to improve performance
+    // Check fields that exist to improve performance
     // Check both description and job_description fields to handle different API response formats
     return (
       (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
@@ -341,8 +335,7 @@ const ClientJobs = () => {
   // Refresh jobs data
   const handleRefresh = async () => {
     setConfirmRefresh(true);
-  };
-  // Confirm refresh data
+  };  // Confirm refresh data
   const confirmRefreshData = async () => {
     try {
       setIsRefreshing(true);
@@ -351,8 +344,8 @@ const ClientJobs = () => {
       // Reset search query
       setSearchQuery('');
       
-      // Force reload with timestamp to prevent caching
-      await fetchJobs(1, activeTab, true);
+      // Force reload with timestamp to prevent caching - using client-specific fetch
+      await fetchJobsByClient(clientUuid, activeTab, true);
       
       // Also refresh quotes data
       await fetchQuotes();
