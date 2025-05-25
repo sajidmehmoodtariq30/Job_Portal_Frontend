@@ -47,9 +47,7 @@ const AdminJobs = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [clients, setClients] = useState([]);
-  const [newJob, setNewJob] = useState({
-    uuid: '',
+  const [clients, setClients] = useState([]);  const [newJob, setNewJob] = useState({
     created_by_staff_uuid: '', 
     date: new Date().toISOString().split('T')[0], 
     company_uuid: '',
@@ -57,7 +55,6 @@ const AdminJobs = () => {
     job_address: '',
     status: 'Quote',
     work_done_description: '',
-    generated_job_id: '',
     payment_date: '',
     payment_method: '',
     payment_amount: '',
@@ -81,6 +78,12 @@ const AdminJobs = () => {
   // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
+  
+  // Loading states for various actions
+  const [isCreatingJob, setIsCreatingJob] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [downloadingFiles, setDownloadingFiles] = useState(new Set());
+  const [deletingFiles, setDeletingFiles] = useState(new Set());
   
   const {
     jobs,
@@ -132,8 +135,7 @@ const AdminJobs = () => {
     setSearchTerm('');
     setVisibleJobs(10);
   };
-
-  // Improved search function that efficiently filters jobs by search term
+  // Filter jobs based on search term
   const filteredJobs = jobs.filter(job => {
     if (!searchTerm.trim()) return true;
     const searchLower = searchTerm.toLowerCase().trim();
@@ -142,7 +144,6 @@ const AdminJobs = () => {
     return (
       (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
       (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
-      (job.generated_job_id && job.generated_job_id.toLowerCase().includes(searchLower)) ||
       (job.job_address && job.job_address.toLowerCase().includes(searchLower))
     );
   });
@@ -162,9 +163,9 @@ const AdminJobs = () => {
     // Show confirmation dialog first
     setConfirmRefresh(true);
   };
-
   const confirmRefreshData = async () => {
     try {
+      setIsRefreshing(true);
       console.log("Manually refreshing job data...");
       
       // Reset any search term to show all jobs
@@ -183,6 +184,8 @@ const AdminJobs = () => {
     } catch (error) {
       console.error('Error refreshing jobs:', error);
       setConfirmRefresh(false);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -220,22 +223,20 @@ const AdminJobs = () => {
         job_address: formattedAddress || prev.job_address
       }));
     }
-  };
-  
-  const handleCreateJob = async (e) => {
+  };    const handleCreateJob = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!newJob.uuid || !newJob.company_uuid || !newJob.job_description || !newJob.job_address) {
+    // Validate required fields - removed uuid validation since ServiceM8 will generate it
+    if (!newJob.company_uuid || !newJob.job_description || !newJob.job_address) {
       alert("Please fill in all required fields");
       return;
     }
     
     try {
-        // Prepare payload to match ServiceM8 API format
+        setIsCreatingJob(true);
+        // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
         const payload = {
             active: 1,
-            uuid: newJob.uuid,
             created_by_staff_uuid: newJob.created_by_staff_uuid, // This is the client UUID
             company_uuid: newJob.company_uuid,
             date: newJob.date,
@@ -243,7 +244,6 @@ const AdminJobs = () => {
             job_address: newJob.job_address,
             status: newJob.status,
             work_done_description: newJob.work_done_description,
-            generated_job_id: newJob.generated_job_id || newJob.uuid, // Ensure generated_job_id is set, defaulting to UUID
             payment_date: newJob.payment_date,
             payment_method: newJob.payment_method,
             payment_amount: newJob.payment_amount,
@@ -272,7 +272,6 @@ const AdminJobs = () => {
         
         // Reset form for next use
         setNewJob({
-            uuid: '',
             created_by_staff_uuid: '',
             date: new Date().toISOString().split('T')[0],
             company_uuid: '',
@@ -280,7 +279,6 @@ const AdminJobs = () => {
             job_address: '',
             status: 'Quote',
             work_done_description: '',
-            generated_job_id: '',
             payment_date: '',
             payment_method: '',
             payment_amount: '',
@@ -296,6 +294,8 @@ const AdminJobs = () => {
     } catch (error) {
         console.error('Error creating job:', error);
         alert(`Error creating job: ${error.response?.data?.message || error.message}`);
+    } finally {
+        setIsCreatingJob(false);
     }
   };
   
@@ -342,16 +342,7 @@ const AdminJobs = () => {
       setIsUpdatingStatus(false);
     }
   };
-
-  // Generate UUID and update generated_job_id to match
-  const generateUUID = () => {
-    const uuid = crypto.randomUUID();
-    setNewJob({ 
-      ...newJob, 
-      uuid,
-      generated_job_id: uuid // Set generated_job_id to match UUID automatically
-    });
-  };
+  // Remove the generateUUID function since ServiceM8 will handle job ID generation
 
   // Format file size
   const formatFileSize = (bytes) => {
@@ -453,10 +444,12 @@ const AdminJobs = () => {
       setFileUploading(false);
     }
   };
-  
-  // Handle file download
+    // Handle file download
   const handleDownloadFile = async (attachmentId, fileName) => {
     try {
+      // Add this file to downloading set
+      setDownloadingFiles(prev => new Set(prev).add(attachmentId));
+      
       // Using axios to get the file with responseType blob
       const response = await axios.get(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
         responseType: 'blob'
@@ -480,6 +473,13 @@ const AdminJobs = () => {
     } catch (error) {
       console.error('Error downloading file:', error);
       alert('Failed to download file. Please try again.');
+    } finally {
+      // Remove from downloading set
+      setDownloadingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(attachmentId);
+        return newSet;
+      });
     }
   };
 
@@ -518,42 +518,18 @@ const AdminJobs = () => {
               <DialogDescription>
                 Enter the details for the new job. This will create a job in ServiceM8.
               </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateJob} className="overflow-y-auto">
+            </DialogHeader>            <form onSubmit={handleCreateJob} className="overflow-y-auto">
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="uuid">Job UUID</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="uuid"
-                        name="uuid"
-                        value={newJob.uuid}
-                        onChange={handleInputChange}
-                        required
-                        className="flex-1"
-                      />
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={generateUUID}
-                        className="whitespace-nowrap"
-                      >
-                        Generate
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="date">Date</Label>
-                    <Input
-                      id="date"
-                      name="date"
-                      type="date"
-                      value={newJob.date}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    name="date"
+                    type="date"
+                    value={newJob.date}
+                    onChange={handleInputChange}
+                    required
+                  />
                 </div>
                 
                 <div className="grid gap-2">
@@ -627,27 +603,14 @@ const AdminJobs = () => {
                     value={newJob.work_done_description}
                     onChange={handleInputChange}
                   />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="generated_job_id">Generated Job ID</Label>
-                    <Input
-                      id="generated_job_id"
-                      name="generated_job_id"
-                      value={newJob.generated_job_id}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="category_uuid">Category UUID</Label>
-                    <Input
-                      id="category_uuid"
-                      name="category_uuid"
-                      value={newJob.category_uuid}
-                      onChange={handleInputChange}
-                    />
-                  </div>
+                </div>                <div className="grid gap-2">
+                  <Label htmlFor="category_uuid">Category UUID</Label>
+                  <Input
+                    id="category_uuid"
+                    name="category_uuid"
+                    value={newJob.category_uuid}
+                    onChange={handleInputChange}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -809,11 +772,9 @@ const AdminJobs = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm">              <thead>
                 <tr className="border-b">
                   <th className="py-3 text-left">Job ID</th>
-                  <th className="py-3 text-left">Generated ID</th>
                   <th className="py-3 text-left">Description</th>
                   <th className="py-3 text-left">Status</th>
                   <th className="py-3 text-left">Created</th>
@@ -822,12 +783,11 @@ const AdminJobs = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
+                  <tr><td colSpan="5" className="py-4 text-center">Loading...</td></tr>
                 ) : filteredJobs.length > 0 ? (
                   displayedJobs.map((job) => (
                     <tr key={job.uuid} className="border-b">
-                      <td className="py-3">{job.uuid ? job.uuid.slice(-4) : '...'}</td>
-                      <td className="py-3">{job.generated_job_id || '...'}</td>
+                      <td className="py-3">{job.uuid ? job.uuid.slice(-8) : '...'}</td>
                       <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
                       <td className="py-3">
                         <span className={`px-2 py-1 rounded text-xs ${
@@ -888,10 +848,9 @@ const AdminJobs = () => {
           </div>
         </CardContent>
       </Card>      {selectedJob && (        <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
-          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
-            <DialogHeader className="border-b pb-3 md:pb-4">
+          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">            <DialogHeader className="border-b pb-3 md:pb-4">
               <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-                Job Details - {selectedJob.generated_job_id || selectedJob.uuid?.slice(-4)}
+                Job Details - {selectedJob.uuid?.slice(-8)}
               </DialogTitle>
               <DialogDescription className="text-xs md:text-sm">
                 Detailed information about the selected job
@@ -907,17 +866,10 @@ const AdminJobs = () => {
                   </div>
                 </TabsTrigger>
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
-              </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">
-                <div className="grid gap-3 md:gap-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 p-3 md:p-4 bg-gray-50 rounded-lg">
-                    <div className="space-y-1 md:space-y-2 overflow-hidden">
-                      <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
-                      <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid}</p>
-                    </div>
-                    <div className="space-y-1 md:space-y-2 overflow-hidden">
-                      <Label className="font-bold text-xs md:text-sm text-gray-600">Generated ID</Label>
-                      <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.generated_job_id}</p>
-                    </div>
+              </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">
+                  <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-gray-50 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
+                    <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid}</p>
                   </div>
                   
                   <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
@@ -925,7 +877,7 @@ const AdminJobs = () => {
                     <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
                       <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description}</p>
                     </div>
-                  </div>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+                  </div><div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
                     <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                       <Label className="font-bold text-xs md:text-sm">Status</Label>
                       <span className={`px-2 py-1 rounded text-xs inline-block ${

@@ -109,10 +109,8 @@ const ClientJobs = () => {
       setSelectedStatus(selectedJob.status);
     }
   }, [selectedJob]);
-
   // New job form state modeled after the admin version
   const [newJob, setNewJob] = useState({
-    uuid: '',
     created_by_staff_uuid: clientUuid || '', 
     date: new Date().toISOString().split('T')[0], 
     company_uuid: clientUuid || '',
@@ -120,8 +118,7 @@ const ClientJobs = () => {
     job_address: '',
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
-    generated_job_id: '',
-  });  // Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
+  });// Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
   useEffect(() => {
     if (!clientUuid) {
       console.error('No client UUID found in localStorage');
@@ -293,17 +290,7 @@ const ClientJobs = () => {
     setSearchQuery('');
     setVisibleJobs(PAGE_SIZE);
   };
-  
-  // Generate UUID for new job
-  const generateUUID = () => {
-    const uuid = crypto.randomUUID();
-    setNewJob({ 
-      ...newJob, 
-      uuid,
-      generated_job_id: uuid // Set generated_job_id to match UUID automatically
-    });
-  };
-  // Filter jobs based on search query only (server-side filtering already applied for client ownership)
+    // Remove the generateUUID function since ServiceM8 will handle job ID generation  // Filter jobs based on search query only (server-side filtering already applied for client ownership)
   const filteredJobs = jobs.filter(job => {
     // Only search query filter since client filtering is handled server-side
     if (!searchQuery.trim()) return true;
@@ -315,7 +302,6 @@ const ClientJobs = () => {
       (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
       (job.description && job.description.toLowerCase().includes(searchLower)) ||
       (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
-      (job.generated_job_id && job.generated_job_id.toLowerCase().includes(searchLower)) ||
       (job.job_address && job.job_address.toLowerCase().includes(searchLower))
     );
   });
@@ -609,8 +595,7 @@ const ClientJobs = () => {
       console.error('Error downloading file:', error);
       alert('Failed to download file. Please try again.');
     }
-  };
-    // Handle create new job form submission - updated to match admin version more closely
+  };    // Handle create new job form submission - updated to remove manual UUID generation
   const handleCreateJob = async (e) => {
     if (e) e.preventDefault();
     
@@ -623,16 +608,15 @@ const ClientJobs = () => {
       }));
     }
     
-    // Validate required fields (removed company_uuid check since it's automatic)
-    if (!newJob.uuid || !newJob.job_description || !newJob.job_address) {
+    // Validate required fields (removed uuid check since ServiceM8 will generate it)
+    if (!newJob.job_description || !newJob.job_address) {
       alert("Please fill in all required fields");
       return;
     }
     
-    try {      // Prepare payload to match ServiceM8 API format
+    try {      // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
       const payload = {
         active: 1,
-        uuid: newJob.uuid,
         created_by_staff_uuid: clientUuid, // Always use logged-in client UUID
         company_uuid: clientUuid, // Always use logged-in client UUID
         date: newJob.date,
@@ -641,7 +625,6 @@ const ClientJobs = () => {
         job_address: newJob.job_address,
         status: 'Quote', // Default to Quote for client requests
         work_done_description: newJob.work_done_description || '',
-        generated_job_id: newJob.generated_job_id || newJob.uuid,
       };
       
       console.log('Creating job with payload:', payload);
@@ -658,7 +641,6 @@ const ClientJobs = () => {
       setShowNewJobDialog(false);
         // Reset form for next use with client UUID automatically populated
       setNewJob({
-        uuid: '',
         created_by_staff_uuid: clientUuid, // Automatically set to logged-in client
         date: new Date().toISOString().split('T')[0],
         company_uuid: clientUuid, // Automatically set to logged-in client
@@ -666,7 +648,6 @@ const ClientJobs = () => {
         job_address: '',
         status: 'Quote',
         work_done_description: '',
-        generated_job_id: '',
       });
       
       // Show success message
@@ -681,7 +662,7 @@ const ClientJobs = () => {
     const attachmentCount = attachmentCounts[jobId];
     
     return {
-      id: job.generated_job_id || job.uuid,
+      id: job.uuid, // Use ServiceM8-generated UUID as the primary ID
       uuid: job.uuid,
       title: job.job_description || job.description || 'No description',
       status: job.status || 'Unknown',
@@ -693,12 +674,9 @@ const ClientJobs = () => {
       location: job.job_address || 'No address',
       attachments: attachmentCount !== undefined ? attachmentCount : '...' // Show loading indicator if count not yet loaded
     };
-  };
-  // Reset form with client UUID
+  };  // Reset form with client UUID - ServiceM8 will generate job ID automatically
   const resetJobForm = () => {
-    const newUuid = crypto.randomUUID();
     setNewJob({
-      uuid: newUuid,
       created_by_staff_uuid: clientUuid,
       company_uuid: clientUuid,
       date: new Date().toISOString().split('T')[0],
@@ -706,7 +684,6 @@ const ClientJobs = () => {
       job_address: '',
       status: 'Quote',
       work_done_description: '',
-      generated_job_id: newUuid
     });
   };
   
@@ -736,42 +713,18 @@ const ClientJobs = () => {
               <DialogDescription>
                 Submit a new service request to our team. We'll review it and get back to you promptly.
               </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateJob} className="overflow-y-auto">
+            </DialogHeader>            <form onSubmit={handleCreateJob} className="overflow-y-auto">
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="uuid">Request ID</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="uuid"
-                        name="uuid"
-                        value={newJob.uuid}
-                        onChange={handleInputChange}
-                        required
-                        className="flex-1"
-                      />
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={generateUUID}
-                        className="whitespace-nowrap"
-                      >
-                        Generate
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="date">Date</Label>
-                    <Input
-                      id="date"
-                      name="date"
-                      type="date"
-                      value={newJob.date}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    name="date"
+                    type="date"
+                    value={newJob.date}
+                    onChange={handleInputChange}
+                    required
+                  />
                 </div>
                 
                 <div className="grid gap-2">
@@ -942,10 +895,9 @@ const ClientJobs = () => {
           ) : (
             <>
               <DialogHeader className="border-b pb-3 md:pb-4">
-                <div className="flex justify-between items-center">
-                  <div>
+                <div className="flex justify-between items-center">                  <div>
                     <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-                      {selectedJob.generated_job_id || selectedJob.uuid || selectedJob.id}
+                      {selectedJob.uuid || selectedJob.id}
                     </DialogTitle>
                     <DialogDescription className="text-xs md:text-sm">
                       {selectedJob.job_description || selectedJob.description || 'No description available'}
@@ -967,15 +919,10 @@ const ClientJobs = () => {
                     </TabsTrigger>
                     <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
                   </TabsList>                  <TabsContent value="details" className="p-0 mt-3 md:mt-4">
-                    <div className="grid gap-3 md:gap-5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 p-3 md:p-4 bg-gray-50 rounded-lg">
+                    <div className="grid gap-3 md:gap-5">                      <div className="grid grid-cols-1 gap-3 md:gap-5 p-3 md:p-4 bg-gray-50 rounded-lg">
                         <div className="space-y-1 md:space-y-2 overflow-hidden">
                           <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
                           <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid || selectedJob.id}</p>
-                        </div>
-                        <div className="space-y-1 md:space-y-2 overflow-hidden">
-                          <Label className="font-bold text-xs md:text-sm text-gray-600">Generated ID</Label>
-                          <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.generated_job_id || 'N/A'}</p>
                         </div>
                       </div>
                       

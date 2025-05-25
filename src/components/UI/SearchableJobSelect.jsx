@@ -8,7 +8,6 @@ const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
-
   // Filter jobs based on search term
   const filteredJobs = jobs.filter(job => {
     if (!searchTerm) return true;
@@ -16,8 +15,7 @@ const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select
     
     return (
       job.job_description?.toLowerCase().includes(searchLower) ||
-      job.uuid?.toLowerCase().includes(searchLower) ||
-      job.generated_job_id?.toLowerCase().includes(searchLower)
+      job.uuid?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -107,12 +105,8 @@ const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select
                   <div className="flex flex-col gap-1">
                     <div className="text-sm font-medium text-gray-900 line-clamp-2">
                       {job.job_description || 'No description'}
-                    </div>
-                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                    </div>                    <div className="text-xs text-gray-500 flex items-center gap-2">
                       <span>ID: {job.uuid.slice(-8)}</span>
-                      {job.generated_job_id && (
-                        <span>• Job ID: {job.generated_job_id}</span>
-                      )}
                       {job.status && (
                         <span className={`px-2 py-0.5 rounded text-xs ${
                           job.status === 'Quote' 

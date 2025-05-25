@@ -118,11 +118,9 @@ const AdminHome = () => {
         // Sort jobs by date to get the most recent ones
         const sortedJobs = [...jobsData].sort((a, b) => {
           return new Date(b.date) - new Date(a.date)
-        }).slice(0, 5) // Get 5 most recent jobs
-
-        // Fetch clients data to display client names
+        }).slice(0, 5) // Get 5 most recent jobs        // Fetch clients data to display client names
         const clientsResponse = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL)
-        const clientsData = Array.isArray(clientsResponse.data) ? 
+        const clientsData = Array.isArray(clientsResponse.data) ?
           clientsResponse.data : 
           (clientsResponse.data.data || [])
           
@@ -132,7 +130,7 @@ const AdminHome = () => {
         const jobsWithClientNames = sortedJobs.map(job => {
           const client = clientsData.find(c => c.uuid === job.company_uuid) || {}
           return {
-            id: job.generated_job_id || job.uuid?.slice(-8),
+            id: job.uuid?.slice(-8),
             uuid: job.uuid,
             client: client.name || 'Unknown Client',
             status: job.status || 'Unknown',

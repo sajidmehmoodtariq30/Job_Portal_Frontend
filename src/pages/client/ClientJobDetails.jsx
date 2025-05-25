@@ -144,9 +144,8 @@ const ClientJobDetails = () => {
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         Back to Jobs
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold">
-                            {job.generated_job_id || job.uuid}
+                    <div>                        <h1 className="text-2xl font-bold">
+                            {job.uuid}
                         </h1>
                         <p className="text-gray-600">{job.job_description || job.description}</p>
                     </div>
@@ -173,10 +172,9 @@ const ClientJobDetails = () => {
                                     Job Information
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div>
+                            <CardContent className="space-y-4">                                <div>
                                     <Label className="text-sm font-medium text-gray-500">Job ID</Label>
-                                    <p>{job.generated_job_id || job.uuid}</p>
+                                    <p>{job.uuid}</p>
                                 </div>
                                 <div>
                                     <Label className="text-sm font-medium text-gray-500">Description</Label>
