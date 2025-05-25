@@ -292,9 +292,16 @@ const ClientJobs = () => {
       generated_job_id: uuid // Set generated_job_id to match UUID automatically
     });
   };
-  
-  // Filter jobs based on search query
+    // Filter jobs based on client ownership and search query
   const filteredJobs = jobs.filter(job => {
+    // First filter: Only show jobs created by or assigned to the logged-in client
+    const isClientJob = job.company_uuid === clientUuid || 
+                       job.created_by_staff_uuid === clientUuid ||
+                       job.client_uuid === clientUuid;
+    
+    if (!isClientJob) return false;
+    
+    // Second filter: Search query filter
     if (!searchQuery.trim()) return true;
     const searchLower = searchQuery.toLowerCase().trim();
     
