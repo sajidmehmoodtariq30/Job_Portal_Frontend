@@ -7,7 +7,8 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { Button } from "../../components/UI/button";
 import { Input } from "../../components/UI/input";
@@ -32,11 +33,14 @@ const ClientQuotes = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDialog, setShowDialog] = useState(false);
-  const [selectedAction, setSelectedAction] = useState({ id: null, action: null });
-  const [error, setError] = useState(null);
+  const [selectedAction, setSelectedAction] = useState({ id: null, action: null });  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  
+  // Loading states for quote actions
+  const [loadingQuotes, setLoadingQuotes] = useState({});
+  
   // Get client ID from localStorage 
   const clientId = localStorage.getItem('client_id');
   
@@ -116,11 +120,13 @@ const ClientQuotes = () => {
       setShowDialog(true);
     }
   };
-  
-  // Confirm quote action
+    // Confirm quote action
   const confirmQuoteAction = async () => {
     setError(null);
     setSuccess(null);
+    
+    // Set loading state for this specific quote
+    setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: selectedAction.action }));
     
     try {
       if (selectedAction.action === 'Accept') {
@@ -132,6 +138,7 @@ const ClientQuotes = () => {
       } else {
         // Close the confirmation dialog immediately, rejection will be handled in handleConfirmRejection
         setShowDialog(false);
+        setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
         return;
       }
       
@@ -146,13 +153,18 @@ const ClientQuotes = () => {
     } catch (error) {
       console.error('Error processing quote action:', error);
       setError(`Failed to ${selectedAction.action.toLowerCase()} quote: ${error.response?.data?.message || error.message}`);
+    } finally {
+      // Clear loading state for this quote
+      setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
     }
   };
-  
-  // Handle rejection confirmation
+    // Handle rejection confirmation
   const handleConfirmRejection = async () => {
     setError(null);
     setSuccess(null);
+    
+    // Set loading state for this specific quote
+    setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: 'Reject' }));
     
     try {
       await axios.post(`${API_URL}/api/quotes/${selectedAction.id}/reject`, {
@@ -173,6 +185,9 @@ const ClientQuotes = () => {
     } catch (error) {
       console.error('Error rejecting quote:', error);
       setError(`Failed to reject quote: ${error.response?.data?.message || error.message}`);
+    } finally {
+      // Clear loading state for this quote
+      setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
     }
   };
   
@@ -249,8 +264,7 @@ const ClientQuotes = () => {
             </div>
           </div>
         ) : filteredQuotes.length > 0 ? (
-          <div className="space-y-4">
-            {filteredQuotes.map(quote => (
+          <div className="space-y-4">            {filteredQuotes.map(quote => (
               <QuoteCard 
                 key={quote.id} 
                 quote={{
@@ -267,7 +281,8 @@ const ClientQuotes = () => {
                   rejectedDate: quote.rejectedAt ? formatDate(quote.rejectedAt) : null
                 }}
                 onQuoteAction={handleQuoteAction}
-                statusColor={getStatusColor} 
+                statusColor={getStatusColor}
+                loadingQuotes={loadingQuotes}
               />
             ))}
           </div>
@@ -292,11 +307,22 @@ const ClientQuotes = () => {
                 ? 'Are you sure you want to accept this quote? This will notify our team to proceed with the work.'
                 : 'Are you sure you want to reject this quote? If you have feedback, please consider adding a note.'}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmQuoteAction}>
-              {selectedAction.action === 'Accept' ? 'Accept' : 'Reject'}
+          </AlertDialogHeader>          <AlertDialogFooter>
+            <AlertDialogCancel disabled={selectedAction?.id && loadingQuotes[selectedAction.id]}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmQuoteAction}
+              disabled={selectedAction?.id && loadingQuotes[selectedAction.id]}
+            >
+              {selectedAction?.id && loadingQuotes[selectedAction.id] === 'Accept' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Accepting...
+                </>
+              ) : (
+                selectedAction?.action === 'Accept' ? 'Accept' : 'Reject'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -318,11 +344,22 @@ const ClientQuotes = () => {
               onChange={(e) => setRejectionReason(e.target.value)}
               rows={4}
             />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmRejection}>
-              Reject Quote
+          </div>          <AlertDialogFooter>
+            <AlertDialogCancel disabled={selectedAction?.id && loadingQuotes[selectedAction.id]}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmRejection}
+              disabled={selectedAction?.id && loadingQuotes[selectedAction.id]}
+            >
+              {selectedAction?.id && loadingQuotes[selectedAction.id] === 'Reject' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Rejecting...
+                </>
+              ) : (
+                'Reject Quote'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

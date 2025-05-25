@@ -1,8 +1,8 @@
-import { AlertCircle, Badge, Calendar } from "lucide-react";
+import { AlertCircle, Badge, Calendar, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
 import { Button } from "../button";
 
-const QuoteCard = ({ quote, onQuoteAction, statusColor }) => {
+const QuoteCard = ({ quote, onQuoteAction, statusColor, loadingQuotes = {} }) => {
     return (
         <Card>
             <CardHeader className="pb-2">
@@ -31,23 +31,38 @@ const QuoteCard = ({ quote, onQuoteAction, statusColor }) => {
                             <span>Location: {quote.location}</span>
                         </div>
                     </div>
-                </div>            </CardContent>
-            <CardFooter className="flex justify-end">
+                </div>            </CardContent>            <CardFooter className="flex justify-end">
                 {quote.status === 'Pending' && (
                     <div className="flex gap-2">
                         <Button
                             variant="default"
                             size="sm"
                             onClick={() => onQuoteAction(quote.id, 'Accept')}
+                            disabled={loadingQuotes[quote.id] === 'Accept' || loadingQuotes[quote.id] === 'Reject'}
                         >
-                            Accept Quote
+                            {loadingQuotes[quote.id] === 'Accept' ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Accepting...
+                                </>
+                            ) : (
+                                'Accept Quote'
+                            )}
                         </Button>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onQuoteAction(quote.id, 'Reject')}
+                            disabled={loadingQuotes[quote.id] === 'Accept' || loadingQuotes[quote.id] === 'Reject'}
                         >
-                            Reject
+                            {loadingQuotes[quote.id] === 'Reject' ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Rejecting...
+                                </>
+                            ) : (
+                                'Reject'
+                            )}
                         </Button>
                     </div>
                 )}
