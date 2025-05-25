@@ -1,4 +1,4 @@
-import { AlertCircle, Badge, Calendar, Download, FileText } from "lucide-react";
+import { AlertCircle, Badge, Calendar, FileText } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
 import { Button } from "../button";
 
@@ -37,12 +37,7 @@ const QuoteCard = ({ quote, onQuoteAction, statusColor }) => {
                         </div>
                     </div>
                 </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-                <Button variant="outline" size="sm">
-                    <Download size={16} className="mr-2" />
-                    Download PDF
-                </Button>
+            </CardContent>            <CardFooter className="flex justify-end">
                 <div className="flex gap-2">
                     <Button
                         variant="default"

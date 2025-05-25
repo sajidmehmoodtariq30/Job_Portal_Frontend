@@ -37,17 +37,26 @@ const ClientQuotes = () => {
   const [success, setSuccess] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
-  
-  // Client ID would come from auth context in a real app, using a placeholder for now
-  const clientId = 'client123'; // This should be replaced with actual client ID from auth
+  // Get client ID from localStorage 
+  const clientId = localStorage.getItem('client_id');
   
   // Load quotes data
   useEffect(() => {
-    fetchQuotes();
-  }, []);
-  
-  // Fetch quotes from API
+    if (clientId) {
+      fetchQuotes();
+    } else {
+      setError('Client ID not found. Please log in again.');
+      setLoading(false);
+    }
+  }, [clientId]);
+    // Fetch quotes from API
   const fetchQuotes = async () => {
+    if (!clientId) {
+      setError('Client ID not found. Please log in again.');
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       const response = await axios.get(`${API_URL}/api/quotes?clientId=${clientId}`);

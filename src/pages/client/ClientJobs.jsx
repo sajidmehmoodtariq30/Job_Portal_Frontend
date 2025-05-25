@@ -78,10 +78,7 @@ const ClientJobs = () => {
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [confirmRefresh, setConfirmRefresh] = useState(false);
-  const [clients, setClients] = useState([]);
-  
-  // New state for job details dialog
+  const [confirmRefresh, setConfirmRefresh] = useState(false);  // New state for job details dialog
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [jobDetailsLoading, setJobDetailsLoading] = useState(false);  const [newNote, setNewNote] = useState('');
@@ -91,44 +88,30 @@ const ClientJobs = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileUploading, setFileUploading] = useState(false);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  
+    // Get client UUID from localStorage
+  const clientUuid = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+
   // New job form state modeled after the admin version
   const [newJob, setNewJob] = useState({
     uuid: '',
-    created_by_staff_uuid: '', 
+    created_by_staff_uuid: clientUuid || '', 
     date: new Date().toISOString().split('T')[0], 
-    company_uuid: '',
+    company_uuid: clientUuid || '',
     job_description: '',
     job_address: '',
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
     generated_job_id: '',
   });
-  
+
   // Fetch jobs on mount and when active tab changes
   useEffect(() => {
-    fetchJobs(1, activeTab);
-    fetchClients(); // Fetch clients for company_uuid
-  }, [activeTab]);
-
-  // Fetch clients for the dropdown
-  const fetchClients = async () => {
-    try {
-      const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
-      console.log('Client data response:', response.data);
-      if (response.data && response.data.data) {
-        setClients(response.data.data || []);
-      } else if (response.data) {
-        // Handle case where response might not have a nested data property
-        setClients(response.data || []);
-      } else {
-        setClients([]);
-      }
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      setClients([]);
+    if (!clientUuid) {
+      console.error('No client UUID found in localStorage');
+      return;
     }
-  };
+    fetchJobs(1, activeTab);
+  }, [activeTab, clientUuid]);
   
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -433,24 +416,31 @@ const ClientJobs = () => {
       alert('Failed to download file. Please try again.');
     }
   };
-  
-  // Handle create new job form submission - updated to match admin version more closely
+    // Handle create new job form submission - updated to match admin version more closely
   const handleCreateJob = async (e) => {
     if (e) e.preventDefault();
     
-    // Validate required fields
-    if (!newJob.uuid || !newJob.job_description || !newJob.job_address || !newJob.company_uuid) {
-      alert("Please fill in all required fields including selecting a client");
+    // Ensure client UUID is set automatically
+    if (!newJob.company_uuid) {
+      setNewJob(prev => ({
+        ...prev,
+        company_uuid: clientUuid,
+        created_by_staff_uuid: clientUuid
+      }));
+    }
+    
+    // Validate required fields (removed company_uuid check since it's automatic)
+    if (!newJob.uuid || !newJob.job_description || !newJob.job_address) {
+      alert("Please fill in all required fields");
       return;
     }
     
-    try {
-      // Prepare payload to match ServiceM8 API format
+    try {      // Prepare payload to match ServiceM8 API format
       const payload = {
         active: 1,
         uuid: newJob.uuid,
-        created_by_staff_uuid: newJob.created_by_staff_uuid || newJob.company_uuid, 
-        company_uuid: newJob.company_uuid, // Use selected client UUID
+        created_by_staff_uuid: clientUuid, // Always use logged-in client UUID
+        company_uuid: clientUuid, // Always use logged-in client UUID
         date: newJob.date,
         // Use job_description since the API doesn't accept "description" field
         job_description: newJob.job_description, 
@@ -472,13 +462,12 @@ const ClientJobs = () => {
       
       // Close the dialog
       setShowNewJobDialog(false);
-      
-      // Reset form for next use
+        // Reset form for next use with client UUID automatically populated
       setNewJob({
         uuid: '',
-        created_by_staff_uuid: '',
+        created_by_staff_uuid: clientUuid, // Automatically set to logged-in client
         date: new Date().toISOString().split('T')[0],
-        company_uuid: '',
+        company_uuid: clientUuid, // Automatically set to logged-in client
         job_description: '',
         job_address: '',
         status: 'Quote',
@@ -508,31 +497,20 @@ const ClientJobs = () => {
       attachments: 0 // Placeholder since we don't have attachment count
     };
   };
-
-  // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
-  const handleClientChange = (value) => {
-    setNewJob({ 
-      ...newJob, 
-      company_uuid: value,
-      created_by_staff_uuid: value // Using client UUID for staff UUID as requested
+  // Reset form with client UUID
+  const resetJobForm = () => {
+    const newUuid = crypto.randomUUID();
+    setNewJob({
+      uuid: newUuid,
+      created_by_staff_uuid: clientUuid,
+      company_uuid: clientUuid,
+      date: new Date().toISOString().split('T')[0],
+      job_description: '',
+      job_address: '',
+      status: 'Quote',
+      work_done_description: '',
+      generated_job_id: newUuid
     });
-    
-    // Optionally, pre-fill address if available
-    const selectedClient = clients.find(client => client.uuid === value);
-    if (selectedClient) {
-      const formattedAddress = [
-        selectedClient.address,
-        selectedClient.address_city,
-        selectedClient.address_state,
-        selectedClient.address_postcode,
-        selectedClient.address_country
-      ].filter(Boolean).join(', ');
-      
-      setNewJob(prev => ({
-        ...prev,
-        job_address: formattedAddress || prev.job_address
-      }));
-    }
   };
   
   return (
@@ -542,8 +520,13 @@ const ClientJobs = () => {
         <div>
           <h1 className="text-3xl font-bold">Jobs</h1>
           <p className="text-lg mt-1">View and manage all your service jobs</p>
-        </div>
-        <Dialog open={showNewJobDialog} onOpenChange={setShowNewJobDialog}>
+        </div>        <Dialog open={showNewJobDialog} onOpenChange={(open) => {
+          setShowNewJobDialog(open);
+          if (open) {
+            // Reset and populate form with client UUID when dialog opens
+            resetJobForm();
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus size={16} />
@@ -628,30 +611,7 @@ const ClientJobs = () => {
                     value={newJob.work_done_description}
                     onChange={handleInputChange}
                   />
-                </div>
-
-                {/* Client selection - new feature */}
-                <div className="grid gap-2">
-                  <Label htmlFor="client">Select Client</Label>
-                  <Select
-                    id="client"
-                    name="client"
-                    onValueChange={handleClientChange}
-                    defaultValue={newJob.company_uuid}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map(client => (
-                        <SelectItem key={client.uuid} value={client.uuid}>
-                          {client.company_name} ({client.uuid})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                </div>              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
                 <Button type="submit">Submit Request</Button>
@@ -777,20 +737,20 @@ const ClientJobs = () => {
 
       {/* Job Details Dialog */}
       <Dialog open={showJobDetailsDialog} onOpenChange={setShowJobDetailsDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
           {jobDetailsLoading || !selectedJob ? (
             <div className="flex items-center justify-center h-64">
               <p>Loading job details...</p>
             </div>
           ) : (
             <>
-              <DialogHeader>
+              <DialogHeader className="border-b pb-3 md:pb-4">
                 <div className="flex justify-between items-center">
                   <div>
-                    <DialogTitle className="text-2xl font-bold">
+                    <DialogTitle className="text-lg md:text-2xl font-bold truncate">
                       {selectedJob.generated_job_id || selectedJob.uuid || selectedJob.id}
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs md:text-sm">
                       {selectedJob.job_description || selectedJob.description || 'No description available'}
                     </DialogDescription>
                   </div>
@@ -799,157 +759,196 @@ const ClientJobs = () => {
                   </Badge>
                 </div>
               </DialogHeader>
-                <div className="py-4">
-                <Tabs defaultValue="details" className="space-y-4">
-                  <TabsList>
-                    <TabsTrigger value="details">Job Details</TabsTrigger>
-                    <TabsTrigger value="chat">Chat Room</TabsTrigger>
-                    <TabsTrigger value="attachments">Attachments</TabsTrigger>
-                  </TabsList>
+                <div className="py-4">                <Tabs defaultValue="details" className="mt-3 md:mt-4">
+                  <TabsList className="w-full flex-wrap gap-1">
+                    <TabsTrigger value="details" className="text-xs md:text-base flex-1 md:flex-none">Job Details</TabsTrigger>
+                    <TabsTrigger value="chat" className="text-xs md:text-base flex-1 md:flex-none">
+                      <div className="flex items-center justify-center">
+                        <MessageSquare className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                        Chat Room
+                      </div>
+                    </TabsTrigger>
+                    <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
+                  </TabsList>                  <TabsContent value="details" className="p-0 mt-3 md:mt-4">
+                    <div className="grid gap-3 md:gap-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 p-3 md:p-4 bg-gray-50 rounded-lg">
+                        <div className="space-y-1 md:space-y-2 overflow-hidden">
+                          <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
+                          <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid || selectedJob.id}</p>
+                        </div>
+                        <div className="space-y-1 md:space-y-2 overflow-hidden">
+                          <Label className="font-bold text-xs md:text-sm text-gray-600">Generated ID</Label>
+                          <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.generated_job_id || 'N/A'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                        <Label className="font-bold text-xs md:text-sm">Job Description</Label>
+                        <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
+                          <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description || selectedJob.description || 'No description available'}</p>
+                        </div>
+                      </div>
 
-                  <TabsContent value="details" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Job Information */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <FileText className="w-5 h-5 mr-2" />
-                            Job Information
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">Job ID</Label>
-                            <p>{selectedJob.generated_job_id || selectedJob.uuid || selectedJob.id}</p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">Description</Label>
-                            <p>{selectedJob.job_description || selectedJob.description || 'No description available'}</p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">Status</Label>
-                            <Badge className={getStatusColor(selectedJob.status)}>{selectedJob.status}</Badge>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">Created Date</Label>
-                            <p className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              {formatDate(selectedJob.date)}
-                            </p>
-                          </div>
-                          {selectedJob.work_order_date && (
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Scheduled Date</Label>
-                              <p className="flex items-center">
-                                <Calendar className="w-4 h-4 mr-2" />
-                                {formatDate(selectedJob.work_order_date)}
-                              </p>
-                            </div>
-                          )}
-                          {selectedJob.completion_date && (
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Completed Date</Label>
-                              <p className="flex items-center">
-                                <Calendar className="w-4 h-4 mr-2" />
-                                {formatDate(selectedJob.completion_date)}
-                              </p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                          <Label className="font-bold text-xs md:text-sm">Status</Label>
+                          <span className={`px-2 py-1 rounded text-xs inline-block ${
+                            selectedJob.status === 'Quote' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : selectedJob.status === 'Work Order' 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : selectedJob.status === 'In Progress'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-green-100 text-green-800'
+                          }`}>
+                            {selectedJob.status}
+                          </span>
+                        </div>
+                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                          <Label className="font-bold text-xs md:text-sm">Active</Label>
+                          <p className="text-xs md:text-sm">{selectedJob.active === 1 || selectedJob.active === true ? 'Yes' : 'No'}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                        <Label className="font-bold text-xs md:text-sm">Service Address</Label>
+                        <p className="text-xs md:text-sm break-words">{selectedJob.job_address || 'N/A'}</p>
+                      </div>
 
-                      {/* Location & Contact */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center">
-                            <MapPin className="w-5 h-5 mr-2" />
-                            Location & Contact
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-500">Job Address</Label>
-                            <p className="flex items-start">
-                              <MapPin className="w-4 h-4 mr-2 mt-1 flex-shrink-0" />
-                              {selectedJob.job_address || selectedJob.location || 'No address specified'}
-                            </p>
-                          </div>
-                          {selectedJob.contact_name && (
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Contact Name</Label>
-                              <p className="flex items-center">
-                                <User className="w-4 h-4 mr-2" />
-                                {selectedJob.contact_name}
-                              </p>
-                            </div>
-                          )}
-                          {selectedJob.contact_email && (
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Contact Email</Label>
-                              <p className="flex items-center">
-                                <Mail className="w-4 h-4 mr-2" />
-                                <a href={`mailto:${selectedJob.contact_email}`} className="text-blue-600 hover:underline">
-                                  {selectedJob.contact_email}
-                                </a>
-                              </p>
-                            </div>
-                          )}
-                          {selectedJob.contact_phone && (
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Contact Phone</Label>
-                              <p className="flex items-center">
-                                <Phone className="w-4 h-4 mr-2" />
-                                <a href={`tel:${selectedJob.contact_phone}`} className="text-blue-600 hover:underline">
-                                  {selectedJob.contact_phone}
-                                </a>
-                              </p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5">
+                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                          <Label className="font-bold text-xs md:text-sm">Created Date</Label>
+                          <p className="text-xs md:text-sm">{selectedJob.date || 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                          <Label className="font-bold text-xs md:text-sm">Work Order Date</Label>
+                          <p className="text-xs md:text-sm">{selectedJob.work_order_date || 'N/A'}</p>
+                        </div>
+                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                          <Label className="font-bold text-xs md:text-sm">Completion Date</Label>
+                          <p className="text-xs md:text-sm">{selectedJob.completion_date || 'N/A'}</p>
+                        </div>
+                      </div>
 
-                    {/* Work Description */}
-                    {selectedJob.work_done_description && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Work Description</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="whitespace-pre-wrap">{selectedJob.work_done_description}</p>
-                        </CardContent>
-                      </Card>
-                    )}                  </TabsContent>
+                      {(selectedJob.geo_street || selectedJob.geo_city || selectedJob.geo_state || selectedJob.geo_country) && (
+                        <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                          <Label className="font-bold text-xs md:text-sm">Location Details</Label>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                              <p><span className="font-semibold">Street:</span> {selectedJob.geo_number || ''} {selectedJob.geo_street || 'N/A'}</p>
+                              <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
+                              <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
+                              <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
+                              <p><span className="font-semibold">Country:</span> {selectedJob.geo_country || 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {(selectedJob.contact_name || selectedJob.contact_email || selectedJob.contact_phone) && (
+                        <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                          <Label className="font-bold text-xs md:text-sm">Contact Information</Label>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                              {selectedJob.contact_name && <p><span className="font-semibold">Name:</span> {selectedJob.contact_name}</p>}
+                              {selectedJob.contact_email && (
+                                <p><span className="font-semibold">Email:</span> <a href={`mailto:${selectedJob.contact_email}`} className="text-blue-600 hover:underline">{selectedJob.contact_email}</a></p>
+                              )}
+                              {selectedJob.contact_phone && (
+                                <p><span className="font-semibold">Phone:</span> <a href={`tel:${selectedJob.contact_phone}`} className="text-blue-600 hover:underline">{selectedJob.contact_phone}</a></p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {(selectedJob.payment_amount || selectedJob.payment_method || selectedJob.payment_date) && (
+                        <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                          <Label className="font-bold text-xs md:text-sm">Payment Details</Label>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                              <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
+                              <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
+                              <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                              <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedJob.purchase_order_number && (
+                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                          <Label className="font-bold text-xs md:text-sm">Purchase Order Number</Label>
+                          <p className="text-xs md:text-sm break-words">{selectedJob.purchase_order_number}</p>
+                        </div>
+                      )}
+
+                      {/* Quote information if available */}
+                      {(selectedJob.quote_date || selectedJob.quote_sent) && (
+                        <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                          <Label className="font-bold text-xs md:text-sm">Quote Information</Label>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                              {selectedJob.quote_date && <p><span className="font-semibold">Quote Date:</span> {selectedJob.quote_date}</p>}
+                              {selectedJob.quote_sent && <p><span className="font-semibold">Quote Sent:</span> {selectedJob.quote_sent === "1" ? 'Yes' : 'No'}</p>}
+                              {selectedJob.quote_sent_stamp && <p><span className="font-semibold">Sent On:</span> {selectedJob.quote_sent_stamp}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Invoice information if available */}
+                      {(selectedJob.invoice_sent || selectedJob.total_invoice_amount) && (
+                        <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                          <Label className="font-bold text-xs md:text-sm">Invoice Information</Label>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                              {selectedJob.total_invoice_amount && <p><span className="font-semibold">Total Amount:</span> ${selectedJob.total_invoice_amount}</p>}
+                              {selectedJob.invoice_sent && <p><span className="font-semibold">Invoice Sent:</span> {selectedJob.invoice_sent === "1" ? 'Yes' : 'No'}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Work Description */}
+                      {selectedJob.work_done_description && (
+                        <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                          <Label className="font-bold text-xs md:text-sm">Work Description</Label>
+                          <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
+                            <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div></TabsContent>
                   <TabsContent value="chat" className="space-y-4">
                     <ChatRoom jobId={selectedJob.uuid || selectedJob.id} />
-                  </TabsContent>
-                    <TabsContent value="attachments" className="space-y-4">
-                    <Card>
-                      <CardHeader>
+                  </TabsContent>                    <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
+                    <Card className="border rounded-lg">
+                      <CardHeader className="p-3 md:p-4">
                         <div className="flex justify-between items-center">
-                          <CardTitle className="flex items-center">
-                            <FileText className="w-5 h-5 mr-2" />
+                          <CardTitle className="text-sm md:text-base flex items-center">
+                            <FileText className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
                             Attachments
                           </CardTitle>
                           <Button 
                             size="sm" 
+                            className="text-xs md:text-sm h-8 md:h-9"
                             onClick={() => setIsUploadingFile(true)}
                           >
                             Upload File
                           </Button>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        {isUploadingFile && (                          <div className="mb-6 p-4 border rounded-md">
-                            <Label htmlFor="fileUpload" className="mb-2 block">Upload File</Label>
+                      <CardContent className="p-3 md:p-4">                        {isUploadingFile && (                          <div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
+                            <Label htmlFor="fileUpload" className="text-xs md:text-sm font-medium mb-2 block">Upload File</Label>
                             <Input
                               id="fileUpload"
                               type="file"
                               onChange={handleFileChange}
-                              className="mb-4"
+                              className="mb-3 text-xs md:text-sm"
                             />
-                            <div className="text-sm text-amber-600 mb-4 flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                            <div className="text-xs md:text-sm text-amber-600 mb-3 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                                 <line x1="12" y1="9" x2="12" y2="13"></line>
                                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
@@ -959,6 +958,7 @@ const ClientJobs = () => {
                             <div className="flex justify-end gap-2">
                               <Button 
                                 variant="outline" 
+                                className="text-xs md:text-sm h-8 md:h-9"
                                 onClick={() => {
                                   setIsUploadingFile(false);
                                   setSelectedFile(null);
@@ -968,6 +968,7 @@ const ClientJobs = () => {
                                 Cancel
                               </Button>
                               <Button 
+                                className="text-xs md:text-sm h-8 md:h-9"
                                 onClick={handleFileUpload} 
                                 disabled={!selectedFile || fileUploading}
                               >
@@ -976,21 +977,20 @@ const ClientJobs = () => {
                             </div>
                           </div>
                         )}
-                        
-                        {attachmentsLoading ? (
-                          <div className="py-8 flex justify-center">
-                            <div className="animate-pulse flex space-x-4">
-                              <div className="flex-1 space-y-4 py-1">
-                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                                <div className="space-y-2">
-                                  <div className="h-4 bg-gray-200 rounded"></div>
-                                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                          {attachmentsLoading ? (
+                          <div className="py-4 md:py-6 flex justify-center">
+                            <div className="animate-pulse flex space-x-3 md:space-x-4 w-full">
+                              <div className="flex-1 space-y-2 md:space-y-4 py-1">
+                                <div className="h-3 md:h-4 bg-gray-200 rounded w-3/4"></div>
+                                <div className="space-y-1 md:space-y-2">
+                                  <div className="h-3 md:h-4 bg-gray-200 rounded"></div>
+                                  <div className="h-3 md:h-4 bg-gray-200 rounded w-5/6"></div>
                                 </div>
                               </div>
                             </div>
                           </div>
                         ) : attachments.length > 0 ? (
-                          <div className="space-y-4">
+                          <div className="space-y-2 md:space-y-4">
                             {attachments.map((file) => {
                               // Determine icon color based on file type
                               const getFileColor = () => {
@@ -1003,18 +1003,17 @@ const ClientJobs = () => {
                                 return 'text-gray-600';
                               };
                               
-                              return (
-                                <div 
+                              return (                                <div 
                                   key={file.id} 
-                                  className="p-4 border rounded-md flex justify-between items-center"
+                                  className="p-2 md:p-4 border border-gray-200 rounded-md flex flex-col md:flex-row md:justify-between md:items-center gap-2 md:gap-0"
                                 >
-                                  <div className="flex items-center gap-3">
-                                    <FileText className={`h-8 w-8 ${getFileColor()}`} />
-                                    <div>
-                                      <p className="font-medium">{file.fileName}</p>
-                                      <p className="text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-2 md:gap-3">
+                                    <FileText className={`h-6 w-6 md:h-8 md:w-8 ${getFileColor()}`} />
+                                    <div className="overflow-hidden">
+                                      <p className="font-medium text-xs md:text-sm truncate">{file.fileName}</p>
+                                      <p className="text-xs text-muted-foreground">
                                         {formatFileSize(file.fileSize)} • 
-                                        Uploaded by {file.uploadedBy} • 
+                                        <span className="hidden xs:inline">Uploaded by </span>{file.uploadedBy} • 
                                         {new Date(file.uploadTimestamp).toLocaleDateString()}
                                       </p>
                                     </div>
@@ -1022,24 +1021,23 @@ const ClientJobs = () => {
                                   <Button 
                                     size="sm" 
                                     variant="outline" 
-                                    className="flex items-center gap-1"
+                                    className="flex items-center gap-1 text-xs md:text-sm h-8 md:h-9 mt-1 md:mt-0"
                                     onClick={() => handleDownloadFile(file.id, file.fileName)}
                                   >
-                                    <Download className="h-4 w-4" />
+                                    <Download className="h-3 w-3 md:h-4 md:w-4" />
                                     Download
                                   </Button>
                                 </div>
                               );
                             })}
-                          </div>
-                        ) : (
-                          <div className="py-12 text-center">
-                            <FileText className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                            <p className="text-muted-foreground">No attachments found for this job</p>
+                          </div>                        ) : (
+                          <div className="py-8 md:py-10 text-center">
+                            <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
+                            <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="mt-4"
+                              className="mt-3 md:mt-4 text-xs md:text-sm h-8 md:h-9"
                               onClick={() => setIsUploadingFile(true)}
                             >
                               Upload First Attachment
@@ -1050,18 +1048,29 @@ const ClientJobs = () => {
                     </Card>
                   </TabsContent>
                 </Tabs>
-              </div>              <DialogFooter>
+              </div>              <DialogFooter className="mt-4 border-t pt-4 flex flex-col sm:flex-row gap-2">
                 {selectedJob.status === 'Quote' && (
-                  <div className="flex gap-2">
-                    <Button onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Accept')}>
+                  <div className="flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
+                    <Button 
+                      className="text-xs md:text-sm h-8 md:h-9"
+                      onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Accept')}
+                    >
                       Accept Quote
                     </Button>
-                    <Button variant="outline" onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Reject')}>
+                    <Button 
+                      variant="outline" 
+                      className="text-xs md:text-sm h-8 md:h-9"
+                      onClick={() => handleQuoteAction(selectedJob.id || selectedJob.uuid, 'Reject')}
+                    >
                       Reject Quote
                     </Button>
                   </div>
                 )}
-                <Button variant="outline" onClick={() => setShowJobDetailsDialog(false)}>
+                <Button 
+                  variant="outline" 
+                  className="text-xs md:text-sm h-8 md:h-9"
+                  onClick={() => setShowJobDetailsDialog(false)}
+                >
                   Close
                 </Button>
               </DialogFooter>
