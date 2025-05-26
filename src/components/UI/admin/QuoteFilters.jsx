@@ -67,11 +67,10 @@ const QuoteFilters = ({
     // Amount range options
     const amountRanges = [
         { value: '0-1000', label: '$0 - $1,000' },
-        { value: '1000-5000', label: '$1,000 - $5,000' },
-        { value: '5000-10000', label: '$5,000 - $10,000' },
+        { value: '1000-5000', label: '$1,000 - $5,000' },        { value: '5000-10000', label: '$5,000 - $10,000' },
         { value: '10000-50000', label: '$10,000 - $50,000' },
         { value: '50000+', label: '$50,000+' }
-    ]
+    ];
 
     // User roles for filtering (admin only)
     const userRoles = [
@@ -81,28 +80,28 @@ const QuoteFilters = ({
         'Technician Apprentice',
         'Client Admin',
         'Client User'
-    ]
+    ];
 
     useEffect(() => {
         fetchCategoriesForRole(filters.role)
         loadSavedFilters()
-    }, [filters.role])
+    }, [filters.role]);
 
     useEffect(() => {
         // Notify parent component of filter changes with debouncing
         const timeoutId = setTimeout(() => {
             onFiltersChange(filters)
-        }, 300)
+        }, 300);
 
         return () => clearTimeout(timeoutId)
-    }, [filters, onFiltersChange])
+    }, [filters, onFiltersChange]);
 
     const fetchCategoriesForRole = async (role) => {
         try {
             setLoadingCategories(true)
             setCategoryError(null)
             
-            const response = await axios.get(`${API_URL}/fetch/jobs/categories/role/${role}`)
+            const response = await axios.get(`${API_URL}/api/categories/role/${role}`)
             setCategories(response.data)
         } catch (error) {
             console.error('Error fetching categories for role:', error)

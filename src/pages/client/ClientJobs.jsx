@@ -95,10 +95,13 @@ const ClientJobs = () => {
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  // New state for job status update
+  const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);  // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
+  
+  // Categories state for job creation form
+  const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   
   // Filter state for ClientJobFilters component
   const [activeFilters, setActiveFilters] = useState({
@@ -120,8 +123,7 @@ const ClientJobs = () => {
     if (selectedJob) {
       setSelectedStatus(selectedJob.status);
     }
-  }, [selectedJob]);
-  // New job form state modeled after the admin version
+  }, [selectedJob]);  // New job form state modeled after the admin version
   const [newJob, setNewJob] = useState({
     created_by_staff_uuid: clientUuid || '', 
     date: new Date().toISOString().split('T')[0], 
@@ -130,6 +132,7 @@ const ClientJobs = () => {
     job_address: '',
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
+    category_uuid: 'none',
   });// Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
   useEffect(() => {
     if (!clientUuid) {
@@ -147,7 +150,20 @@ const ClientJobs = () => {
         fetchAttachmentCounts();
       }
     }
-  }, [jobs]);// Fetch quotes for the client
+  }, [jobs]);
+  // Fetch categories on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Monitor categories state changes for debugging
+  useEffect(() => {
+    console.log('📊 Categories state changed:', categories);
+    console.log('📊 Categories state length:', categories?.length);
+    console.log('📊 Categories loading state:', loadingCategories);
+  }, [categories, loadingCategories]);
+
+// Fetch quotes for the client
   const fetchQuotes = async () => {
     if (!clientUuid) return;
     
@@ -161,7 +177,63 @@ const ClientJobs = () => {
     } finally {
       setQuotesLoading(false);
     }
-  };  // Fetch attachment counts for all jobs with rate limiting
+  };  // Fetch categories for job creation form
+  const fetchCategories = async () => {
+    try {
+      console.log('🔄 Starting category fetch...');
+      setLoadingCategories(true);
+      
+      // Get user info for role-based category filtering
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const role = userInfo.role || 'Client User';
+      
+      console.log('👤 User role:', role);
+      console.log('📋 Full user info:', userInfo);
+      console.log('🌐 API_BASE_URL:', API_BASE_URL);
+      
+      const apiUrl = `${API_BASE_URL}/api/categories/role/${role}`;
+      console.log('🔗 Full API URL:', apiUrl);
+      
+      const response = await axios.get(apiUrl);
+      
+      console.log('✅ Raw API response:', response);
+      console.log('📊 Response status:', response.status);
+      console.log('📦 Response data:', response.data);
+      console.log('🔍 Response data type:', typeof response.data);
+      console.log('📏 Is array?', Array.isArray(response.data));
+      console.log('📏 Array length:', Array.isArray(response.data) ? response.data.length : 'Not an array');
+      
+      if (Array.isArray(response.data)) {
+        console.log('✅ Processing array data...');
+        response.data.forEach((category, index) => {
+          console.log(`📂 Category ${index}:`, {
+            uuid: category.uuid,
+            name: category.name,
+            full: category
+          });
+        });
+      } else {
+        console.log('⚠️ Response data is not an array:', response.data);
+      }
+      
+      console.log('💾 Setting categories state...');
+      setCategories(response.data);
+      console.log('✅ Categories state set successfully');
+      
+    } catch (error) {
+      console.error('❌ Error fetching categories:', error);
+      console.error('🔍 Error message:', error.message);
+      console.error('🔍 Error response status:', error.response?.status);
+      console.error('🔍 Error response data:', error.response?.data);
+      console.error('🔍 Error config:', error.config);
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
+      console.log('🏁 Category fetch completed');
+    }
+  };
+
+  // Fetch attachment counts for all jobs with rate limiting
   const fetchAttachmentCounts = async () => {
     if (!jobs || jobs.length === 0) return;
     
@@ -373,20 +445,12 @@ const ClientJobs = () => {
       const toDate = new Date(activeFilters.dateTo);
       if (jobDate > toDate) return false;
     }
-    
-    // Priority filter (if you have a priority field)
+      // Priority filter (if you have a priority field)
     if (activeFilters.priority && activeFilters.priority !== '' && job.priority !== activeFilters.priority) {
       return false;
     }
     
     return true;
-    // Check both description and job_description fields to handle different API response formats
-    return (
-      (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
-      (job.description && job.description.toLowerCase().includes(searchLower)) ||
-      (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
-      (job.job_address && job.job_address.toLowerCase().includes(searchLower))
-    );
   });
   
   // Get jobs to display based on pagination
@@ -701,11 +765,15 @@ const ClientJobs = () => {
         company_uuid: clientUuid, // Always use logged-in client UUID
         date: newJob.date,
         // Use job_description since the API doesn't accept "description" field
-        job_description: newJob.job_description, 
-        job_address: newJob.job_address,
+        job_description: newJob.job_description,        job_address: newJob.job_address,
         status: 'Quote', // Default to Quote for client requests
         work_done_description: newJob.work_done_description || '',
       };
+      
+      // Add category_uuid if selected and not "none"
+      if (newJob.category_uuid && newJob.category_uuid !== 'none') {
+        payload.category_uuid = newJob.category_uuid;
+      }
       
       console.log('Creating job with payload:', payload);
       const response = await axios.post(API_ENDPOINTS.JOBS.CREATE, payload);      console.log('Job created successfully:', response.data);
@@ -717,8 +785,7 @@ const ClientJobs = () => {
       setSearchQuery('');
       
       // Close the dialog
-      setShowNewJobDialog(false);
-        // Reset form for next use with client UUID automatically populated
+      setShowNewJobDialog(false);      // Reset form for next use with client UUID automatically populated
       setNewJob({
         created_by_staff_uuid: clientUuid, // Automatically set to logged-in client
         date: new Date().toISOString().split('T')[0],
@@ -727,6 +794,7 @@ const ClientJobs = () => {
         job_address: '',
         status: 'Quote',
         work_done_description: '',
+        category_uuid: 'none',
       });
       
       // Show success message
@@ -750,8 +818,7 @@ const ClientJobs = () => {
       completedDate: job.completion_date,
       type: job.status === 'Quote' ? 'Quote' : 'Work Order',
       description: job.job_description || job.description || 'No description',
-      location: job.job_address || 'No address',
-      attachments: attachmentCount !== undefined ? attachmentCount : '...' // Show loading indicator if count not yet loaded
+      location: job.job_address || 'No address',      attachments: attachmentCount !== undefined ? attachmentCount : '...' // Show loading indicator if count not yet loaded
     };
   };  // Reset form with client UUID - ServiceM8 will generate job ID automatically
   const resetJobForm = () => {
@@ -763,6 +830,7 @@ const ClientJobs = () => {
       job_address: '',
       status: 'Quote',
       work_done_description: '',
+      category_uuid: 'none',
     });
   };
   
@@ -795,8 +863,7 @@ const ClientJobs = () => {
             </DialogHeader>            <form onSubmit={handleCreateJob} className="overflow-y-auto">
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
+                  <Label htmlFor="date">Date</Label>                  <Input
                     id="date"
                     name="date"
                     type="date"
@@ -804,6 +871,47 @@ const ClientJobs = () => {
                     onChange={handleInputChange}
                     required
                   />
+                </div>
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="category_uuid">Category</Label>
+                  <Select
+                    value={newJob.category_uuid}
+                    onValueChange={(value) => handleSelectChange('category_uuid', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>                    <SelectContent>
+                      {(() => {
+                        console.log('🎨 Rendering dropdown - loadingCategories:', loadingCategories);
+                        console.log('🎨 Rendering dropdown - categories:', categories);
+                        console.log('🎨 Rendering dropdown - categories length:', categories?.length);
+                        
+                        if (loadingCategories) {
+                          console.log('🎨 Showing loading state');
+                          return <SelectItem value="loading">Loading categories...</SelectItem>;
+                        } 
+                        
+                        if (categories.length === 0) {
+                          console.log('🎨 Showing empty state');
+                          return <SelectItem value="none">No categories available</SelectItem>;
+                        }
+                        
+                        console.log('🎨 Rendering categories list');
+                        return [
+                          <SelectItem key="none" value="none">Select a category</SelectItem>,
+                          ...categories.map((category, index) => {
+                            console.log(`🎨 Rendering category ${index}:`, category.name, category.uuid);
+                            return (
+                              <SelectItem key={category.uuid} value={category.uuid}>
+                                {category.name}
+                              </SelectItem>
+                            );
+                          })
+                        ];
+                      })()}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="grid gap-2">

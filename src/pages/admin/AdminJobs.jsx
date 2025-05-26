@@ -57,12 +57,11 @@ const AdminJobs = () => {
     status: '',
     category_uuid: '',
     type: ''
-  });
-  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);
-
+  });  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);
   // Filter state for JobFilters component
-  const [filteredJobs, setFilteredJobs] = useState([]);
-  const [filterLoading, setFilterLoading] = useState(false); const [newJob, setNewJob] = useState({
+  const [filterLoading, setFilterLoading] = useState(false);
+  
+  const [newJob, setNewJob] = useState({
     created_by_staff_uuid: '',
     date: new Date().toISOString().split('T')[0],
     company_uuid: '',
@@ -223,60 +222,77 @@ const AdminJobs = () => {
     // Reset visible jobs when filters change
     setVisibleJobs(10);
   };
-
   // Handle search term changes (for backward compatibility with basic search)
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     if (useRoleBasedFiltering) {
       setActiveFilters(prev => ({ ...prev, search: value }));
-    };
-
-    // Filter jobs based on search term and active filters
-    const filteredJobs = useRoleBasedFiltering ? jobs : jobs.filter(job => {
-      // Search filter
-      if (searchTerm.trim()) {
-        const searchLower = searchTerm.toLowerCase().trim();
-        const matchesSearch = (
-          (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
-          (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
-          (job.job_address && job.job_address.toLowerCase().includes(searchLower))
-        );
-        if (!matchesSearch) return false;
+    }
+  };
+  // Function to enrich jobs with category names
+  const enrichJobsWithCategoryNames = (jobList) => {
+    if (!Array.isArray(jobList) || !Array.isArray(categories)) {
+      return jobList;
+    }
+    
+    return jobList.map(job => {
+      if (job.category_uuid && !job.category_name) {
+        const category = categories.find(cat => cat.uuid === job.category_uuid);
+        return {
+          ...job,
+          category_name: category ? category.name : null
+        };
       }
-
-      // Status filter (when not using role-based filtering but filters are applied)
-      if (activeFilters.status && activeFilters.status !== '' && job.status !== activeFilters.status) {
-        return false;
-      }
-
-      // Category filter
-      if (activeFilters.category && activeFilters.category !== '' && job.category_uuid !== activeFilters.category) {
-        return false;
-      }
-
-      // Type filter (if you have a type field)
-      if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
-        return false;
-      }
-
-      return true;
+      return job;
     });
+  };
 
-    // Limit visible jobs for pagination AFTER filtering
-    const displayedJobs = filteredJobs.slice(0, visibleJobs);
+  // Compute filtered jobs based on search term and active filters
+  const filteredJobs = useRoleBasedFiltering ? enrichJobsWithCategoryNames(jobs) : enrichJobsWithCategoryNames(jobs).filter(job => {
+    // Search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();      const matchesSearch = (
+        (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+        (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
+        (job.job_address && job.job_address.toLowerCase().includes(searchLower)) ||
+        (job.category_name && job.category_name.toLowerCase().includes(searchLower))
+      );
+      if (!matchesSearch) return false;
+    }
 
-    const handleShowMore = () => {
-      setVisibleJobs(prev => prev + 10);
-    };
+    // Status filter (when not using role-based filtering but filters are applied)
+    if (activeFilters.status && activeFilters.status !== '' && job.status !== activeFilters.status) {
+      return false;
+    }
 
-    const handleShowLess = () => {
-      setVisibleJobs(prev => Math.max(prev - 10, 10));
-    };
+    // Category filter
+    if (activeFilters.category && activeFilters.category !== '' && job.category_uuid !== activeFilters.category) {
+      return false;
+    }
 
-    const handleRefresh = async () => {
-      // Show confirmation dialog first
-      setConfirmRefresh(true);
-    }; const confirmRefreshData = async () => {
+    // Type filter (if you have a type field)
+    if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
+      return false;
+    }
+
+    return true;
+  });
+  // Limit visible jobs for pagination AFTER filtering
+  const displayedJobs = filteredJobs.slice(0, visibleJobs);
+
+  const handleShowMore = () => {
+    setVisibleJobs(prev => prev + 10);
+  };
+
+  const handleShowLess = () => {
+    setVisibleJobs(prev => Math.max(prev - 10, 10));
+  };
+  const handleRefresh = async () => {
+    // Show confirmation dialog first
+    setConfirmRefresh(true);
+  };
+
+  const confirmRefreshData = async () => {
       try {
         setIsRefreshing(true);
         console.log("Manually refreshing job data...");
@@ -1300,11 +1316,9 @@ const AdminJobs = () => {
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </DialogContent>        </Dialog>
       </div>
     );
-  };
-}
+};
 
 export default AdminJobs;

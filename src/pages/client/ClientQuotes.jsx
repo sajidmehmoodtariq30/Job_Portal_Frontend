@@ -8,12 +8,15 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from "../../components/UI/button";
 import { Input } from "../../components/UI/input";
 import { Textarea } from "../../components/UI/textarea";
 import QuoteCard from "../../components/UI/client/QuoteCard";
+import ClientQuoteFilters from "../../components/UI/client/ClientQuoteFilters";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -33,10 +36,23 @@ const ClientQuotes = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDialog, setShowDialog] = useState(false);
-  const [selectedAction, setSelectedAction] = useState({ id: null, action: null });  const [error, setError] = useState(null);
+  const [selectedAction, setSelectedAction] = useState({ id: null, action: null });
+  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({
+    search: '',
+    status: '',
+    dateFrom: '',
+    dateTo: '',
+    amountMin: '',
+    amountMax: ''
+  });
+  const [filterLoading, setFilterLoading] = useState(false);
   
   // Loading states for quote actions
   const [loadingQuotes, setLoadingQuotes] = useState({});
@@ -70,16 +86,84 @@ const ClientQuotes = () => {
       setError('Failed to load quotes. Please try again later.');
     } finally {
       setLoading(false);
+    }  };
+  
+  // Handle filter changes from ClientQuoteFilters component
+  const handleFiltersChange = async (newFilters) => {
+    setActiveFilters(newFilters);
+    setFilterLoading(true);
+    
+    try {
+      // Update search query if it's part of the filters
+      if (newFilters.search !== undefined) {
+        setSearchQuery(newFilters.search);
+      }
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
+      setFilterLoading(false);
     }
   };
+
+  // Toggle filters visibility
+  const toggleFilters = () => {
+    setShowFilters(!showFilters);
+  };
   
-  // Filter quotes based on search query
-  const filteredQuotes = quotes.filter(quote => 
-    quote.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    quote.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    quote.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    quote.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Enhanced filter function for quotes
+  const filteredQuotes = quotes.filter(quote => {
+    // Search filter (from both searchQuery and activeFilters.search)
+    const searchTerm = activeFilters.search || searchQuery;
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      const matchesSearch = (
+        (quote.id && quote.id.toLowerCase().includes(searchLower)) ||
+        (quote.title && quote.title.toLowerCase().includes(searchLower)) ||
+        (quote.description && quote.description.toLowerCase().includes(searchLower)) ||
+        (quote.status && quote.status.toLowerCase().includes(searchLower))
+      );
+      if (!matchesSearch) return false;
+    }
+    
+    // Status filter
+    if (activeFilters.status && activeFilters.status !== '' && quote.status !== activeFilters.status) {
+      return false;
+    }
+    
+    // Date range filter
+    if (activeFilters.dateFrom && activeFilters.dateFrom !== '') {
+      const quoteDate = new Date(quote.createdAt || quote.date);
+      const fromDate = new Date(activeFilters.dateFrom);
+      if (quoteDate < fromDate) return false;
+    }
+    
+    if (activeFilters.dateTo && activeFilters.dateTo !== '') {
+      const quoteDate = new Date(quote.createdAt || quote.date);
+      const toDate = new Date(activeFilters.dateTo);
+      if (quoteDate > toDate) return false;
+    }
+    
+    // Amount range filter
+    if (activeFilters.amountMin !== undefined && activeFilters.amountMin !== '' && activeFilters.amountMin !== null) {
+      const quoteAmount = parseFloat(quote.price) || 0;
+      if (quoteAmount < parseFloat(activeFilters.amountMin)) return false;
+    }
+    
+    if (activeFilters.amountMax !== undefined && activeFilters.amountMax !== '' && activeFilters.amountMax !== null) {
+      const quoteAmount = parseFloat(quote.price) || 0;
+      if (quoteAmount > parseFloat(activeFilters.amountMax)) return false;
+    }
+    
+    return true;
+  });
+  
+  // Filter quotes based on search query (legacy support - now using enhanced filtering above)
+  // const filteredQuotes = quotes.filter(quote => 
+  //   quote.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //   quote.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //   quote.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //   quote.description.toLowerCase().includes(searchQuery.toLowerCase())
+  // );
   
   // Status color function
   const getStatusColor = (status) => {

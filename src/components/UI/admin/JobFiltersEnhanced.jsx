@@ -62,27 +62,26 @@ const JobFilters = ({
         'Client User'
     ]
 
-    useEffect(() => {
-        fetchCategoriesForRole(filters.role)
+    useEffect(() => {        fetchCategoriesForRole(filters.role)
         loadSavedFilters()
-    }, [filters.role])
+    }, [filters.role]);
 
     useEffect(() => {
         // Debounce filter changes to prevent excessive API calls
         const timeoutId = setTimeout(() => {
             onFiltersChange(filters)
             setLastFilterUpdate(Date.now())
-        }, 300)
+        }, 300);
 
         return () => clearTimeout(timeoutId)
-    }, [filters, onFiltersChange])
+    }, [filters, onFiltersChange]);
 
     const fetchCategoriesForRole = async (role) => {
         try {
             setLoadingCategories(true)
             setCategoryError(null)
             
-            const response = await axios.get(`${API_URL}/fetch/jobs/categories/role/${role}`)
+            const response = await axios.get(`${API_URL}/api/categories/role/${role}`)
             setCategories(response.data)
         } catch (error) {
             console.error('Error fetching categories for role:', error)

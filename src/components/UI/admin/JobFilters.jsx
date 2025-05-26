@@ -42,15 +42,14 @@ const JobFilters = ({
         'Work Order', 
         'In Progress',
         'Completed',
-        'Cancelled'
-    ]
+        'Cancelled'    ];
 
     // Job types
     const jobTypes = [
         { value: 'maintenance', label: 'Maintenance' },
         { value: 'project', label: 'Project' },
         { value: 'general', label: 'General' }
-    ]
+    ];
 
     // User roles for filtering (admin only)
     const userRoles = [
@@ -60,29 +59,29 @@ const JobFilters = ({
         'Technician Apprentice',
         'Client Admin',
         'Client User'
-    ]
+    ];
 
     useEffect(() => {
-        fetchCategoriesForRole(filters.role)
-        loadSavedFilters()
-    }, [filters.role])
+        fetchCategoriesForRole(filters.role);
+        loadSavedFilters();
+    }, [filters.role]);
 
     useEffect(() => {
         // Debounce filter changes to prevent excessive API calls
         const timeoutId = setTimeout(() => {
-            onFiltersChange(filters)
-            setLastFilterUpdate(Date.now())
-        }, 300)
+            onFiltersChange(filters);
+            setLastFilterUpdate(Date.now());
+        }, 300);
 
-        return () => clearTimeout(timeoutId)
-    }, [filters, onFiltersChange])
+        return () => clearTimeout(timeoutId);
+    }, [filters, onFiltersChange]);
 
     const fetchCategoriesForRole = async (role) => {
         try {
             setLoadingCategories(true)
             setCategoryError(null)
             
-            const response = await axios.get(`${API_URL}/fetch/jobs/categories/role/${role}`)
+            const response = await axios.get(`${API_URL}/api/categories/role/${role}`)
             setCategories(response.data)
         } catch (error) {
             console.error('Error fetching categories for role:', error)

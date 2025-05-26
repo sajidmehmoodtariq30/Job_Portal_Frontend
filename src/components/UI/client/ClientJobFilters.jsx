@@ -62,26 +62,36 @@ const ClientJobFilters = ({
     ]
 
     // Priority levels
-    const priorityLevels = [
-        { value: 'low', label: 'Low' },
+    const priorityLevels = [        { value: 'low', label: 'Low' },
         { value: 'medium', label: 'Medium' },
         { value: 'high', label: 'High' },
         { value: 'urgent', label: 'Urgent' }
-    ]
+    ];
 
     useEffect(() => {
         fetchCategories()
         loadSavedFilters()
-    }, [])
-
-    useEffect(() => {
+    }, []);    useEffect(() => {
         // Debounce filter changes to prevent excessive API calls
         const timeoutId = setTimeout(() => {
-            onFiltersChange(filters)
+            // Convert dateRange to actual dateFrom/dateTo values before sending
+            const processedFilters = { ...filters }
+            
+            if (filters.dateRange) {
+                const dateRangeValues = getDateRangeValues(filters.dateRange)
+                processedFilters.dateFrom = dateRangeValues.from
+                processedFilters.dateTo = dateRangeValues.to
+            } else {
+                // Clear date filters if no range selected
+                delete processedFilters.dateFrom
+                delete processedFilters.dateTo
+            }
+            
+            onFiltersChange(processedFilters)
         }, 300)
 
         return () => clearTimeout(timeoutId)
-    }, [filters, onFiltersChange])
+    }, [filters, onFiltersChange]);
 
     const fetchCategories = async () => {
         try {
@@ -92,7 +102,7 @@ const ClientJobFilters = ({
             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
             const role = userInfo.role || 'Client User'
             
-            const response = await axios.get(`${API_URL}/fetch/jobs/categories/role/${role}`)
+            const response = await axios.get(`${API_URL}/api/categories/role/${role}`)
             setCategories(response.data)
         } catch (error) {
             console.error('Error fetching categories:', error)
