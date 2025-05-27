@@ -62,6 +62,10 @@ function SelectContent({
           className
         )}
         position={position}
+        // Fix ARIA-hidden accessibility issue
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+        }}
         {...props}>
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport

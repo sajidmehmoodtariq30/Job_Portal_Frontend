@@ -51,6 +51,7 @@ import {
 import { Textarea } from "@/components/UI/textarea";
 import { Label } from "@/components/UI/label";
 import { Badge } from "@/components/UI/badge";
+import LocationSelector from "@/components/UI/LocationSelector";
 import JobCard from "@/components/UI/client/JobCard";
 import ChatRoom from "@/components/UI/client/ChatRoom";
 import ClientJobFilters from "@/components/UI/client/ClientJobFilters";
@@ -129,11 +130,13 @@ const ClientJobs = () => {
     date: new Date().toISOString().split('T')[0], 
     company_uuid: clientUuid || '',
     job_description: '',
-    job_address: '',
+    location_uuid: '', // Changed from job_address
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
     category_uuid: 'none',
-  });// Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
+  });
+  const [selectedLocationUuid, setSelectedLocationUuid] = useState('');
+  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);// Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
   useEffect(() => {
     if (!clientUuid) {
       console.error('No client UUID found in localStorage');
@@ -356,12 +359,18 @@ const ClientJobs = () => {
       [name]: value
     });
   };
-    // Handle select changes
+  // Handle select changes
   const handleSelectChange = (name, value) => {
     setNewJob({
       ...newJob,
       [name]: value
     });
+  };
+
+  // Handler for location selection
+  const handleLocationSelect = (locationUuid) => {
+    setSelectedLocationUuid(locationUuid);
+    setNewJob({ ...newJob, location_uuid: locationUuid });
   };
 
   // Handle filter changes from ClientJobFilters component
@@ -751,21 +760,20 @@ const ClientJobs = () => {
         created_by_staff_uuid: clientUuid
       }));
     }
-    
-    // Validate required fields (removed uuid check since ServiceM8 will generate it)
-    if (!newJob.job_description || !newJob.job_address) {
+      // Validate required fields (removed uuid check since ServiceM8 will generate it)
+    if (!newJob.job_description || !newJob.location_uuid) {
       alert("Please fill in all required fields");
       return;
     }
     
     try {      // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
-      const payload = {
-        active: 1,
+      const payload = {        active: 1,
         created_by_staff_uuid: clientUuid, // Always use logged-in client UUID
         company_uuid: clientUuid, // Always use logged-in client UUID
         date: newJob.date,
         // Use job_description since the API doesn't accept "description" field
-        job_description: newJob.job_description,        job_address: newJob.job_address,
+        job_description: newJob.job_description,
+        location_uuid: newJob.location_uuid,
         status: 'Quote', // Default to Quote for client requests
         work_done_description: newJob.work_done_description || '',
       };
@@ -791,11 +799,14 @@ const ClientJobs = () => {
         date: new Date().toISOString().split('T')[0],
         company_uuid: clientUuid, // Automatically set to logged-in client
         job_description: '',
-        job_address: '',
+        location_uuid: '',
         status: 'Quote',
         work_done_description: '',
         category_uuid: 'none',
       });
+      
+      // Clear selected location
+      setSelectedLocationUuid('');
       
       // Show success message
       alert("Your service request has been submitted successfully!");
@@ -827,11 +838,12 @@ const ClientJobs = () => {
       company_uuid: clientUuid,
       date: new Date().toISOString().split('T')[0],
       job_description: '',
-      job_address: '',
+      location_uuid: '',
       status: 'Quote',
       work_done_description: '',
       category_uuid: 'none',
     });
+    setSelectedLocationUuid('');
   };
   
   return (
@@ -846,6 +858,8 @@ const ClientJobs = () => {
           if (open) {
             // Reset and populate form with client UUID when dialog opens
             resetJobForm();
+            // Increment trigger to refresh locations when dialog opens
+            setLocationRefreshTrigger(prev => prev + 1);
           }
         }}>
           <DialogTrigger asChild>
@@ -925,17 +939,13 @@ const ClientJobs = () => {
                     onChange={handleInputChange}
                     required
                   />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="job_address">Service Address</Label>
-                  <Input
-                    id="job_address"
-                    name="job_address"
-                    placeholder="Enter the address where service is needed"
-                    value={newJob.job_address}
-                    onChange={handleInputChange}
-                    required
+                </div>                <div className="grid gap-2">
+                  <Label htmlFor="location_uuid">Service Location</Label>
+                  <LocationSelector
+                    clientUuid={clientUuid}
+                    selectedLocationUuid={selectedLocationUuid}
+                    onLocationSelect={handleLocationSelect}
+                    refreshTrigger={locationRefreshTrigger}
                   />
                 </div>
 

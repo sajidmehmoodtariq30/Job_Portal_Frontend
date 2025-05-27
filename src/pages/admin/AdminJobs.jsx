@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
+import LocationSelector from "@/components/UI/LocationSelector"
 import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
@@ -60,13 +61,12 @@ const AdminJobs = () => {
   });  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);
   // Filter state for JobFilters component
   const [filterLoading, setFilterLoading] = useState(false);
-  
-  const [newJob, setNewJob] = useState({
+    const [newJob, setNewJob] = useState({
     created_by_staff_uuid: '',
     date: new Date().toISOString().split('T')[0],
     company_uuid: '',
     job_description: '',
-    job_address: '',
+    location_uuid: '', // Changed from job_address
     status: 'Quote',
     work_done_description: '',
     payment_date: '',
@@ -81,6 +81,8 @@ const AdminJobs = () => {
     completion_date: '',
     category_uuid: '' // Ensure all form fields have initial values
   });
+  const [selectedLocationUuid, setSelectedLocationUuid] = useState('');
+  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);
   const [visibleJobs, setVisibleJobs] = useState(10);
   const [selectedJob, setSelectedJob] = useState(null);
   const [confirmRefresh, setConfirmRefresh] = useState(false);
@@ -327,55 +329,49 @@ const AdminJobs = () => {
     const handleInputChange = (e) => {
       const { name, value } = e.target;
       setNewJob({ ...newJob, [name]: value });
-    };
-
-    // Fixed handler for select dropdowns
+    };    // Fixed handler for select dropdowns
     const handleSelectChange = (name, value) => {
       setNewJob({ ...newJob, [name]: value });
-    };
-
-    // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
+    };    // Handler for location selection
+    const handleLocationSelect = (locationUuid) => {
+      setSelectedLocationUuid(locationUuid);
+      setNewJob(prev => ({ ...prev, location_uuid: locationUuid }));
+    };// When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
     const handleClientChange = (value) => {
       setNewJob({
         ...newJob,
         company_uuid: value,
         created_by_staff_uuid: value // Using client UUID for staff UUID as requested
       });
-
-      // Optionally, pre-fill address if available
-      const selectedClient = clients.find(client => client.uuid === value);
-      if (selectedClient) {
-        const formattedAddress = [
-          selectedClient.address,
-          selectedClient.address_city,
-          selectedClient.address_state,
-          selectedClient.address_postcode,
-          selectedClient.address_country
-        ].filter(Boolean).join(', ');
-
-        setNewJob(prev => ({
-          ...prev,
-          job_address: formattedAddress || prev.job_address
-        }));
-      }
-    }; const handleCreateJob = async (e) => {
+      
+      // Clear any previously selected location when client changes
+      setSelectedLocationUuid('');
+      setNewJob(prev => ({
+        ...prev,
+        location_uuid: ''
+      }));
+    };    const handleCreateJob = async (e) => {
       e.preventDefault();
 
-      // Validate required fields - removed uuid validation since ServiceM8 will generate it
-      if (!newJob.company_uuid || !newJob.job_description || !newJob.job_address) {
+      // Validate required fields - check both selectedLocationUuid and newJob.location_uuid
+      const locationUuid = selectedLocationUuid || newJob.location_uuid;
+      if (!newJob.company_uuid || !newJob.job_description || !locationUuid) {
         alert("Please fill in all required fields");
         return;
-      }
+      }      try {
+        setIsCreatingJob(true);
 
-      try {
-        setIsCreatingJob(true);        // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
+        // Use the validated location UUID
+        const finalLocationUuid = selectedLocationUuid || newJob.location_uuid;
+
+        // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
         const payload = {
           active: 1,
           created_by_staff_uuid: newJob.created_by_staff_uuid, // This is the client UUID
           company_uuid: newJob.company_uuid,
           date: newJob.date,
           job_description: newJob.job_description,
-          job_address: newJob.job_address,
+          location_uuid: finalLocationUuid,
           status: newJob.status,
           work_done_description: newJob.work_done_description,
           payment_date: newJob.payment_date,
@@ -404,15 +400,13 @@ const AdminJobs = () => {
         setIsDialogOpen(false);
 
         // Clear search term to make it easier to see new job
-        setSearchTerm('');
-
-        // Reset form for next use
+        setSearchTerm('');        // Reset form for next use
         setNewJob({
           created_by_staff_uuid: '',
           date: new Date().toISOString().split('T')[0],
           company_uuid: '',
           job_description: '',
-          job_address: '',
+          location_uuid: '',
           status: 'Quote',
           work_done_description: '',
           payment_date: '',
@@ -427,6 +421,9 @@ const AdminJobs = () => {
           work_order_date: '',
           completion_date: ''
         });
+        
+        // Clear selected location
+        setSelectedLocationUuid('');
       } catch (error) {
         console.error('Error creating job:', error);
         alert(`Error creating job: ${error.response?.data?.message || error.message}`);
@@ -646,7 +643,15 @@ const AdminJobs = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Job Management</h1>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (open) {
+              // Increment trigger to refresh locations when dialog opens
+              setLocationRefreshTrigger(prev => prev + 1);
+              // Clear any previously selected location
+              setSelectedLocationUuid('');
+            }
+          }}>
             <DialogTrigger asChild>
               <Button>Create New Job</Button>
             </DialogTrigger>
@@ -691,16 +696,13 @@ const AdminJobs = () => {
                     <p className="text-xs text-muted-foreground">
                       Client UUID will also be used as staff UUID for ServiceM8
                     </p>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="job_address">Service Address</Label>
-                    <Input
-                      id="job_address"
-                      name="job_address"
-                      value={newJob.job_address}
-                      onChange={handleInputChange}
-                      required
+                  </div>                  <div className="grid gap-2">
+                    <Label htmlFor="location_uuid">Service Location</Label>
+                    <LocationSelector
+                      clientUuid={newJob.company_uuid}
+                      selectedLocationUuid={selectedLocationUuid}
+                      onLocationSelect={handleLocationSelect}
+                      refreshTrigger={locationRefreshTrigger}
                     />
                   </div>
 
@@ -932,7 +934,8 @@ const AdminJobs = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">              <thead>
+              <table className="w-full text-sm">
+                <thead>
                 <tr className="border-b">
                   <th className="py-3 text-left">Job ID</th>
                   <th className="py-3 text-left">Description</th>
