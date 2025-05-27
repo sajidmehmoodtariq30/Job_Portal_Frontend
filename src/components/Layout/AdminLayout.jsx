@@ -56,10 +56,18 @@ const AdminLayout = () => {
     { name: 'Team', href: '/admin/team' },
     { name: 'Settings', href: '/admin/settings' }
   ]
-  
   const handleLogout = () => {
-    // In production would clear auth tokens etc.
-    navigate('/login')
+    // Clear authentication tokens and admin-related data
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('userInfo')
+    localStorage.removeItem('user_data')
+    
+    // Clear any cached admin data
+    sessionStorage.clear()
+    
+    // Navigate to login page and replace current history entry
+    // This prevents using browser back button to return to admin area
+    navigate('/login', { replace: true })
   }
   
   return (
