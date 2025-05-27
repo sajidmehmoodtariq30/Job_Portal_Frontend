@@ -103,16 +103,15 @@ const ClientJobs = () => {
   // Categories state for job creation form
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  
-  // Filter state for ClientJobFilters component
+    // Filter state for ClientJobFilters component
   const [activeFilters, setActiveFilters] = useState({
     search: '',
-    status: '',
-    category: '',
-    type: '',
+    status: 'all',
+    category: 'all',
+    type: 'all',
     dateFrom: '',
     dateTo: '',
-    priority: ''
+    priority: 'all'
   });
   const [filterLoading, setFilterLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -426,19 +425,18 @@ const ClientJobs = () => {
       );
       if (!matchesSearch) return false;
     }
-    
-    // Status filter
-    if (activeFilters.status && activeFilters.status !== '' && job.status !== activeFilters.status) {
+      // Status filter
+    if (activeFilters.status && activeFilters.status !== '' && activeFilters.status !== 'all' && job.status !== activeFilters.status) {
       return false;
     }
     
     // Category filter
-    if (activeFilters.category && activeFilters.category !== '' && job.category_uuid !== activeFilters.category) {
+    if (activeFilters.category && activeFilters.category !== '' && activeFilters.category !== 'all' && job.category_uuid !== activeFilters.category) {
       return false;
     }
     
     // Type filter (if you have a type field)
-    if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
+    if (activeFilters.type && activeFilters.type !== '' && activeFilters.type !== 'all' && job.type !== activeFilters.type) {
       return false;
     }
     
@@ -453,9 +451,8 @@ const ClientJobs = () => {
       const jobDate = new Date(job.date || job.created_at);
       const toDate = new Date(activeFilters.dateTo);
       if (jobDate > toDate) return false;
-    }
-      // Priority filter (if you have a priority field)
-    if (activeFilters.priority && activeFilters.priority !== '' && job.priority !== activeFilters.priority) {
+    }      // Priority filter (if you have a priority field)
+    if (activeFilters.priority && activeFilters.priority !== '' && activeFilters.priority !== 'all' && job.priority !== activeFilters.priority) {
       return false;
     }
     

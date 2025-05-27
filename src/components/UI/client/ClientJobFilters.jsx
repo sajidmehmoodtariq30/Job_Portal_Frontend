@@ -24,14 +24,13 @@ const ClientJobFilters = ({
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
-    
-    const [filters, setFilters] = useState({
+      const [filters, setFilters] = useState({
         search: '',
-        status: '',
-        category: '',
-        type: '',
-        dateRange: '',
-        priority: '',
+        status: 'all',
+        category: 'all',
+        type: 'all',
+        dateRange: 'all',
+        priority: 'all',
         ...currentFilters
     })
 
@@ -147,8 +146,7 @@ const ClientJobFilters = ({
             
             setFilterName('')
         } catch (error) {
-            console.error('Error saving filter:', error)
-        } finally {
+            console.error('Error saving filter:', error)        } finally {
             setSavingFilter(false)
         }
     }
@@ -176,21 +174,62 @@ const ClientJobFilters = ({
     const clearFilters = () => {
         setFilters({
             search: '',
-            status: '',
-            category: '',
-            type: '',
-            dateRange: '',
-            priority: ''
-        })
+            status: 'all',
+            category: 'all',
+            type: 'all',
+            dateRange: 'all',
+            priority: 'all'        })
     }
 
     const retryFetchCategories = () => {
         fetchCategories()
     }
 
+    const getDateRangeValues = (dateRange) => {
+        const today = new Date()
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59)
+
+        switch (dateRange) {
+            case 'today':
+                return {
+                    from: startOfToday.toISOString().split('T')[0],
+                    to: endOfToday.toISOString().split('T')[0]
+                }
+            case 'week':
+                const startOfWeek = new Date(today)
+                startOfWeek.setDate(today.getDate() - today.getDay())
+                return {
+                    from: startOfWeek.toISOString().split('T')[0],
+                    to: endOfToday.toISOString().split('T')[0]
+                }
+            case 'month':
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+                return {
+                    from: startOfMonth.toISOString().split('T')[0],
+                    to: endOfToday.toISOString().split('T')[0]
+                }
+            case 'quarter':
+                const quarterStart = Math.floor(today.getMonth() / 3) * 3
+                const startOfQuarter = new Date(today.getFullYear(), quarterStart, 1)
+                return {
+                    from: startOfQuarter.toISOString().split('T')[0],
+                    to: endOfToday.toISOString().split('T')[0]
+                }
+            case 'year':
+                const startOfYear = new Date(today.getFullYear(), 0, 1)
+                return {
+                    from: startOfYear.toISOString().split('T')[0],
+                    to: endOfToday.toISOString().split('T')[0]
+                }
+            default:
+                return { from: null, to: null }
+        }
+    }
+
     const getActiveFiltersCount = () => {
         return Object.entries(filters).filter(([key, value]) => 
-            value && value !== ''
+            value && value !== '' && value !== 'all'
         ).length
     }
 
@@ -262,9 +301,8 @@ const ClientJobFilters = ({
                             <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All statuses" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All statuses</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All statuses</SelectItem>
                                     {jobStatuses.map(status => (
                                         <SelectItem key={status} value={status}>
                                             {status}
@@ -284,9 +322,8 @@ const ClientJobFilters = ({
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder={loadingCategories ? "Loading..." : "All categories"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All categories</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All categories</SelectItem>
                                     {loadingCategories ? (
                                         <div className="p-2">
                                             <Skeleton className="h-4 w-full" />
@@ -308,9 +345,8 @@ const ClientJobFilters = ({
                             <Select value={filters.type} onValueChange={(value) => updateFilter('type', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All types" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All types</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All types</SelectItem>
                                     {jobTypes.map(type => (
                                         <SelectItem key={type.value} value={type.value}>
                                             {type.label}
@@ -326,9 +362,8 @@ const ClientJobFilters = ({
                             <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All dates" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All dates</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All dates</SelectItem>
                                     {dateRanges.map(range => (
                                         <SelectItem key={range.value} value={range.value}>
                                             <Calendar className="h-4 w-4 mr-2" />
@@ -345,9 +380,8 @@ const ClientJobFilters = ({
                             <Select value={filters.priority} onValueChange={(value) => updateFilter('priority', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All priorities" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All priorities</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All priorities</SelectItem>
                                     {priorityLevels.map(priority => (
                                         <SelectItem key={priority.value} value={priority.value}>
                                             {priority.label}
@@ -422,49 +456,47 @@ const ClientJobFilters = ({
                                             onClick={() => updateFilter('search', '')}
                                         />
                                     </Badge>
-                                )}
-                                {filters.status && (
+                                )}                                {filters.status && filters.status !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Status: {filters.status}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('status', '')}
+                                            onClick={() => updateFilter('status', 'all')}
                                         />
                                     </Badge>
                                 )}
-                                {filters.category && (
+                                {filters.category && filters.category !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Category: {categories.find(c => c.uuid === filters.category)?.name || 'Unknown'}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('category', '')}
+                                            onClick={() => updateFilter('category', 'all')}
                                         />
                                     </Badge>
                                 )}
-                                {filters.type && (
+                                {filters.type && filters.type !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Type: {jobTypes.find(t => t.value === filters.type)?.label || filters.type}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('type', '')}
+                                            onClick={() => updateFilter('type', 'all')}
                                         />
                                     </Badge>
                                 )}
-                                {filters.dateRange && (
+                                {filters.dateRange && filters.dateRange !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Date: {dateRanges.find(d => d.value === filters.dateRange)?.label || filters.dateRange}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('dateRange', '')}
+                                            onClick={() => updateFilter('dateRange', 'all')}
                                         />
                                     </Badge>
-                                )}
-                                {filters.priority && (
+                                )}                                {filters.priority && filters.priority !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Priority: {priorityLevels.find(p => p.value === filters.priority)?.label || filters.priority}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('priority', '')}
+                                            onClick={() => updateFilter('priority', 'all')}
                                         />
                                     </Badge>
                                 )}

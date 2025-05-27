@@ -19,24 +19,21 @@ const ClientQuoteFilters = ({
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
-    
-    const [filters, setFilters] = useState({
+      const [filters, setFilters] = useState({
         search: '',
-        status: '',
+        status: 'all',
         dateFrom: '',
         dateTo: '',
         amountMin: '',
         amountMax: '',
         ...currentFilters
-    })
-
-    // Available quote statuses
+    })    // Available quote statuses
     const quoteStatuses = [
-        { value: 'pending', label: 'Pending' },
-        { value: 'accepted', label: 'Accepted' },
-        { value: 'rejected', label: 'Rejected' },
-        { value: 'expired', label: 'Expired' },
-        { value: 'cancelled', label: 'Cancelled' }
+        { value: 'Pending', label: 'Pending' },
+        { value: 'Accepted', label: 'Accepted' },
+        { value: 'Rejected', label: 'Rejected' },
+        { value: 'Expired', label: 'Expired' },
+        { value: 'Cancelled', label: 'Cancelled' }
     ]
 
     // Date range presets
@@ -70,13 +67,11 @@ const ClientQuoteFilters = ({
         if (onFiltersChange) {
             onFiltersChange(newFilters)
         }
-    }
-
-    // Clear all filters
+    }    // Clear all filters
     const clearAllFilters = () => {
         const clearedFilters = {
             search: '',
-            status: '',
+            status: 'all',
             dateFrom: '',
             dateTo: '',
             amountMin: '',
@@ -125,13 +120,15 @@ const ClientQuoteFilters = ({
         const updatedSavedFilters = savedFilters.filter(filter => filter.id !== filterId)
         setSavedFilters(updatedSavedFilters)
         localStorage.setItem('clientQuoteFilters', JSON.stringify(updatedSavedFilters))
-    }
-
-    // Check if any filters are active
-    const hasActiveFilters = Object.values(filters).some(value => value && value.toString().trim() !== '')
+    }    // Check if any filters are active
+    const hasActiveFilters = Object.values(filters).some(value => 
+        value && value.toString().trim() !== '' && value !== 'all'
+    )
 
     // Get active filter count
-    const activeFilterCount = Object.values(filters).filter(value => value && value.toString().trim() !== '').length
+    const activeFilterCount = Object.values(filters).filter(value => 
+        value && value.toString().trim() !== '' && value !== 'all'
+    ).length
 
     return (
         <Card className={`w-full ${className}`}>
@@ -179,9 +176,8 @@ const ClientQuoteFilters = ({
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="All statuses" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">All statuses</SelectItem>
+                        </SelectTrigger>                        <SelectContent>
+                            <SelectItem value="all">All statuses</SelectItem>
                             {quoteStatuses.map(status => (
                                 <SelectItem key={status.value} value={status.value}>
                                     {status.label}

@@ -43,10 +43,11 @@ const ClientQuotes = () => {
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   
   // Filter states
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeFilters, setActiveFilters] = useState({
+  const [showFilters, setShowFilters] = useState(false);  const [activeFilters, setActiveFilters] = useState({
     search: '',
-    status: '',
+    status: 'all',
+    dateRange: 'all',
+    amountRange: 'all',
     dateFrom: '',
     dateTo: '',
     amountMin: '',
@@ -69,7 +70,15 @@ const ClientQuotes = () => {
       setLoading(false);
     }
   }, [clientId]);
-    // Fetch quotes from API
+
+  // Sync search query with activeFilters.search
+  useEffect(() => {
+    if (activeFilters.search !== searchQuery) {
+      setSearchQuery(activeFilters.search || '');
+    }
+  }, [activeFilters.search]);
+  
+  // Fetch quotes from API
   const fetchQuotes = async () => {
     if (!clientId) {
       setError('Client ID not found. Please log in again.');
@@ -104,10 +113,28 @@ const ClientQuotes = () => {
       setFilterLoading(false);
     }
   };
-
   // Toggle filters visibility
   const toggleFilters = () => {
     setShowFilters(!showFilters);
+  };  // Get count of active filters
+  const getActiveFiltersCount = () => {
+    return Object.entries(activeFilters).filter(([key, value]) => 
+      value && value !== '' && value !== 'all'
+    ).length;
+  };// Clear all filters
+  const clearFilters = () => {
+    const clearedFilters = {
+      search: '',
+      status: 'all',
+      dateRange: 'all',
+      amountRange: 'all',
+      dateFrom: '',
+      dateTo: '',
+      amountMin: '',
+      amountMax: ''
+    };
+    // Use handleFiltersChange to properly sync with ClientQuoteFilters component
+    handleFiltersChange(clearedFilters);
   };
   
   // Enhanced filter function for quotes
@@ -123,14 +150,11 @@ const ClientQuotes = () => {
         (quote.status && quote.status.toLowerCase().includes(searchLower))
       );
       if (!matchesSearch) return false;
-    }
-    
-    // Status filter
-    if (activeFilters.status && activeFilters.status !== '' && quote.status !== activeFilters.status) {
+    }    // Status filter
+    if (activeFilters.status && activeFilters.status !== 'all' && quote.status !== activeFilters.status) {
       return false;
     }
-    
-    // Date range filter
+      // Date range filter
     if (activeFilters.dateFrom && activeFilters.dateFrom !== '') {
       const quoteDate = new Date(quote.createdAt || quote.date);
       const fromDate = new Date(activeFilters.dateFrom);
@@ -319,9 +343,14 @@ const ClientQuotes = () => {
           />
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={toggleFilters}
+            className="flex items-center gap-2"
+          >
             <Filter size={16} />
-            Filter
+            Filters
+            {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </Button>
           <Button variant="outline" onClick={handleRefresh} className="flex items-center gap-2">
             <RefreshCw size={16} />
@@ -329,6 +358,18 @@ const ClientQuotes = () => {
           </Button>
         </div>
       </div>
+
+      {/* Enhanced Filters */}
+      {showFilters && (
+        <div className="mt-4">
+          <ClientQuoteFilters
+            onFiltersChange={handleFiltersChange}
+            currentFilters={activeFilters}
+            className="mb-4"
+            showSavedFilters={true}
+          />
+        </div>
+      )}
       
       {/* Quote List */}
       <div className="space-y-4">
@@ -348,7 +389,8 @@ const ClientQuotes = () => {
             </div>
           </div>
         ) : filteredQuotes.length > 0 ? (
-          <div className="space-y-4">            {filteredQuotes.map(quote => (
+          <div className="space-y-4">
+            {filteredQuotes.map(quote => (
               <QuoteCard 
                 key={quote.id} 
                 quote={{
@@ -374,7 +416,21 @@ const ClientQuotes = () => {
           <div className="flex flex-col items-center justify-center py-12">
             <FileText size={48} className="text-muted-foreground mb-4" />
             <h3 className="text-xl font-medium mb-2">No quotes found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or contact your service provider for a quote</p>
+            <p className="text-muted-foreground">
+              {getActiveFiltersCount() > 0 
+                ? "No quotes match your current filters. Try adjusting your search criteria."
+                : "Try adjusting your search or contact your service provider for a quote"
+              }
+            </p>
+            {getActiveFiltersCount() > 0 && (
+              <Button 
+                variant="outline" 
+                onClick={clearFilters}
+                className="mt-4"
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
         )}
       </div>

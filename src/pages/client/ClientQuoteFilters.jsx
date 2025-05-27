@@ -1,4 +1,3 @@
-// src/components/UI/admin/QuoteFilters.jsx
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/UI/select'
@@ -6,52 +5,38 @@ import { Input } from '@/components/UI/input'
 import { Label } from '@/components/UI/label'
 import { Badge } from '@/components/UI/badge'
 import { Button } from '@/components/UI/button'
-import { Filter, X, RefreshCw, AlertCircle } from 'lucide-react'
+import { Filter, X, RefreshCw, AlertCircle, Calendar, DollarSign } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/UI/alert'
 import { Skeleton } from '@/components/UI/skeleton'
-import axios from 'axios'
-import { API_URL } from '@/lib/apiConfig'
 
-const QuoteFilters = ({ 
+const ClientQuoteFilters = ({ 
     onFiltersChange, 
     currentFilters = {}, 
-    userRole = 'Administrator',
     className = '',
     showSavedFilters = true 
 }) => {
-    const [categories, setCategories] = useState([])
-    const [loadingCategories, setLoadingCategories] = useState(false)
-    const [categoryError, setCategoryError] = useState(null)
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
-      const [filters, setFilters] = useState({
+    
+    const [filters, setFilters] = useState({
         search: '',
         status: 'all',
-        category: 'all',
-        type: 'all',
         dateRange: 'all',
         amountRange: 'all',
-        role: userRole,
+        dateFrom: '',
+        dateTo: '',
+        amountMin: '',
+        amountMax: '',
         ...currentFilters
     })
 
-    // Available quote statuses
+    // Available quote statuses for clients
     const quoteStatuses = [
         'Pending',
-        'Sent', 
-        'Approved',
+        'Accepted',
         'Rejected',
-        'Converted',
         'Expired'
-    ]
-
-    // Quote types
-    const quoteTypes = [
-        { value: 'maintenance', label: 'Maintenance' },
-        { value: 'project', label: 'Project' },
-        { value: 'general', label: 'General' },
-        { value: 'emergency', label: 'Emergency' }
     ]
 
     // Date range options
@@ -66,25 +51,15 @@ const QuoteFilters = ({
     // Amount range options
     const amountRanges = [
         { value: '0-1000', label: '$0 - $1,000' },
-        { value: '1000-5000', label: '$1,000 - $5,000' },        { value: '5000-10000', label: '$5,000 - $10,000' },
+        { value: '1000-5000', label: '$1,000 - $5,000' },
+        { value: '5000-10000', label: '$5,000 - $10,000' },
         { value: '10000-50000', label: '$10,000 - $50,000' },
         { value: '50000+', label: '$50,000+' }
-    ];
-
-    // User roles for filtering (admin only)
-    const userRoles = [
-        'Administrator',
-        'Office Manager',
-        'Technician', 
-        'Technician Apprentice',
-        'Client Admin',
-        'Client User'
-    ];
+    ]
 
     useEffect(() => {
-        fetchCategoriesForRole(filters.role)
         loadSavedFilters()
-    }, [filters.role]);
+    }, []);
 
     useEffect(() => {
         // Notify parent component of filter changes with debouncing
@@ -95,25 +70,9 @@ const QuoteFilters = ({
         return () => clearTimeout(timeoutId)
     }, [filters, onFiltersChange]);
 
-    const fetchCategoriesForRole = async (role) => {
-        try {
-            setLoadingCategories(true)
-            setCategoryError(null)
-            
-            const response = await axios.get(`${API_URL}/api/categories/role/${role}`)
-            setCategories(response.data)
-        } catch (error) {
-            console.error('Error fetching categories for role:', error)
-            setCategoryError('Failed to load categories')
-            setCategories([])
-        } finally {
-            setLoadingCategories(false)
-        }
-    }
-
     const loadSavedFilters = () => {
         try {
-            const saved = localStorage.getItem(`quoteFilters_${userRole}`)
+            const saved = localStorage.getItem('clientQuoteFilters')
             if (saved) {
                 setSavedFilters(JSON.parse(saved))
             }
@@ -122,22 +81,20 @@ const QuoteFilters = ({
         }
     }
 
-    const saveCurrentFilter = async () => {
+    const saveCurrentFilter = () => {
         if (!filterName.trim()) return
 
+        setSavingFilter(true)
         try {
-            setSavingFilter(true)
-            
             const filterToSave = {
-                name: filterName,
+                name: filterName.trim(),
                 filters: { ...filters },
-                createdAt: new Date().toISOString()
+                savedAt: new Date().toISOString()
             }
 
             const updatedSavedFilters = [...savedFilters, filterToSave]
             setSavedFilters(updatedSavedFilters)
-            localStorage.setItem(`quoteFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
-            
+            localStorage.setItem('clientQuoteFilters', JSON.stringify(updatedSavedFilters))
             setFilterName('')
         } catch (error) {
             console.error('Error saving filter:', error)
@@ -153,36 +110,106 @@ const QuoteFilters = ({
     const deleteSavedFilter = (index) => {
         const updatedSavedFilters = savedFilters.filter((_, i) => i !== index)
         setSavedFilters(updatedSavedFilters)
-        localStorage.setItem(`quoteFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
-    }    
+        localStorage.setItem('clientQuoteFilters', JSON.stringify(updatedSavedFilters))
+    }
+
     const updateFilter = (key, value) => {
-        setFilters(prev => ({
-            ...prev,
-            [key]: value
-        }))
+        setFilters(prev => {
+            const newFilters = { ...prev, [key]: value }
+            
+            // Handle predefined date ranges
+            if (key === 'dateRange' && value && value !== 'all') {
+                const today = new Date()
+                let fromDate = ''
+                let toDate = today.toISOString().split('T')[0]
+                
+                switch (value) {
+                    case 'today':
+                        fromDate = today.toISOString().split('T')[0]
+                        break
+                    case 'week':
+                        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+                        fromDate = weekAgo.toISOString().split('T')[0]
+                        break
+                    case 'month':
+                        const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+                        fromDate = monthAgo.toISOString().split('T')[0]
+                        break
+                    case 'quarter':
+                        const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
+                        fromDate = quarterAgo.toISOString().split('T')[0]
+                        break
+                    case 'year':
+                        const yearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
+                        fromDate = yearAgo.toISOString().split('T')[0]
+                        break
+                }
+                
+                newFilters.dateFrom = fromDate
+                newFilters.dateTo = toDate
+            }
+            
+            // Handle predefined amount ranges
+            if (key === 'amountRange') {
+                if (value === 'all') {
+                    newFilters.amountMin = ''
+                    newFilters.amountMax = ''
+                } else if (value) {
+                    switch (value) {
+                        case '0-1000':
+                            newFilters.amountMin = '0'
+                            newFilters.amountMax = '1000'
+                            break
+                        case '1000-5000':
+                            newFilters.amountMin = '1000'
+                            newFilters.amountMax = '5000'
+                            break
+                        case '5000-10000':
+                            newFilters.amountMin = '5000'
+                            newFilters.amountMax = '10000'
+                            break
+                        case '10000-50000':
+                            newFilters.amountMin = '10000'
+                            newFilters.amountMax = '50000'
+                            break
+                        case '50000+':
+                            newFilters.amountMin = '50000'
+                            newFilters.amountMax = ''
+                            break
+                    }
+                }
+            }
+
+            // Clear predefined ranges if custom values are set
+            if ((key === 'dateFrom' || key === 'dateTo') && value) {
+                newFilters.dateRange = 'all'
+            }
+            
+            if ((key === 'amountMin' || key === 'amountMax') && value) {
+                newFilters.amountRange = 'all'
+            }
+
+            return newFilters
+        })
     }
 
     const clearFilters = () => {
         setFilters({
             search: '',
             status: 'all',
-            category: 'all',
-            type: 'all',
             dateRange: 'all',
-            amountRange: 'all',            role: userRole
+            amountRange: 'all',
+            dateFrom: '',
+            dateTo: '',
+            amountMin: '',
+            amountMax: ''
         })
     }
 
     const getActiveFiltersCount = () => {
         return Object.entries(filters).filter(([key, value]) => 
-            value && value !== '' && value !== 'all' && key !== 'role'
+            value && value !== '' && value !== 'all'
         ).length
-    }
-
-    const isAdminOrManager = userRole === 'Administrator' || userRole === 'Office Manager'
-
-    const retryFetchCategories = () => {
-        fetchCategoriesForRole(filters.role)
     }
 
     return (
@@ -205,122 +232,35 @@ const QuoteFilters = ({
                                 Clear
                             </Button>
                         )}
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={retryFetchCategories}
-                            disabled={loadingCategories}
-                        >
-                            <RefreshCw className={`h-4 w-4 ${loadingCategories ? 'animate-spin' : ''}`} />
-                        </Button>
                     </div>
                 </div>
             </CardHeader>
             <CardContent>
                 <div className="grid gap-4">
-                    {/* Category Loading Error Alert */}
-                    {categoryError && (
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription>
-                                {categoryError}. 
-                                <Button 
-                                    variant="link" 
-                                    className="p-0 h-auto font-normal underline ml-1"
-                                    onClick={retryFetchCategories}
-                                >
-                                    Try again
-                                </Button>
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
                     {/* Search */}
                     <div>
                         <Label htmlFor="search">Search Quotes</Label>
                         <Input
                             id="search"
-                            placeholder="Search by description, client, amount, or details..."
+                            placeholder="Search by ID, title, description, or status..."
                             value={filters.search}
                             onChange={(e) => updateFilter('search', e.target.value)}
                         />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Role Filter (Admin only) */}
-                        {isAdminOrManager && (
-                            <div>
-                                <Label htmlFor="role">View as Role</Label>
-                                <Select value={filters.role} onValueChange={(value) => updateFilter('role', value)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {userRoles.map(role => (
-                                            <SelectItem key={role} value={role}>
-                                                {role}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-
                         {/* Status Filter */}
                         <div>
                             <Label htmlFor="status">Status</Label>
                             <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All statuses" />
-                                </SelectTrigger>                                <SelectContent>
+                                </SelectTrigger>
+                                <SelectContent>
                                     <SelectItem value="all">All statuses</SelectItem>
                                     {quoteStatuses.map(status => (
                                         <SelectItem key={status} value={status}>
                                             {status}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Category Filter */}
-                        <div>
-                            <Label htmlFor="category">Category</Label>
-                            <Select 
-                                value={filters.category} 
-                                onValueChange={(value) => updateFilter('category', value)}
-                                disabled={loadingCategories}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder={loadingCategories ? "Loading..." : "All categories"} />
-                                </SelectTrigger>                                <SelectContent>
-                                    <SelectItem value="all">All categories</SelectItem>
-                                    {loadingCategories ? (
-                                        <div className="p-2">
-                                            <Skeleton className="h-4 w-full" />
-                                        </div>
-                                    ) : (
-                                        categories.map(category => (
-                                            <SelectItem key={category.uuid} value={category.uuid}>
-                                                {category.name}
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Type Filter */}
-                        <div>
-                            <Label htmlFor="type">Type</Label>
-                            <Select value={filters.type} onValueChange={(value) => updateFilter('type', value)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All types" />
-                                </SelectTrigger>                                <SelectContent>
-                                    <SelectItem value="all">All types</SelectItem>
-                                    {quoteTypes.map(type => (
-                                        <SelectItem key={type.value} value={type.value}>
-                                            {type.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -333,10 +273,12 @@ const QuoteFilters = ({
                             <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All dates" />
-                                </SelectTrigger>                                <SelectContent>
+                                </SelectTrigger>
+                                <SelectContent>
                                     <SelectItem value="all">All dates</SelectItem>
                                     {dateRanges.map(range => (
                                         <SelectItem key={range.value} value={range.value}>
+                                            <Calendar className="h-4 w-4 mr-2" />
                                             {range.label}
                                         </SelectItem>
                                     ))}
@@ -350,15 +292,67 @@ const QuoteFilters = ({
                             <Select value={filters.amountRange} onValueChange={(value) => updateFilter('amountRange', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All amounts" />
-                                </SelectTrigger>                                <SelectContent>
+                                </SelectTrigger>
+                                <SelectContent>
                                     <SelectItem value="all">All amounts</SelectItem>
                                     {amountRanges.map(range => (
                                         <SelectItem key={range.value} value={range.value}>
+                                            <DollarSign className="h-4 w-4 mr-2" />
                                             {range.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                    </div>
+
+                    {/* Custom Date Range */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="dateFrom">From Date</Label>
+                            <Input
+                                id="dateFrom"
+                                type="date"
+                                value={filters.dateFrom}
+                                onChange={(e) => updateFilter('dateFrom', e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="dateTo">To Date</Label>
+                            <Input
+                                id="dateTo"
+                                type="date"
+                                value={filters.dateTo}
+                                onChange={(e) => updateFilter('dateTo', e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Custom Amount Range */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="amountMin">Min Amount ($)</Label>
+                            <Input
+                                id="amountMin"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={filters.amountMin}
+                                onChange={(e) => updateFilter('amountMin', e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="amountMax">Max Amount ($)</Label>
+                            <Input
+                                id="amountMax"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="No limit"
+                                value={filters.amountMax}
+                                onChange={(e) => updateFilter('amountMax', e.target.value)}
+                            />
                         </div>
                     </div>
 
@@ -425,7 +419,8 @@ const QuoteFilters = ({
                                             onClick={() => updateFilter('search', '')}
                                         />
                                     </Badge>
-                                )}                                {filters.status && filters.status !== 'all' && (
+                                )}
+                                {filters.status && filters.status !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Status: {filters.status}
                                         <X 
@@ -433,23 +428,8 @@ const QuoteFilters = ({
                                             onClick={() => updateFilter('status', 'all')}
                                         />
                                     </Badge>
-                                )}                                {filters.category && filters.category !== 'all' && (
-                                    <Badge variant="outline" className="gap-1">
-                                        Category: {categories.find(c => c.uuid === filters.category)?.name || 'Unknown'}
-                                        <X 
-                                            className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('category', 'all')}
-                                        />
-                                    </Badge>
-                                )}                                {filters.type && filters.type !== 'all' && (
-                                    <Badge variant="outline" className="gap-1">
-                                        Type: {quoteTypes.find(t => t.value === filters.type)?.label || filters.type}
-                                        <X 
-                                            className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('type', 'all')}
-                                        />
-                                    </Badge>
-                                )}                                {filters.dateRange && filters.dateRange !== 'all' && (
+                                )}
+                                {filters.dateRange && filters.dateRange !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Date: {dateRanges.find(d => d.value === filters.dateRange)?.label || filters.dateRange}
                                         <X 
@@ -457,7 +437,20 @@ const QuoteFilters = ({
                                             onClick={() => updateFilter('dateRange', 'all')}
                                         />
                                     </Badge>
-                                )}                                {filters.amountRange && filters.amountRange !== 'all' && (
+                                )}
+                                {(filters.dateFrom || filters.dateTo) && filters.dateRange === 'all' && (
+                                    <Badge variant="outline" className="gap-1">
+                                        Custom Date: {filters.dateFrom || 'Start'} - {filters.dateTo || 'End'}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer" 
+                                            onClick={() => {
+                                                updateFilter('dateFrom', '')
+                                                updateFilter('dateTo', '')
+                                            }}
+                                        />
+                                    </Badge>
+                                )}
+                                {filters.amountRange && filters.amountRange !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Amount: {amountRanges.find(a => a.value === filters.amountRange)?.label || filters.amountRange}
                                         <X 
@@ -466,12 +459,15 @@ const QuoteFilters = ({
                                         />
                                     </Badge>
                                 )}
-                                {filters.role !== userRole && (
+                                {(filters.amountMin || filters.amountMax) && filters.amountRange === 'all' && (
                                     <Badge variant="outline" className="gap-1">
-                                        View as: {filters.role}
+                                        Custom Amount: ${filters.amountMin || '0'} - ${filters.amountMax || '∞'}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('role', userRole)}
+                                            onClick={() => {
+                                                updateFilter('amountMin', '')
+                                                updateFilter('amountMax', '')
+                                            }}
                                         />
                                     </Badge>
                                 )}
@@ -484,4 +480,4 @@ const QuoteFilters = ({
     )
 }
 
-export default QuoteFilters
+export default ClientQuoteFilters

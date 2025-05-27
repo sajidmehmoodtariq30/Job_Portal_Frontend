@@ -26,12 +26,11 @@ const JobFilters = ({
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
     const [lastFilterUpdate, setLastFilterUpdate] = useState(Date.now())
-    
-    const [filters, setFilters] = useState({
+      const [filters, setFilters] = useState({
         search: '',
-        status: '',
-        category: '',
-        type: '',
+        status: 'all',
+        category: 'all',
+        type: 'all',
         role: userRole,
         ...currentFilters
     })
@@ -118,8 +117,7 @@ const JobFilters = ({
             const updatedSavedFilters = [...savedFilters, filterToSave]
             setSavedFilters(updatedSavedFilters)
             localStorage.setItem(`jobFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
-            
-            setFilterName('')
+              setFilterName('')
         } catch (error) {
             console.error('Error saving filter:', error)
         } finally {
@@ -147,9 +145,9 @@ const JobFilters = ({
     const clearFilters = () => {
         setFilters({
             search: '',
-            status: '',
-            category: '',
-            type: '',
+            status: 'all',
+            category: 'all',
+            type: 'all',
             role: userRole
         })
     }
@@ -160,7 +158,7 @@ const JobFilters = ({
 
     const getActiveFiltersCount = () => {
         return Object.entries(filters).filter(([key, value]) => 
-            value && value !== '' && key !== 'role'
+            value && value !== '' && value !== 'all' && key !== 'role'
         ).length
     }
 
@@ -253,9 +251,8 @@ const JobFilters = ({
                             <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All statuses" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All statuses</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All statuses</SelectItem>
                                     {jobStatuses.map(status => (
                                         <SelectItem key={status} value={status}>
                                             {status}
@@ -275,9 +272,8 @@ const JobFilters = ({
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder={loadingCategories ? "Loading..." : "All categories"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All categories</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All categories</SelectItem>
                                     {loadingCategories ? (
                                         <div className="p-2">
                                             <Skeleton className="h-4 w-full" />
@@ -299,9 +295,8 @@ const JobFilters = ({
                             <Select value={filters.type} onValueChange={(value) => updateFilter('type', value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="All types" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All types</SelectItem>
+                                </SelectTrigger>                                <SelectContent>
+                                    <SelectItem value="all">All types</SelectItem>
                                     {jobTypes.map(type => (
                                         <SelectItem key={type.value} value={type.value}>
                                             {type.label}
@@ -376,31 +371,28 @@ const JobFilters = ({
                                             onClick={() => updateFilter('search', '')}
                                         />
                                     </Badge>
-                                )}
-                                {filters.status && (
+                                )}                                {filters.status && filters.status !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Status: {filters.status}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('status', '')}
+                                            onClick={() => updateFilter('status', 'all')}
                                         />
                                     </Badge>
-                                )}
-                                {filters.category && (
+                                )}                                {filters.category && filters.category !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Category: {categories.find(c => c.uuid === filters.category)?.name || 'Unknown'}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('category', '')}
+                                            onClick={() => updateFilter('category', 'all')}
                                         />
                                     </Badge>
-                                )}
-                                {filters.type && (
+                                )}                                {filters.type && filters.type !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Type: {jobTypes.find(t => t.value === filters.type)?.label || filters.type}
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
-                                            onClick={() => updateFilter('type', '')}
+                                            onClick={() => updateFilter('type', 'all')}
                                         />
                                     </Badge>
                                 )}
