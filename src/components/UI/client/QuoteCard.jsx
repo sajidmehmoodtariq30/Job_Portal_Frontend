@@ -1,8 +1,12 @@
 import { AlertCircle, Badge, Calendar, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../card";
 import { Button } from "../button";
+import PermissionGuard from "../../client/PermissionGuard";
+import { useClientPermissions } from "../../../hooks/useClientPermissions";
+import { CLIENT_PERMISSIONS } from "../../../types/clientPermissions";
 
 const QuoteCard = ({ quote, onQuoteAction, statusColor, loadingQuotes = {} }) => {
+    const { hasPermission } = useClientPermissions();
     return (
         <Card>
             <CardHeader className="pb-2">
@@ -34,36 +38,45 @@ const QuoteCard = ({ quote, onQuoteAction, statusColor, loadingQuotes = {} }) =>
                 </div>            </CardContent>            <CardFooter className="flex justify-end">
                 {quote.status === 'Pending' && (
                     <div className="flex gap-2">
-                        <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => onQuoteAction(quote.id, 'Accept')}
-                            disabled={loadingQuotes[quote.id] === 'Accept' || loadingQuotes[quote.id] === 'Reject'}
-                        >
-                            {loadingQuotes[quote.id] === 'Accept' ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    Accepting...
-                                </>
-                            ) : (
-                                'Accept Quote'
-                            )}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onQuoteAction(quote.id, 'Reject')}
-                            disabled={loadingQuotes[quote.id] === 'Accept' || loadingQuotes[quote.id] === 'Reject'}
-                        >
-                            {loadingQuotes[quote.id] === 'Reject' ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    Rejecting...
-                                </>
-                            ) : (
-                                'Reject'
-                            )}
-                        </Button>
+                        <PermissionGuard permission={CLIENT_PERMISSIONS.QUOTES_ACCEPT}>
+                            <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => onQuoteAction(quote.id, 'Accept')}
+                                disabled={loadingQuotes[quote.id] === 'Accept' || loadingQuotes[quote.id] === 'Reject'}
+                            >
+                                {loadingQuotes[quote.id] === 'Accept' ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Accepting...
+                                    </>
+                                ) : (
+                                    'Accept Quote'
+                                )}
+                            </Button>
+                        </PermissionGuard>
+                        <PermissionGuard permission={CLIENT_PERMISSIONS.QUOTES_REJECT}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onQuoteAction(quote.id, 'Reject')}
+                                disabled={loadingQuotes[quote.id] === 'Accept' || loadingQuotes[quote.id] === 'Reject'}
+                            >
+                                {loadingQuotes[quote.id] === 'Reject' ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Rejecting...
+                                    </>
+                                ) : (
+                                    'Reject'
+                                )}
+                            </Button>
+                        </PermissionGuard>
+                        {(!hasPermission(CLIENT_PERMISSIONS.QUOTES_ACCEPT) && !hasPermission(CLIENT_PERMISSIONS.QUOTES_REJECT)) && (
+                            <div className="text-sm text-gray-500 italic">
+                                Contact administrator for quote management access
+                            </div>
+                        )}
                     </div>
                 )}
                 {quote.status === 'Accepted' && (

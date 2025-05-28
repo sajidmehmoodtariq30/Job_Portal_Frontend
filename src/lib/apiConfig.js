@@ -29,10 +29,11 @@ export const API_ENDPOINTS = {
     DELETE: (id) => buildApiEndpoint(`api/categories/${id}`),
     FETCH_BY_ROLE: (userRole) => buildApiEndpoint(`api/categories/role/${userRole}`)
   },
-
   CLIENTS: {
     FETCH_ALL: buildApiEndpoint('fetch/clients'),
-    CREATE: buildApiEndpoint('fetch/clients')
+    CREATE: buildApiEndpoint('fetch/clients'),
+    GET_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
+    UPDATE_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`)
   },
 
   QUOTES: {

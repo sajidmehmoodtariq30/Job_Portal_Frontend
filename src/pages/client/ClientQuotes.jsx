@@ -27,10 +27,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/UI/alert-dialog";
+import PermissionGuard from "../../components/client/PermissionGuard";
+import { useClientPermissions } from "@/hooks/useClientPermissions";
+import { CLIENT_PERMISSIONS } from "../../types/clientPermissions";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 
 const ClientQuotes = () => {
+  // Permission checking hook
+  const { hasPermission } = useClientPermissions();
+  
   // State for quotes data
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,9 +222,19 @@ const ClientQuotes = () => {
       currency: 'USD'
     }).format(amount);
   };
-  
-  // Handle quote actions with confirmation
+    // Handle quote actions with confirmation
   const handleQuoteAction = (quoteId, action) => {
+    // Check permissions before allowing action
+    if (action === 'Accept' && !hasPermission(CLIENT_PERMISSIONS.QUOTES_ACCEPT)) {
+      setError('You do not have permission to accept quotes.');
+      return;
+    }
+    
+    if (action === 'Reject' && !hasPermission(CLIENT_PERMISSIONS.QUOTES_REJECT)) {
+      setError('You do not have permission to reject quotes.');
+      return;
+    }
+    
     setSelectedAction({ id: quoteId, action });
     
     if (action === 'Reject') {
@@ -370,70 +386,82 @@ const ClientQuotes = () => {
           />
         </div>
       )}
-      
-      {/* Quote List */}
-      <div className="space-y-4">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-pulse flex space-x-4">
-              <div className="flex-1 space-y-6 py-1">
-                <div className="h-2 bg-muted rounded"></div>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="h-2 bg-muted rounded col-span-2"></div>
-                    <div className="h-2 bg-muted rounded col-span-1"></div>
-                  </div>
+        {/* Quote List */}
+      <PermissionGuard
+        permission={CLIENT_PERMISSIONS.QUOTES_VIEW}
+        fallback={
+          <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+            <XCircle size={48} className="text-gray-400 mb-4" />
+            <h3 className="text-xl font-medium mb-2 text-gray-600">Access Restricted</h3>
+            <p className="text-gray-500 text-center max-w-md">
+              You do not have permission to view quotes. Please contact your administrator to request access to quote management features.
+            </p>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-6 py-1">
                   <div className="h-2 bg-muted rounded"></div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="h-2 bg-muted rounded col-span-2"></div>
+                      <div className="h-2 bg-muted rounded col-span-1"></div>
+                    </div>
+                    <div className="h-2 bg-muted rounded"></div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ) : filteredQuotes.length > 0 ? (
-          <div className="space-y-4">
-            {filteredQuotes.map(quote => (
-              <QuoteCard 
-                key={quote.id} 
-                quote={{
-                  id: quote.id,
-                  title: quote.title,
-                  description: quote.description,
-                  date: formatDate(quote.createdAt),
-                  price: formatCurrency(quote.price),
-                  status: quote.status,
-                  location: quote.location,
-                  attachments: quote.attachments?.length || 0,
-                  expiryDate: formatDate(quote.expiryDate),
-                  acceptedDate: quote.acceptedAt ? formatDate(quote.acceptedAt) : null,
-                  rejectedDate: quote.rejectedAt ? formatDate(quote.rejectedAt) : null
-                }}
-                onQuoteAction={handleQuoteAction}
-                statusColor={getStatusColor}
-                loadingQuotes={loadingQuotes}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12">
-            <FileText size={48} className="text-muted-foreground mb-4" />
-            <h3 className="text-xl font-medium mb-2">No quotes found</h3>
-            <p className="text-muted-foreground">
-              {getActiveFiltersCount() > 0 
-                ? "No quotes match your current filters. Try adjusting your search criteria."
-                : "Try adjusting your search or contact your service provider for a quote"
-              }
-            </p>
-            {getActiveFiltersCount() > 0 && (
-              <Button 
-                variant="outline" 
-                onClick={clearFilters}
-                className="mt-4"
-              >
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+          ) : filteredQuotes.length > 0 ? (
+            <div className="space-y-4">
+              {filteredQuotes.map(quote => (
+                <QuoteCard 
+                  key={quote.id} 
+                  quote={{
+                    id: quote.id,
+                    title: quote.title,
+                    description: quote.description,
+                    date: formatDate(quote.createdAt),
+                    price: formatCurrency(quote.price),
+                    status: quote.status,
+                    location: quote.location,
+                    attachments: quote.attachments?.length || 0,
+                    expiryDate: formatDate(quote.expiryDate),
+                    acceptedDate: quote.acceptedAt ? formatDate(quote.acceptedAt) : null,
+                    rejectedDate: quote.rejectedAt ? formatDate(quote.rejectedAt) : null
+                  }}
+                  onQuoteAction={handleQuoteAction}
+                  statusColor={getStatusColor}
+                  loadingQuotes={loadingQuotes}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <FileText size={48} className="text-muted-foreground mb-4" />
+              <h3 className="text-xl font-medium mb-2">No quotes found</h3>
+              <p className="text-muted-foreground">
+                {getActiveFiltersCount() > 0 
+                  ? "No quotes match your current filters. Try adjusting your search criteria."
+                  : "Try adjusting your search or contact your service provider for a quote"
+                }
+              </p>
+              {getActiveFiltersCount() > 0 && (
+                <Button 
+                  variant="outline" 
+                  onClick={clearFilters}
+                  className="mt-4"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </PermissionGuard>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showDialog} onOpenChange={setShowDialog}>

@@ -4,6 +4,9 @@ import { Button } from "../../components/UI/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/UI/card";
 import { Badge } from "@/components/UI/badge";
 import { Input } from "@/components/UI/input";
+import PermissionGuard from '@/components/client/PermissionGuard';
+import { CLIENT_PERMISSIONS } from '@/types/clientPermissions';
+import { useClientPermissions } from '@/hooks/useClientPermissions';
 
 const mockInvoices = [
   { id: 'INV-2025-0056', jobId: 'JOB-2025-0405', amount: 1250.00, status: 'Paid', dueDate: '2025-04-05', paidDate: '2025-04-08' },
@@ -23,6 +26,7 @@ const statusBadge = (status) => {
 };
 
 const ClientInvoices = () => {
+  const { hasPermission } = useClientPermissions();
   const [invoices, setInvoices] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,8 +45,27 @@ const ClientInvoices = () => {
     inv.status.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleDownloadInvoice = (invoiceId) => {
+    console.log('Downloading invoice:', invoiceId);
+  };
+
+  const handlePayInvoice = (invoiceId) => {
+    console.log('Paying invoice:', invoiceId);
+  };
   return (
-    <div className="space-y-6">
+    <PermissionGuard 
+      permission={CLIENT_PERMISSIONS.INVOICES_VIEW}
+      fallback={
+        <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+          <FileBarChart size={48} className="text-gray-400 mb-4" />
+          <h3 className="text-xl font-medium mb-2 text-gray-600">Access Restricted</h3>
+          <p className="text-gray-500 text-center max-w-md">
+            You do not have permission to view invoices. Please contact your administrator to request access to invoice management features.
+          </p>
+        </div>
+      }
+    >
+      <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <FileBarChart className="text-blue-600" size={28} />
@@ -94,21 +117,38 @@ const ClientInvoices = () => {
                         ) : (
                           <span className="text-yellow-700">Due {new Date(inv.dueDate).toLocaleDateString()}</span>
                         )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button variant="outline" size="sm" className="flex items-center gap-1">
-                          <Download size={16} /> Download
-                        </Button>
+                      </td>                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          {hasPermission(CLIENT_PERMISSIONS.INVOICES_DOWNLOAD) && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex items-center gap-1"
+                              onClick={() => handleDownloadInvoice(inv.id)}
+                            >
+                              <Download size={16} /> Download
+                            </Button>
+                          )}
+                          {inv.status !== 'Paid' && hasPermission(CLIENT_PERMISSIONS.INVOICES_PAY) && (
+                            <Button 
+                              size="sm" 
+                              className="flex items-center gap-1"
+                              onClick={() => handlePayInvoice(inv.id)}
+                            >
+                              Pay Now
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
-        </CardContent>
+          )}        </CardContent>
       </Card>
     </div>
+    </PermissionGuard>
   );
 };
 

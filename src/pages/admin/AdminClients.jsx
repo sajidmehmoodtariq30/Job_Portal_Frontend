@@ -21,14 +21,16 @@ import {
   DialogTrigger,
 } from "@/components/UI/dialog";
 import { Label } from "@/components/UI/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/UI/tabs";
 import { API_ENDPOINTS } from '@/lib/apiConfig';
 import { Skeleton } from "@/components/UI/skeleton";
+import ClientPermissionSelector from "@/components/admin/ClientPermissionSelector";
+import { CLIENT_PERMISSION_TEMPLATES } from '@/types/clientPermissions';
 
 const AdminClients = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newClient, setNewClient] = useState({
+  const [isDialogOpen, setIsDialogOpen] = useState(false);  const [newClient, setNewClient] = useState({
     uuid: '',
     name: '',
     address: '',
@@ -37,6 +39,7 @@ const AdminClients = () => {
     address_state: '',
     address_postcode: '',
     address_country: '',
+    permissions: CLIENT_PERMISSION_TEMPLATES['Basic Client'] || []
   });
   const [clients, setClients] = useState([]);  // Ensure this is initialized as an empty array
   const [visibleClients, setVisibleClients] = useState(5);
@@ -62,18 +65,20 @@ const AdminClients = () => {
 
     fetchClients();
   }, []);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewClient({ ...newClient, [name]: value });
+  };
+
+  const handlePermissionChange = (permissions) => {
+    setNewClient({ ...newClient, permissions });
   };
 
   const handleCreateClient = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
-        const response = await axios.post(API_ENDPOINTS.CLIENTS.CREATE, {
+    try {        const response = await axios.post(API_ENDPOINTS.CLIENTS.CREATE, {
             uuid: newClient.uuid,
             name: newClient.name,
             address: newClient.address,
@@ -82,13 +87,12 @@ const AdminClients = () => {
             address_state: newClient.address_state,
             address_postcode: newClient.address_postcode,
             address_country: newClient.address_country,
+            permissions: newClient.permissions,
             active: 1
         });
         console.log('Client created:', response.data);
         setClients((prevClients) => [...prevClients, response.data]);
-        setIsDialogOpen(false);
-
-        // Reset form
+        setIsDialogOpen(false);        // Reset form
         setNewClient({
             uuid: '',
             name: '',
@@ -97,7 +101,8 @@ const AdminClients = () => {
             address_city: '',
             address_state: '',
             address_postcode: '',
-            address_country: ''
+            address_country: '',
+            permissions: CLIENT_PERMISSION_TEMPLATES['Basic Client'] || []
         });
     } catch (error) {
         console.error('Error creating client:', error);
@@ -157,88 +162,108 @@ const AdminClients = () => {
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>Add New Client</Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[80vh] overflow-y-auto">
+            </DialogTrigger>            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
                 <DialogDescription>
-                  Enter the client details to create a new record in ServiceM8.
+                  Enter the client details and set permissions to create a new record in ServiceM8.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateClient}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Company Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={newClient.name}
-                      onChange={handleInputChange}
-                      required
+                <Tabs defaultValue="details" className="mt-4">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="details">Client Details</TabsTrigger>
+                    <TabsTrigger value="permissions">Permissions</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="details" className="space-y-4 mt-4">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="name">Company Name</Label>
+                        <Input
+                          id="name"
+                          name="name"
+                          value={newClient.name}
+                          onChange={handleInputChange}
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="address">Address</Label>
+                        <Input
+                          id="address"
+                          name="address"
+                          value={newClient.address}
+                          onChange={handleInputChange}
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          value={newClient.email}
+                          onChange={handleInputChange}
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="address_city">City</Label>
+                          <Input
+                            id="address_city"
+                            name="address_city"
+                            value={newClient.address_city}
+                            onChange={handleInputChange}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="address_state">State</Label>
+                          <Input
+                            id="address_state"
+                            name="address_state"
+                            value={newClient.address_state}
+                            onChange={handleInputChange}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="address_postcode">Postcode</Label>
+                          <Input
+                            id="address_postcode"
+                            name="address_postcode"
+                            value={newClient.address_postcode}
+                            onChange={handleInputChange}
+                            required
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="address_country">Country</Label>
+                          <Input
+                            id="address_country"
+                            name="address_country"
+                            value={newClient.address_country}
+                            onChange={handleInputChange}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="permissions" className="mt-4">
+                    <ClientPermissionSelector
+                      selectedPermissions={newClient.permissions}
+                      onPermissionChange={handlePermissionChange}
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={newClient.address}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      value={newClient.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address_city">City</Label>
-                    <Input
-                      id="address_city"
-                      name="address_city"
-                      value={newClient.address_city}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address_state">State</Label>
-                    <Input
-                      id="address_state"
-                      name="address_state"
-                      value={newClient.address_state}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address_postcode">Postcode</Label>
-                    <Input
-                      id="address_postcode"
-                      name="address_postcode"
-                      value={newClient.address_postcode}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address_country">Country</Label>
-                    <Input
-                      id="address_country"
-                      name="address_country"
-                      value={newClient.address_country}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
+                  </TabsContent>
+                </Tabs>
+                
+                <DialogFooter className="mt-6">
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting ? (
                       <>

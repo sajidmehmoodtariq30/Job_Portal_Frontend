@@ -20,6 +20,10 @@ import ClientJobDetails from './pages/client/ClientJobDetails.jsx'
 import ClientQuotes from './pages/client/ClientQuotes.jsx'
 import ClientSupport from './pages/client/ClientSupport.jsx'
 import ClientSettings from './pages/client/ClientSettings.jsx'
+import ClientSchedule from './pages/client/ClientSchedule.jsx'
+import ClientReports from './pages/client/ClientReports.jsx'
+import ClientMessages from './pages/client/ClientMessages.jsx'
+import ClientInvoices from './pages/client/ClientInvoices.jsx'
 import AdminProfile from '@/pages/admin/AdminProfile';
 import ClientProfile from '@/pages/client/ClientProfile';
 import AdminSettings from '@/pages/admin/AdminSettings';
@@ -68,6 +72,10 @@ function App() {
             <Route path="jobs" element={<ClientJobs />} />
             <Route path="jobs/:jobId" element={<ClientJobDetails />} />
             <Route path="quotes" element={<ClientQuotes />} />
+            <Route path="invoices" element={<ClientInvoices />} />
+            <Route path="schedule" element={<ClientSchedule />} />
+            <Route path="reports" element={<ClientReports />} />
+            <Route path="messages" element={<ClientMessages />} />
             <Route path="support" element={<ClientSupport />} />
             <Route path="settings" element={<ClientSettings />} />
             <Route path="profile" element={<ClientProfile />} />

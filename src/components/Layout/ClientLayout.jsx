@@ -13,6 +13,7 @@ import {
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
 import { getClientNameByUuid } from '@/utils/clientUtils'
+import { ClientPermissionProvider } from '@/hooks/useClientPermissions'
 import logo from '../../assets/logo.jpg'
 
 const ClientLayout = () => {
@@ -120,11 +121,11 @@ const ClientLayout = () => {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                </div>
-
-                {/* Main content area */}
+                </div>                {/* Main content area */}
                 <main className="flex-1 overflow-auto p-4 lg:p-6">
-                    <Outlet />
+                    <ClientPermissionProvider>
+                        <Outlet />
+                    </ClientPermissionProvider>
                 </main>
             </div>
         </div>
