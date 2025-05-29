@@ -3,6 +3,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AlertCircle, Calendar, FileText, CheckCircle, Clock, XCircle, DollarSign } from "lucide-react";
 import { Button } from "../button";
 
+// Format date for display - removes the time part (00:00:00)
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    // Format date with month, day, and year but no time/seconds
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+
 const JobCard = ({ job, statusColor, onViewDetails, quotes = [] }) => {
     // Find quotes related to this job
     const jobQuotes = quotes.filter(quote => quote.jobId === job.id || quote.jobId === job.uuid);
@@ -66,15 +77,14 @@ const JobCard = ({ job, statusColor, onViewDetails, quotes = [] }) => {
                     <p className="text-sm">{job.description}</p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center gap-2 text-sm">
-                            <Calendar size={16} className="text-muted-foreground" />
-                            {job.status === 'Completed' ? (
-                                <span>Completed: {job.completedDate}</span>
+                            <Calendar size={16} className="text-muted-foreground" />                            {job.status === 'Completed' ? (
+                                <span>Completed: {formatDate(job.completedDate)}</span>
                             ) : job.status === 'Scheduled' ? (
-                                <span>Scheduled: {job.date}</span>
+                                <span>Scheduled: {formatDate(job.date)}</span>
                             ) : job.dueDate ? (
-                                <span>Due: {job.dueDate}</span>
+                                <span>Due: {formatDate(job.dueDate)}</span>
                             ) : (
-                                <span>Created: {job.date}</span>
+                                <span>Created: {formatDate(job.date)}</span>
                             )}
                         </div>
                         {job.assignedTech && (

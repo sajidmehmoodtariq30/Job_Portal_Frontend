@@ -458,8 +458,7 @@ const AdminJobs = () => {
       if (jobId) {
         fetchAttachments(jobId);
       }
-    };
-    // Handle job status update
+    };    // Handle job status update
     const handleStatusUpdate = async () => {
       if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
         return;
@@ -502,6 +501,17 @@ const AdminJobs = () => {
       const i = Math.floor(Math.log(bytes) / Math.log(k));
 
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // Format date for display - removes the time part (00:00:00)
+    const formatDate = (dateString) => {
+      if (!dateString) return '...';
+      // Format date with month, day, and year but no time/seconds
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
     };
 
     // Fetch attachments for selected job
@@ -987,11 +997,10 @@ const AdminJobs = () => {
                                 : job.status === 'In Progress'
                                   ? 'bg-purple-100 text-purple-800'
                                   : 'bg-green-100 text-green-800'
-                            }`}>
-                            {job.status}
+                            }`}>                            {job.status}
                           </span>
                         </td>
-                        <td className="py-3">{job.date || '...'}</td>
+                        <td className="py-3">{formatDate(job.date)}</td>
                         <td className="py-3">
                           <Button
                             variant="ghost"
@@ -1127,7 +1136,7 @@ const AdminJobs = () => {
                 <div className="grid grid-cols-2 gap-3 md:gap-5">
                   <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                     <Label className="font-bold text-xs md:text-sm">Created Date</Label>
-                    <p className="text-xs md:text-sm">{selectedJob.date || 'N/A'}</p>
+                    <p className="text-xs md:text-sm">{formatDate(selectedJob.date)}</p>
                   </div>
                   <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                     <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
@@ -1154,7 +1163,7 @@ const AdminJobs = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
                       <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
                       <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
-                      <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                      <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? formatDate(selectedJob.payment_date) : 'N/A'}</p>
                       <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
                     </div>
                   </div>

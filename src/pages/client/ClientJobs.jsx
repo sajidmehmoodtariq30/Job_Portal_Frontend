@@ -1280,7 +1280,7 @@ const ClientJobs = () => {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5">
                         <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                           <Label className="font-bold text-xs md:text-sm">Created Date</Label>
-                          <p className="text-xs md:text-sm">{selectedJob.date || 'N/A'}</p>
+                          <p className="text-xs md:text-sm">{formatDate(selectedJob.date)}</p>
                         </div>
                         <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                           <Label className="font-bold text-xs md:text-sm">Work Order Date</Label>
@@ -1331,7 +1331,7 @@ const ClientJobs = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
                               <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
                               <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
-                              <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? selectedJob.payment_date : 'N/A'}</p>
+                              <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? formatDate(selectedJob.payment_date) : 'N/A'}</p>
                               <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
                             </div>
                           </div>
