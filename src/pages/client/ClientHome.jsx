@@ -263,22 +263,21 @@ const ClientHome = () => {
   const handleRefresh = () => {
     fetchDashboardData(true);
   };
-  
-  const getStatusColor = (status) => {
+    const getStatusColor = (status) => {
     switch(status) {
-      case 'In Progress': return 'bg-blue-600 text-white';
-      case 'Quote': return 'bg-amber-500 text-white';
+      case 'In Progress': return 'bg-purple-600 text-white';
+      case 'Quote': return 'bg-orange-500 text-white';
+      case 'Work Order': return 'bg-blue-600 text-white';
       case 'Completed': return 'bg-green-600 text-white';
       case 'Scheduled': return 'bg-purple-600 text-white';
       case 'On Hold': return 'bg-gray-600 text-white';
       default: return 'bg-gray-600 text-white';
     }
   };
-
   const getActivityIcon = (type) => {
     switch(type) {
       case 'job_created': return <FileText className="text-blue-500" />;
-      case 'quote_received': return <FileText className="text-amber-500" />;
+      case 'quote_received': return <FileText className="text-orange-500" />;
       case 'job_completed': return <CheckCircle className="text-green-500" />;
       case 'document_uploaded': return <FileBarChart className="text-purple-500" />;
       case 'invoice_paid': return <BarChart3 className="text-green-500" />;

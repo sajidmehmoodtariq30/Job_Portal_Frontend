@@ -119,6 +119,8 @@ const ClientJobs = () => {
   });
   const [filterLoading, setFilterLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  // New state for job sorting
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first
       // Get client UUID from localStorage
   const clientUuid = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
 
@@ -395,8 +397,13 @@ const ClientJobs = () => {
       setFilterLoading(false);
     }
     
-    // Reset visible jobs when filters change
+  // Reset visible jobs when filters change
     setVisibleJobs(PAGE_SIZE);
+  };
+  
+  // Handle toggling the sort order between newest and oldest
+  const handleToggleSortOrder = () => {
+    setSortOrder(prevOrder => prevOrder === 'desc' ? 'asc' : 'desc');
   };
 
   // Toggle filters visibility
@@ -462,9 +469,15 @@ const ClientJobs = () => {
     
     return true;
   });
+    // Sort the filtered jobs based on sortOrder
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    const dateA = new Date(a.date || a.created_at || 0);
+    const dateB = new Date(b.date || b.created_at || 0);
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
   
   // Get jobs to display based on pagination
-  const displayedJobs = filteredJobs.slice(0, visibleJobs);
+  const displayedJobs = sortedJobs.slice(0, visibleJobs);
   
   // Fetch attachment counts for visible jobs when they change (effect placed after filteredJobs definition)
   useEffect(() => {
@@ -520,13 +533,12 @@ const ClientJobs = () => {
       setConfirmRefresh(false);
     }
   };
-  
-  // Status color function
+    // Status color function
   const getStatusColor = (status) => {
     switch(status) {
-      case 'In Progress': return 'bg-blue-600 text-white';
-      case 'Quote': return 'bg-amber-500 text-white';
-      case 'Work Order': return 'bg-yellow-100 text-yellow-800';
+      case 'In Progress': return 'bg-purple-600 text-white';
+      case 'Quote': return 'bg-orange-500 text-white';
+      case 'Work Order': return 'bg-blue-600 text-white';
       case 'Completed': return 'bg-green-600 text-white';
       case 'Scheduled': return 'bg-purple-600 text-white';
       case 'On Hold': return 'bg-gray-600 text-white';      default: return 'bg-gray-600 text-white';
@@ -627,6 +639,7 @@ const ClientJobs = () => {
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
+    // Format date with month, day, and year but no time/seconds
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -1021,8 +1034,7 @@ const ClientJobs = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
-              </div>
-              <Button
+              </div>              <Button
                 variant="outline"
                 size="sm"
                 onClick={toggleFilters}
@@ -1031,6 +1043,16 @@ const ClientJobs = () => {
                 <Filter size={16} />
                 Filters
                 {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleSortOrder}
+                className="flex items-center gap-2"
+              >
+                <Calendar size={16} />
+                {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
               </Button>
             </div>
             
@@ -1196,12 +1218,11 @@ const ClientJobs = () => {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">                        <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                          <Label className="font-bold text-xs md:text-sm">Status</Label>
-                          <span className={`px-2 py-1 rounded text-xs inline-block ${
+                          <Label className="font-bold text-xs md:text-sm">Status</Label>                          <span className={`px-2 py-1 rounded text-xs inline-block ${
                             selectedJob.status === 'Quote' 
-                              ? 'bg-blue-100 text-blue-800' 
+                              ? 'bg-orange-100 text-orange-800' 
                               : selectedJob.status === 'Work Order' 
-                                ? 'bg-yellow-100 text-yellow-800'
+                                ? 'bg-blue-100 text-blue-800'
                                 : selectedJob.status === 'In Progress'
                                   ? 'bg-purple-100 text-purple-800'
                                   : 'bg-green-100 text-green-800'

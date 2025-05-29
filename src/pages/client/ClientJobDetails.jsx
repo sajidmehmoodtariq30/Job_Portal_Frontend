@@ -89,12 +89,11 @@ const ClientJobDetails = () => {
             console.error('Error adding note:', error);
         }
     };
-    
-    const getStatusColor = (status) => {
+      const getStatusColor = (status) => {
         switch(status) {
-            case 'In Progress': return 'bg-blue-600 text-white';
-            case 'Quote': return 'bg-amber-500 text-white';
-            case 'Work Order': return 'bg-yellow-100 text-yellow-800';
+            case 'In Progress': return 'bg-purple-600 text-white';
+            case 'Quote': return 'bg-orange-500 text-white';
+            case 'Work Order': return 'bg-blue-600 text-white';
             case 'Completed': return 'bg-green-600 text-white';
             case 'Scheduled': return 'bg-purple-600 text-white';
             case 'On Hold': return 'bg-gray-600 text-white';

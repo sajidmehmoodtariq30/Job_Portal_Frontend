@@ -89,11 +89,14 @@ const AdminJobs = () => {
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [fileUploading, setFileUploading] = useState(false); const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
 
   // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
+
+  // New state for date sorting
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first
 
   // Loading states for various actions
   const [isCreatingJob, setIsCreatingJob] = useState(false);
@@ -277,18 +280,30 @@ const AdminJobs = () => {
       return false;
     }
 
-    return true;
+    return true;  });
+
+  // Sort the filtered jobs based on sortOrder
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    const dateA = new Date(a.date || a.created_at || 0);
+    const dateB = new Date(b.date || b.created_at || 0);
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
   });
-  // Limit visible jobs for pagination AFTER filtering
-  const displayedJobs = filteredJobs.slice(0, visibleJobs);
+  
+  // Limit visible jobs for pagination AFTER filtering and sorting
+  const displayedJobs = sortedJobs.slice(0, visibleJobs);
 
   const handleShowMore = () => {
     setVisibleJobs(prev => prev + 10);
   };
-
   const handleShowLess = () => {
     setVisibleJobs(prev => Math.max(prev - 10, 10));
   };
+
+  // Handle toggling the sort order between newest and oldest
+  const handleToggleSortOrder = () => {
+    setSortOrder(prevOrder => prevOrder === 'desc' ? 'asc' : 'desc');
+  };
+  
   const handleRefresh = async () => {
     // Show confirmation dialog first
     setConfirmRefresh(true);
@@ -935,13 +950,17 @@ const AdminJobs = () => {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                <tr className="border-b">
+                <thead>                <tr className="border-b">
                   <th className="py-3 text-left">Job ID</th>
                   <th className="py-3 text-left">Description</th>
                   <th className="py-3 text-left">Category</th>
                   <th className="py-3 text-left">Status</th>
-                  <th className="py-3 text-left">Created</th>
+                  <th 
+                    className="py-3 text-left cursor-pointer hover:bg-gray-50"
+                    onClick={handleToggleSortOrder}
+                  >
+                    Created {sortOrder === 'desc' ? '▼' : '▲'}
+                  </th>
                   <th className="py-3 text-left">Actions</th>
                 </tr>
               </thead>              <tbody>
@@ -961,11 +980,10 @@ const AdminJobs = () => {
                             <span className="text-gray-400 text-xs">No Category</span>
                           )}
                         </td>
-                        <td className="py-3">
-                          <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
-                              ? 'bg-blue-100 text-blue-800'
+                        <td className="py-3">                          <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
+                              ? 'bg-orange-100 text-orange-800'
                               : job.status === 'Work Order'
-                                ? 'bg-yellow-100 text-yellow-800'
+                                ? 'bg-blue-100 text-blue-800'
                                 : job.status === 'In Progress'
                                   ? 'bg-purple-100 text-purple-800'
                                   : 'bg-green-100 text-green-800'
@@ -1050,11 +1068,10 @@ const AdminJobs = () => {
                   </div>
                 </div><div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
                   <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                    <Label className="font-bold text-xs md:text-sm">Status</Label>
-                    <span className={`px-2 py-1 rounded text-xs inline-block ${selectedJob.status === 'Quote'
-                        ? 'bg-blue-100 text-blue-800'
+                    <Label className="font-bold text-xs md:text-sm">Status</Label>                    <span className={`px-2 py-1 rounded text-xs inline-block ${selectedJob.status === 'Quote'
+                        ? 'bg-orange-100 text-orange-800'
                         : selectedJob.status === 'Work Order'
-                          ? 'bg-yellow-100 text-yellow-800'
+                          ? 'bg-blue-100 text-blue-800'
                           : selectedJob.status === 'In Progress'
                             ? 'bg-purple-100 text-purple-800'
                             : 'bg-green-100 text-green-800'

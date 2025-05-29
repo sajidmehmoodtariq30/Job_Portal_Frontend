@@ -317,12 +317,11 @@ const AdminHome = () => {
                           <tr key={job.uuid} className="border-b">
                             <td className="py-3">{job.id}</td>
                             <td className="py-3">{job.client}</td>
-                            <td className="py-3">
-                              <span className={`px-2 py-1 rounded text-xs ${
+                            <td className="py-3">                              <span className={`px-2 py-1 rounded text-xs ${
                                 job.status === 'Quote' 
-                                  ? 'bg-blue-100 text-blue-800' 
+                                  ? 'bg-orange-100 text-orange-800' 
                                   : job.status === 'Work Order' 
-                                    ? 'bg-yellow-100 text-yellow-800'
+                                    ? 'bg-blue-100 text-blue-800'
                                     : job.status === 'In Progress'
                                       ? 'bg-purple-100 text-purple-800'
                                       : 'bg-green-100 text-green-800'
