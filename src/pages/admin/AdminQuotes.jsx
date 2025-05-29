@@ -367,10 +367,9 @@ const AdminQuotes = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm">              <thead>
                 <tr className="border-b">
-                  <th className="py-3 text-left">Quote ID</th>
+                  <th className="py-3 text-left">S.No</th>
                   <th className="py-3 text-left">Client</th>
                   <th className="py-3 text-left">Title</th>
                   <th className="py-3 text-left">Amount</th>
@@ -381,11 +380,10 @@ const AdminQuotes = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="7" className="py-4 text-center">Loading quotes...</td></tr>
-                ) : displayedQuotes.length > 0 ? (
-                  displayedQuotes.map((quote) => (
+                  <tr><td colSpan="7" className="py-4 text-center">Loading quotes...</td></tr>                ) : displayedQuotes.length > 0 ? (
+                  displayedQuotes.map((quote, index) => (
                     <tr key={quote.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 font-medium">{quote.id}</td>
+                      <td className="py-3 font-medium">{index + 1}</td>
                       <td className="py-3">{quote.clientName}</td>
                       <td className="py-3">{quote.title}</td>
                       <td className="py-3">{formatCurrency(quote.price)}</td>

@@ -159,19 +159,19 @@ const AdminUsers = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
+            <table className="w-full text-sm">              <thead>
                 <tr className="border-b">
+                  <th className="py-3 text-left">S.No</th>
                   <th className="py-3 text-left">Name</th>
                   <th className="py-3 text-left">Email</th>
                   <th className="py-3 text-left">Role</th>
                   <th className="py-3 text-left">Status</th>
                   <th className="py-3 text-left">Actions</th>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
+              </thead>              <tbody>
+                {filteredUsers.map((user, index) => (
                   <tr key={user.id} className="border-b">
+                    <td className="py-3">{index + 1}</td>
                     <td className="py-3">{user.name}</td>
                     <td className="py-3">{user.email}</td>
                     <td className="py-3">{user.role}</td>
@@ -195,10 +195,9 @@ const AdminUsers = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
-                {filteredUsers.length === 0 && (
+                ))}                {filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="py-4 text-center text-muted-foreground">
+                    <td colSpan="6" className="py-4 text-center text-muted-foreground">
                       No users found
                     </td>
                   </tr>

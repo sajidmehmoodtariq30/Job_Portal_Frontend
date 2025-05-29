@@ -959,9 +959,8 @@ const AdminJobs = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>                <tr className="border-b">
-                  <th className="py-3 text-left">Job ID</th>
+              <table className="w-full text-sm">                <thead>                <tr className="border-b">
+                  <th className="py-3 text-left">S.No</th>
                   <th className="py-3 text-left">Description</th>
                   <th className="py-3 text-left">Category</th>
                   <th className="py-3 text-left">Status</th>
@@ -977,9 +976,9 @@ const AdminJobs = () => {
                   {loading ? (
                     <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
                   ) : filteredJobs.length > 0 ? (
-                    displayedJobs.map((job) => (
+                    displayedJobs.map((job, index) => (
                       <tr key={job.uuid} className="border-b">
-                        <td className="py-3">{job.uuid ? job.uuid.slice(-8) : '...'}</td>
+                        <td className="py-3">{index + 1}</td>
                         <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
                         <td className="py-3">
                           {job.category_name ? (
@@ -1048,7 +1047,7 @@ const AdminJobs = () => {
         </Card>      {selectedJob && (<Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
           <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">            <DialogHeader className="border-b pb-3 md:pb-4">
             <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-              Job Details - {selectedJob.uuid?.slice(-8)}
+              Job Details
             </DialogTitle>
             <DialogDescription className="text-xs md:text-sm">
               Detailed information about the selected job
@@ -1065,9 +1064,9 @@ const AdminJobs = () => {
                 </TabsTrigger>
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
               </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">
-                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-gray-50 rounded-lg">
-                  <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
-                  <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid}</p>
+                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Label className="font-bold text-sm md:text-base text-blue-800">Job UUID</Label>
+                  <p className="text-sm md:text-base font-mono break-all overflow-auto bg-white p-2 rounded border">{selectedJob.uuid}</p>
                 </div>
 
                 <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">

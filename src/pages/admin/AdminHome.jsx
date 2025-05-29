@@ -301,21 +301,19 @@ const AdminHome = () => {
                 renderSkeletonTable()
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
+                  <table className="w-full text-sm">                    <thead>
                       <tr className="border-b">
-                        <th className="py-3 text-left">Job ID</th>
+                        <th className="py-3 text-left">S.No</th>
                         <th className="py-3 text-left">Client</th>
                         <th className="py-3 text-left">Status</th>
                         <th className="py-3 text-left">Date</th>
                         <th className="py-3 text-left">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {recentJobs.length > 0 ? (
-                        recentJobs.map((job) => (
+                    <tbody>                      {recentJobs.length > 0 ? (
+                        recentJobs.map((job, index) => (
                           <tr key={job.uuid} className="border-b">
-                            <td className="py-3">{job.id}</td>
+                            <td className="py-3">{index + 1}</td>
                             <td className="py-3">{job.client}</td>
                             <td className="py-3">                              <span className={`px-2 py-1 rounded text-xs ${
                                 job.status === 'Quote' 

@@ -309,11 +309,10 @@ const AdminClients = () => {
                   ))}
                 </div>
               ) : (
-                <>
-                  <table className="hidden md:table w-full text-sm">
+                <>                  <table className="hidden md:table w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="py-3 text-left">Client ID</th>
+                        <th className="py-3 text-left">S.No</th>
                         <th className="py-3 text-left">Name</th>
                         <th className="py-3 text-left">Address</th>
                         <th className="py-3 text-left">Edit Date</th>
@@ -322,9 +321,9 @@ const AdminClients = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {displayedClients.map((client) => (
+                      {displayedClients.map((client, index) => (
                         <tr key={client.uuid} className="border-b">
-                          <td className="py-3">{client.uuid ? client.uuid.slice(-4) : '...'}</td>
+                          <td className="py-3">{index + 1}</td>
                           <td className="py-3">{client.name || '...'}</td>
                           <td className="py-3">{client.address || '...'}</td>
                           <td className="py-3">{client.edit_date || '...'}</td>
@@ -344,11 +343,10 @@ const AdminClients = () => {
                         </tr>
                       )}
                     </tbody>
-                  </table>
-                  <div className="md:hidden space-y-4">
-                    {displayedClients.map((client) => (
+                  </table>                  <div className="md:hidden space-y-4">
+                    {displayedClients.map((client, index) => (
                       <div key={client.uuid} className="border p-4 rounded shadow">
-                        <p><strong>Client ID:</strong> {client.uuid ? client.uuid.slice(-4) : '...'}</p>
+                        <p><strong>S.No:</strong> {index + 1}</p>
                         <p><strong>Name:</strong> {client.name || '...'}</p>
                         <p><strong>Address:</strong> {client.address || '...'}</p>
                         <p><strong>Edit Date:</strong> {client.edit_date || '...'}</p>
