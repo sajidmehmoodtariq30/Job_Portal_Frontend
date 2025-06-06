@@ -314,11 +314,13 @@ const AdminJobs = () => {
   };
 
   // Compute filtered jobs based on search term and active filters
-  const filteredJobs = useRoleBasedFiltering ? enrichJobsWithCategoryNames(jobs) : enrichJobsWithCategoryNames(jobs).filter(job => {
-    // Search filter
+  const filteredJobs = useRoleBasedFiltering ? enrichJobsWithCategoryNames(jobs) : enrichJobsWithCategoryNames(jobs).filter(job => {    // Search filter
     if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase().trim();      const matchesSearch = (
+      const searchLower = searchTerm.toLowerCase().trim();
+      const jobNumber = formatJobNumber(job.uuid).toLowerCase();
+      const matchesSearch = (
         (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
+        (jobNumber.includes(searchLower)) ||
         (job.job_description && job.job_description.toLowerCase().includes(searchLower)) ||
         (job.job_address && job.job_address.toLowerCase().includes(searchLower)) ||
         (job.category_name && job.category_name.toLowerCase().includes(searchLower))
@@ -1019,10 +1021,9 @@ const AdminJobs = () => {
                     <TabsTrigger value="Completed">Completed</TabsTrigger>
                   </TabsList>
                 </Tabs>
-                <div className="w-full">
-                  <Input
+                <div className="w-full">                  <Input
                     className="w-full"
-                    placeholder="Search jobs by ID, description, or address..."
+                    placeholder="Search jobs by job number, description, or address..."
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
                   />
@@ -1031,9 +1032,7 @@ const AdminJobs = () => {
             )}
             </div>
           </CardHeader>
-          <CardContent>            <div className="overflow-x-auto">
-              <table className="w-full text-sm">                <thead>                <tr className="border-b">
-                  <th className="py-3 text-left">S.No</th>
+          <CardContent>            <div className="overflow-x-auto">              <table className="w-full text-sm">                <thead>                <tr className="border-b">
                   <th className="py-3 text-left">Job Number</th>
                   <th className="py-3 text-left">Client Name</th>
                   <th className="py-3 text-left">Description</th>
@@ -1050,7 +1049,7 @@ const AdminJobs = () => {
                 </tr>
               </thead>              <tbody>
                   {loading ? (
-                    <tr><td colSpan="9" className="py-4 text-center">Loading...</td></tr>
+                    <tr><td colSpan="8" className="py-4 text-center">Loading...</td></tr>
                   ) : filteredJobs.length > 0 ? (
                     displayedJobs.map((job, index) => {
                       const clientUuid = job.company_uuid || job.created_by_staff_uuid;
@@ -1058,7 +1057,6 @@ const AdminJobs = () => {
                       
                       return (
                         <tr key={job.uuid} className="border-b">
-                          <td className="py-3">{index + 1}</td>
                           <td className="py-3">
                             <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                               {formatJobNumber(job.uuid)}
@@ -1106,10 +1104,9 @@ const AdminJobs = () => {
                           </td>
                         </tr>
                       );
-                    })
-                  ) : (
+                    })                  ) : (
                     <tr>
-                      <td colSpan="9" className="py-4 text-center text-muted-foreground">
+                      <td colSpan="8" className="py-4 text-center text-muted-foreground">
                         No jobs found
                       </td>
                     </tr>

@@ -66,8 +66,7 @@ export const getClientNamesByUuids = async (uuids) => {
       uncachedUuids.push(uuid);
     }
   });
-  
-  // Fetch uncached names
+    // Fetch uncached names
   if (uncachedUuids.length > 0) {    try {
       // Fetch all clients to get names for uncached UUIDs
       const response = await axios.get(`${API_URL}/fetch/clients`);

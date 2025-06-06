@@ -1,4 +1,3 @@
-// src/pages/admin/AdminQuotes.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/UI/button";
@@ -32,6 +31,7 @@ import SearchableJobSelect from "@/components/UI/SearchableJobSelect";
 import { PlusCircle, Search, RefreshCw, AlertCircle, Eye, Send, FileText, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
+import { getClientNamesByUuids } from '@/utils/clientUtils';
 
 const AdminQuotes = () => {
   const navigate = useNavigate();
@@ -58,12 +58,20 @@ const AdminQuotes = () => {
     items: [{ description: '', quantity: 1, price: 0 }]
   });
 
+  // State for client names in table rows
+  const [quoteClientNames, setQuoteClientNames] = useState({});
+
   // Fetch quotes, jobs, and clients on mount
   useEffect(() => {
     fetchQuotes();
     fetchJobs();
     fetchClients();
   }, []);
+
+  // Fetch client names when quotes data changes
+  useEffect(() => {
+    fetchClientNamesForQuotes();
+  }, [quotes]);
 
   // Fetch quotes from our API
   const fetchQuotes = async () => {
@@ -87,15 +95,40 @@ const AdminQuotes = () => {
     } catch (error) {
       console.error('Error fetching jobs:', error);
     }
-  };
-
-  // Fetch clients for client selection
+  };  // Fetch clients for client selection
   const fetchClients = async () => {
     try {
-      const response = await axios.get(`${API_URL}/fetch/client`);
+      const response = await axios.get(`${API_URL}/fetch/clients`);
       setClients(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching clients:', error);
+    }
+  };
+  // Helper function to format quote number (remove QUO prefix and dashes)
+  const formatQuoteNumber = (quoteId) => {
+    if (!quoteId) return 'N/A';
+    // Remove QUO prefix and dashes from format QUO-YYYY-XXXX to get YYYYXXXX
+    return quoteId.replace(/QUO-/g, '').replace(/-/g, '');
+  };
+  // Helper function to fetch client names for quotes
+  const fetchClientNamesForQuotes = async () => {
+    if (quotes.length === 0) return;
+    
+    const clientUuids = [...new Set(quotes.map(quote => quote.clientId).filter(Boolean))];
+    if (clientUuids.length === 0) return;
+
+    try {
+      console.log('Fetching client names for UUIDs:', clientUuids);
+      const clientNames = await getClientNamesByUuids(clientUuids);
+      console.log('Received client names:', clientNames);
+      
+      // Merge with existing client names to avoid overriding
+      setQuoteClientNames(prevNames => ({
+        ...prevNames,
+        ...clientNames
+      }));
+    } catch (error) {
+      console.error('Error fetching client names for quotes:', error);
     }
   };
 
@@ -109,9 +142,11 @@ const AdminQuotes = () => {
     // Apply search filter
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
+    const quoteNumber = formatQuoteNumber(quote.id).toLowerCase();
     
     return (
       (quote.id?.toLowerCase().includes(searchLower)) ||
+      (quoteNumber.includes(searchLower)) ||
       (quote.title?.toLowerCase().includes(searchLower)) ||
       (quote.description?.toLowerCase().includes(searchLower)) ||
       (quote.clientName?.toLowerCase().includes(searchLower)) ||
@@ -359,17 +394,16 @@ const AdminQuotes = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <Input
               className="pl-10"
-              placeholder="Search quotes by ID, title, client or description..."
+              placeholder="Search quotes by quote number, title, client or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">              <thead>
+          <div className="overflow-x-auto">            <table className="w-full text-sm">              <thead>
                 <tr className="border-b">
-                  <th className="py-3 text-left">S.No</th>
+                  <th className="py-3 text-left">Quote Number</th>
                   <th className="py-3 text-left">Client</th>
                   <th className="py-3 text-left">Title</th>
                   <th className="py-3 text-left">Amount</th>
@@ -378,13 +412,22 @@ const AdminQuotes = () => {
                   <th className="py-3 text-left">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="7" className="py-4 text-center">Loading quotes...</td></tr>                ) : displayedQuotes.length > 0 ? (
-                  displayedQuotes.map((quote, index) => (
+              <tbody>                {loading ? (
+                  <tr><td colSpan="7" className="py-4 text-center">Loading quotes...</td></tr>                ) : displayedQuotes.length > 0 ? (                  displayedQuotes.map((quote, index) => {
+                    const clientName = quoteClientNames[quote.clientId] || quote.clientName || 'Loading...';
+                    
+                    return (
                     <tr key={quote.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 font-medium">{index + 1}</td>
-                      <td className="py-3">{quote.clientName}</td>
+                      <td className="py-3">
+                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          {formatQuoteNumber(quote.id)}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <span className={`font-medium ${clientName === 'Loading...' ? 'text-gray-500' : 'text-blue-700'}`}>
+                          {clientName}
+                        </span>
+                      </td>
                       <td className="py-3">{quote.title}</td>
                       <td className="py-3">{formatCurrency(quote.price)}</td>
                       <td className="py-3">{formatDate(quote.createdAt)}</td>
@@ -395,8 +438,7 @@ const AdminQuotes = () => {
                           quote.status === 'Rejected' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {quote.status}
-                        </span>
+                          {quote.status}                        </span>
                       </td>
                       <td className="py-3">
                         <Button 
@@ -409,7 +451,8 @@ const AdminQuotes = () => {
                         </Button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan="7" className="py-6 text-center text-gray-500">
@@ -636,10 +679,10 @@ const AdminQuotes = () => {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-6 my-4">
-              <div className="flex justify-between items-start">
+            <div className="space-y-6 my-4">              <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-semibold text-lg">{selectedQuote.title}</h3>
+                  <p className="text-sm text-gray-500">Quote Number: {formatQuoteNumber(selectedQuote.id)}</p>
                   <p className="text-sm text-gray-500">Job ID: {selectedQuote.jobId}</p>
                 </div>
                 <div>
@@ -653,11 +696,11 @@ const AdminQuotes = () => {
                   </span>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">                <div className="space-y-1">
                   <h4 className="font-medium text-sm text-gray-500">Client</h4>
-                  <p>{selectedQuote.clientName}</p>
+                  <p className={`${quoteClientNames[selectedQuote.clientId] ? 'text-blue-700 font-medium' : 'text-gray-500'}`}>
+                    {quoteClientNames[selectedQuote.clientId] || selectedQuote.clientName || 'Loading...'}
+                  </p>
                 </div>
                 
                 <div className="space-y-1">
