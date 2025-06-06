@@ -27,6 +27,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/UI/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/UI/dialog";
+import { Label } from "../../components/UI/label";
+import SearchableJobSelect from "@/components/UI/SearchableJobSelect";
 import PermissionGuard from "../../components/client/PermissionGuard";
 import { useClientPermissions } from "@/hooks/useClientPermissions";
 import { CLIENT_PERMISSIONS } from "../../types/clientPermissions";
@@ -60,25 +70,22 @@ const ClientQuotes = () => {
     amountMax: ''
   });
   const [filterLoading, setFilterLoading] = useState(false);
-  
-  // Loading states for quote actions
+    // Loading states for quote actions
   const [loadingQuotes, setLoadingQuotes] = useState({});
-    // Get client data from localStorage
-  const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
-    if (clientData) {
-      try {
-        return JSON.parse(clientData);
-      } catch (error) {
-        console.error('Error parsing client data:', error);
-        return null;
-      }
-    }
-    return null;
-  };
-
-  const clientData = getClientData();
-  const clientId = clientData?.uuid;
+  
+  // Quote creation states
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [newQuote, setNewQuote] = useState({
+    jobId: '',
+    title: '',
+    description: '',
+    items: [{ description: '', quantity: 1, price: 0 }]
+  });
+  
+  // Get client ID from localStorage
+  const clientId = localStorage.getItem('client_id');
   
   // Load quotes data
   useEffect(() => {
@@ -115,7 +122,119 @@ const ClientQuotes = () => {
     } finally {
       setLoading(false);
     }  };
-  
+    // Fetch jobs for quote creation
+  const fetchJobs = async () => {
+    if (!clientId) return;
+    
+    setJobsLoading(true);
+    try {
+      // Fetch jobs for this specific client
+      const response = await axios.get(`${API_URL}/fetch/jobs/client/${clientId}`);
+      setJobs(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      setError('Failed to load jobs for quote creation.');
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  // Handle job selection for new quote
+  const handleJobChange = (jobId) => {
+    const selectedJob = jobs.find(job => job.uuid === jobId);
+    
+    if (selectedJob) {
+      setNewQuote({
+        ...newQuote,
+        jobId: jobId,
+        title: `Quote for ${selectedJob.job_description || 'Job'}`,
+        description: selectedJob.job_description || ''
+      });
+    }
+  };
+
+  // Handle input changes for new quote form
+  const handleQuoteInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewQuote({ ...newQuote, [name]: value });
+  };
+
+  // Handle line item changes
+  const handleLineItemChange = (index, field, value) => {
+    const updatedItems = [...newQuote.items];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
+    setNewQuote({ ...newQuote, items: updatedItems });
+  };
+
+  // Add new line item
+  const handleAddLineItem = () => {
+    setNewQuote({
+      ...newQuote,
+      items: [...newQuote.items, { description: '', quantity: 1, price: 0 }]
+    });
+  };
+
+  // Remove line item
+  const handleRemoveLineItem = (index) => {
+    if (newQuote.items.length > 1) {
+      const updatedItems = newQuote.items.filter((_, i) => i !== index);
+      setNewQuote({ ...newQuote, items: updatedItems });
+    }
+  };
+
+  // Calculate total price
+  const calculateTotal = () => {
+    return newQuote.items.reduce((total, item) => {
+      return total + (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+    }, 0).toFixed(2);
+  };
+
+  // Handle quote creation submission
+  const handleCreateQuote = async (e) => {
+    e.preventDefault();
+    
+    if (!newQuote.jobId || !newQuote.title) {
+      setError('Please select a job and provide a title for the quote.');
+      return;
+    }
+
+    setLoading(true);
+    try {      const quoteData = {
+        ...newQuote,
+        clientId,
+        price: calculateTotal(),
+        status: 'Pending'
+      };
+
+      await axios.post(`${API_URL}/api/quotes`, quoteData);
+      
+      setSuccess('Quote request submitted successfully!');
+      setShowCreateDialog(false);
+      setNewQuote({
+        jobId: '',
+        title: '',
+        description: '',
+        items: [{ description: '', quantity: 1, price: 0 }]
+      });
+      
+      // Refresh quotes list
+      await fetchQuotes();
+      
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (error) {
+      console.error('Error creating quote:', error);
+      setError(`Failed to create quote: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open create quote dialog and fetch jobs
+  const openCreateDialog = () => {
+    setShowCreateDialog(true);
+    fetchJobs();
+  };
+
   // Handle filter changes from ClientQuoteFilters component
   const handleFiltersChange = async (newFilters) => {
     setActiveFilters(newFilters);
@@ -370,8 +489,16 @@ const ClientQuotes = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-        </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        </div>        <div className="flex gap-2 w-full md:w-auto">
+          <PermissionGuard permission={CLIENT_PERMISSIONS.QUOTES_REQUEST}>
+            <Button 
+              onClick={openCreateDialog}
+              className="flex items-center gap-2"
+            >
+              <FileText size={16} />
+              Create Quote
+            </Button>
+          </PermissionGuard>
           <Button 
             variant="outline" 
             onClick={toggleFilters}
@@ -475,6 +602,159 @@ const ClientQuotes = () => {
           )}
         </div>
       </PermissionGuard>
+
+      {/* Create Quote Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Quote Request</DialogTitle>
+            <DialogDescription>
+              Submit a quote request for one of your jobs
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleCreateQuote} className="space-y-6 my-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Job Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="jobId" className="font-medium">
+                  Select Job <span className="text-red-500">*</span>
+                </Label>
+                <SearchableJobSelect
+                  jobs={jobs}
+                  value={newQuote.jobId}
+                  onValueChange={handleJobChange}
+                  placeholder="Search and select a job..."
+                  isLoading={jobsLoading}
+                />
+              </div>
+
+              {/* Quote Title */}
+              <div className="space-y-2">
+                <Label htmlFor="title" className="font-medium">
+                  Quote Title <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="title"
+                  name="title"
+                  value={newQuote.title}
+                  onChange={handleQuoteInputChange}
+                  placeholder="Brief description of what you need quoted"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description" className="font-medium">Description</Label>
+              <Textarea
+                id="description"
+                name="description"
+                value={newQuote.description}
+                onChange={handleQuoteInputChange}
+                placeholder="Detailed description of the work required..."
+                rows={3}
+              />
+            </div>
+
+            {/* Line Items */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium">Quote Items</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleAddLineItem}
+                >
+                  Add Item
+                </Button>
+              </div>
+              
+              {newQuote.items.map((item, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-md">
+                  <div className="md:col-span-2">
+                    <Label htmlFor={`item-desc-${index}`} className="text-sm">Item Description</Label>
+                    <Input
+                      id={`item-desc-${index}`}
+                      value={item.description}
+                      onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
+                      placeholder="Description of item/service"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`item-qty-${index}`} className="text-sm">Quantity</Label>
+                    <Input
+                      id={`item-qty-${index}`}
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => handleLineItemChange(index, 'quantity', e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Label htmlFor={`item-price-${index}`} className="text-sm">Estimated Price</Label>
+                      <Input
+                        id={`item-price-${index}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.price}
+                        onChange={(e) => handleLineItemChange(index, 'price', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    {newQuote.items.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleRemoveLineItem(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Total */}
+              <div className="flex justify-end">
+                <div className="text-lg font-semibold">
+                  Estimated Total: ${calculateTotal()}
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setShowCreateDialog(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateQuote}
+              disabled={loading || !newQuote.jobId || !newQuote.title}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : (
+                'Submit Quote Request'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showDialog} onOpenChange={setShowDialog}>

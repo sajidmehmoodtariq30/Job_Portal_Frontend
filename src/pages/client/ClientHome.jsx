@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/UI/skeleton";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
+import { useSites } from '@/hooks/useSites';
 
 const ClientHome = () => {
   const navigate = useNavigate();
@@ -49,35 +50,27 @@ const ClientHome = () => {
     quotes: [],
     upcomingServices: [],
     recentActivity: []
-  });
-  const [loading, setLoading] = useState(true);
+  });  const [loading, setLoading] = useState(true);
   const [dataRefreshing, setDataRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([]);
-  const [currentSite, setCurrentSite] = useState('Main Office');
-  const [sites, setSites] = useState(['Main Office', 'Warehouse', 'Branch Office']);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
   const [clientName, setClientName] = useState('');
-    // Get client data from localStorage
-  const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
-    if (clientData) {
-      try {
-        return JSON.parse(clientData);
-      } catch (error) {
-        console.error('Error parsing client data:', error);
-        return null;
-      }
-    }
-    return null;
-  };
-
-  const clientData = getClientData();
-  const clientId = clientData?.uuid;
-
-  // Debugging - check what client data we have
+  
+  // Get client ID from localStorage instead of hardcoded value
+  const clientId = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  
+  // Use the sites hook for managing sites
+  const { 
+    sites, 
+    currentSite, 
+    loading: sitesLoading, 
+    error: sitesError, 
+    changeSite 
+  } = useSites(clientId);
+    // Debugging - check what client ID we have
   useEffect(() => {
     console.log('Current clientData:', clientData);
     console.log('Current clientId:', clientId);
@@ -320,17 +313,36 @@ const ClientHome = () => {
             )}
           </p>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <Select value={currentSite} onValueChange={setCurrentSite}>
+          <div className="flex items-center gap-4">
+          <Select 
+            value={currentSite?.id || ''} 
+            onValueChange={(siteId) => {
+              const selectedSite = sites.find(site => site.id === siteId);
+              if (selectedSite) changeSite(selectedSite);
+            }}
+            disabled={sitesLoading}
+          >
             <SelectTrigger className="w-[180px]">
               <Building size={16} className="mr-2" />
-              <SelectValue />
+              <SelectValue placeholder={sitesLoading ? "Loading sites..." : "Select site"} />
             </SelectTrigger>
             <SelectContent>
-              {sites.map(site => (
-                <SelectItem key={site} value={site}>{site}</SelectItem>
-              ))}
+              {sitesLoading ? (
+                <SelectItem value="loading" disabled>Loading sites...</SelectItem>
+              ) : sites.length > 0 ? (
+                sites.map(site => (
+                  <SelectItem key={site.id} value={site.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{site.name}</span>
+                      {site.isDefault && (
+                        <Badge variant="secondary" className="text-xs">Default</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="empty" disabled>No sites available</SelectItem>
+              )}
             </SelectContent>
           </Select>
           
