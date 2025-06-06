@@ -35,7 +35,16 @@ export const API_ENDPOINTS = {  AUTH: {
     CREATE: buildApiEndpoint('fetch/clients'),
     UPDATE_STATUS: (uuid) => buildApiEndpoint(`fetch/clients/${uuid}/status`),
     GET_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
-    UPDATE_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`)
+    UPDATE_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
+    
+    // Client Name Mappings
+    MAPPINGS: {
+      GET_ALL: buildApiEndpoint('fetch/clients/mappings'),
+      CREATE: buildApiEndpoint('fetch/clients/mappings'),
+      UPDATE: (id) => buildApiEndpoint(`fetch/clients/mappings/${id}`),
+      DELETE: (id) => buildApiEndpoint(`fetch/clients/mappings/${id}`),
+      GET_BY_EMAIL: (email) => buildApiEndpoint(`fetch/clients/mappings/by-email/${email}`)
+    }
   },
 
   SITES: {
