@@ -120,9 +120,22 @@ const ClientJobs = () => {
   const [filterLoading, setFilterLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   // New state for job sorting
-  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first
-      // Get client UUID from localStorage
-  const clientUuid = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first  // Get client data from localStorage
+  const getClientData = () => {
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
+      try {
+        return JSON.parse(clientData);
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const clientData = getClientData();
+  const clientUuid = clientData?.uuid;
 
   // Set selected status when job changes
   useEffect(() => {

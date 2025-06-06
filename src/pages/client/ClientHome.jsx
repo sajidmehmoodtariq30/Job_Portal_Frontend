@@ -60,29 +60,42 @@ const ClientHome = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
   const [clientName, setClientName] = useState('');
-  
-  // Get client ID from localStorage instead of hardcoded value
-  const clientId = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
-    // Debugging - check what client ID we have
+    // Get client data from localStorage
+  const getClientData = () => {
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
+      try {
+        return JSON.parse(clientData);
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const clientData = getClientData();
+  const clientId = clientData?.uuid;
+
+  // Debugging - check what client data we have
   useEffect(() => {
+    console.log('Current clientData:', clientData);
     console.log('Current clientId:', clientId);
-    // List all localStorage keys for debugging
-    console.log('Available localStorage keys:', Object.keys(localStorage));
-  }, [clientId]);
-  
-  // Fetch client name and welcome message
+  }, [clientData, clientId]);
+    // Fetch client name and welcome message
   useEffect(() => {
-    const fetchClientName = async () => {
-      if (clientId) {
-        try {
-          const name = await getClientNameByUuid(clientId);
-          setClientName(name);
-          const welcome = await getWelcomeMessage(clientId);
-          setWelcomeMessage(welcome);
-        } catch (error) {
-          console.error('Error fetching client name:', error);
-          setWelcomeMessage('Welcome back');
-          setClientName('Unknown Client');
+    const fetchClientInfo = async () => {
+      if (clientData) {
+        setClientName(clientData.name || 'Client');
+        
+        if (clientId) {
+          try {
+            const welcome = await getWelcomeMessage(clientId);
+            setWelcomeMessage(welcome);
+          } catch (error) {
+            console.error('Error fetching welcome message:', error);
+            setWelcomeMessage(`Welcome back, ${clientData.name || 'Client'}`);
+          }
         }
       } else {
         setWelcomeMessage('Welcome back');
@@ -90,8 +103,8 @@ const ClientHome = () => {
       }
     };
     
-    fetchClientName();
-  }, [clientId]);
+    fetchClientInfo();
+  }, [clientData, clientId]);
   
   // Fetch dashboard data from the backend
   const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {

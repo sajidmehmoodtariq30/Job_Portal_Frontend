@@ -25,46 +25,53 @@ const ClientProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  // Get client data from localStorage
+  const getClientData = () => {
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
+      try {
+        return JSON.parse(clientData);
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
 
-  // Get client ID from localStorage
-  const clientId = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  const clientData = getClientData();
+  const clientId = clientData?.uuid;
 
   // Fetch client profile data
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!clientId) {
-        setError('No client ID found. Please log in again.');
+      if (!clientData || !clientId) {
+        setError('No client data found. Please log in again.');
         setLoading(false);
         return;
       }      try {
-        const response = await axios.get(`${API_URL}/fetch/clientLogin/${clientId}`);
-        
-        if (response.data.exists && response.data.client) {
-          const clientData = response.data.client;
-          setProfile({
-            company: clientData.name || '',
-            name: clientData.contact_name || '',
-            email: clientData.email || '',
-            phone: clientData.phone || '',
-            address: clientData.address || '',
-            address_city: clientData.address_city || '',
-            address_state: clientData.address_state || '',
-            address_postcode: clientData.address_postcode || '',
-            address_country: clientData.address_country || ''
-          });
-        } else {
-          setError('Client profile not found.');
-        }
-      } catch (err) {
-        console.error('Error fetching profile:', err);
+        // Initialize profile data with stored client data
+        setProfile({
+          uuid: clientData.uuid,
+          company: clientData.name || '',
+          name: clientData.contact_name || clientData.name || '',
+          email: clientData.email || '',
+          phone: clientData.phone || '',
+          address: clientData.address || '',
+          address_city: clientData.address_city || '',
+          address_state: clientData.address_state || '',
+          address_postcode: clientData.address_postcode || '',
+          address_country: clientData.address_country || ''
+        });
+      } catch (error) {
+        console.error('Error setting profile data:', error);
         setError('Failed to load profile data.');
       } finally {
         setLoading(false);
       }
-    };
+    };    fetchProfile();
+  }, [clientData, clientId]);
 
-    fetchProfile();
-  }, [clientId]);
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };

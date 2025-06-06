@@ -1,6 +1,7 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Login from '@/pages/Login'
+import PasswordSetup from '@/pages/PasswordSetup'
 import SignUp from '@/pages/SignUp'
 import AppLayout from './components/Layout/AppLayout'
 import AdminLayout from './components/Layout/AdminLayout'
@@ -44,6 +45,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route index element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/password-setup" element={<PasswordSetup />} />
             <Route path="/SignUp" element={<SignUp />} />
           </Route>
 

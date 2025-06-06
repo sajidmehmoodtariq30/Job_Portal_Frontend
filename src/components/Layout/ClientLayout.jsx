@@ -12,7 +12,6 @@ import {
 } from '@/components/UI/dropdown-menu'
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
-import { getClientNameByUuid } from '@/utils/clientUtils'
 import { ClientPermissionProvider } from '@/hooks/useClientPermissions'
 import logo from '../../assets/logo.jpg'
 
@@ -21,28 +20,21 @@ const ClientLayout = () => {
     const location = useLocation()
     const navigate = useNavigate()
     const [clientId, setClientId] = useState(null)
-    const [clientName, setClientName] = useState('Client User')
-
-    // Check for stored client ID on component mount and fetch client name
+    const [clientName, setClientName] = useState('Client User')    // Check for stored client data on component mount and set client info
     useEffect(() => {
-        const storedClientId = localStorage.getItem('client_id');
-        if (storedClientId) {
-            setClientId(storedClientId);
-            
-            // Fetch client name
-            const fetchClientName = async () => {
-                try {
-                    const name = await getClientNameByUuid(storedClientId);
-                    setClientName(name);
-                } catch (error) {
-                    console.error('Error fetching client name in layout:', error);
-                    setClientName('Client User');
-                }
-            };
-            
-            fetchClientName();
+        const storedClientData = localStorage.getItem('client_data');
+        if (storedClientData) {
+            try {
+                const clientData = JSON.parse(storedClientData);
+                setClientId(clientData.uuid);
+                setClientName(clientData.name || 'Client User');
+            } catch (error) {
+                console.error('Error parsing client data:', error);
+                // If parsing fails, redirect to login
+                navigate('/login');
+            }
         } else {
-            // If no client ID is found, redirect to login
+            // If no client data is found, redirect to login
             navigate('/login');
         }
     }, [navigate]);
@@ -52,9 +44,7 @@ const ClientLayout = () => {
         name: clientName,
         email: 'client@company.com',
         avatar: null
-    }
-
-    // Navigation data needed for mobile page title
+    }    // Navigation data needed for mobile page title
     const navigation = [
         { name: 'Dashboard', href: '/client' },
         { name: 'Jobs', href: '/client/jobs' },
@@ -62,11 +52,11 @@ const ClientLayout = () => {
         { name: 'Invoices', href: '/client/invoices' },
         { name: 'Support', href: '/client/support' },
         { name: 'Settings', href: '/client/settings' }
-    ]
+    ];
 
     const handleLogout = () => {
-        // Clear client ID from localStorage
-        localStorage.removeItem('client_id');
+        // Clear client data from localStorage
+        localStorage.removeItem('client_data');
         // Navigate to login page
         navigate('/login');
     }

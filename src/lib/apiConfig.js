@@ -9,7 +9,10 @@ export const buildApiEndpoint = (path) => {
 export const API_ENDPOINTS = {
   AUTH: {
     SERVICE_M8: buildApiEndpoint('api/auth/servicem8'),
-    CLIENT_LOGIN: (email) => buildApiEndpoint(`fetch/clientLogin/${email}`)
+    CLIENT_LOGIN: (email) => buildApiEndpoint(`fetch/clientLogin/${email}`),
+    CLIENT_AUTH: buildApiEndpoint('api/clients/client-login'),
+    PASSWORD_SETUP: buildApiEndpoint('api/clients/password-setup'),
+    VALIDATE_SETUP_TOKEN: (token) => buildApiEndpoint(`api/clients/validate-setup-token/${token}`)
   },
   
   JOBS: {

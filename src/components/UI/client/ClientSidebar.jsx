@@ -10,21 +10,19 @@ import {
   Settings,
   Building
 } from 'lucide-react';
-import { getClientNameByUuid } from '@/utils/clientUtils';
 
 const ClientSidebar = ({ sidebarOpen }) => {
   const location = useLocation();  const [clientName, setClientName] = useState('Client Portal');
-  
-  // Fetch client name on component mount
+    // Fetch client name on component mount
   useEffect(() => {
-    const fetchClientName = async () => {
-      const clientId = localStorage.getItem('client_id');
-      if (clientId) {
+    const fetchClientName = () => {
+      const clientData = localStorage.getItem('client_data');
+      if (clientData) {
         try {
-          const name = await getClientNameByUuid(clientId);
-          setClientName(name);
+          const parsedData = JSON.parse(clientData);
+          setClientName(parsedData.name || 'Client Portal');
         } catch (error) {
-          console.error('Error fetching client name in sidebar:', error);
+          console.error('Error parsing client data in sidebar:', error);
           setClientName('Client Portal');
         }
       }

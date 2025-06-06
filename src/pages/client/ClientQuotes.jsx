@@ -63,16 +63,29 @@ const ClientQuotes = () => {
   
   // Loading states for quote actions
   const [loadingQuotes, setLoadingQuotes] = useState({});
-  
-  // Get client ID from localStorage 
-  const clientId = localStorage.getItem('client_id');
+    // Get client data from localStorage
+  const getClientData = () => {
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
+      try {
+        return JSON.parse(clientData);
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const clientData = getClientData();
+  const clientId = clientData?.uuid;
   
   // Load quotes data
   useEffect(() => {
     if (clientId) {
       fetchQuotes();
     } else {
-      setError('Client ID not found. Please log in again.');
+      setError('Client data not found. Please log in again.');
       setLoading(false);
     }
   }, [clientId]);

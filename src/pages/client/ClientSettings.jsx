@@ -27,37 +27,22 @@ const ClientSettings = () => {
   const [verifiedEmails, setVerifiedEmails] = useState([]);
   const [primaryEmail, setPrimaryEmail] = useState(null);
   const [isLoadingEmails, setIsLoadingEmails] = useState(false);
-  
-  // Flag to control the display of the add email form
+    // Flag to control the display of the add email form
   const [showAddEmailForm, setShowAddEmailForm] = useState(false);
   
   // Get current user ID from localStorage
   const getUserId = () => {
-    // First try to get client_id which is the preferred way for clients
-    const clientId = localStorage.getItem('client_id');
-    if (clientId) {
-      return `client-${clientId}`;
-    }
-    
-    // Fallback to client_token if client_id is not available
-    const token = localStorage.getItem('client_token');
-    if (!token) return null;
-    
-    try {
-      // Try to parse as JSON
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
       try {
-        const tokenData = JSON.parse(token);
-        if (tokenData.user_id) return tokenData.user_id;
-        if (tokenData.uuid) return tokenData.uuid;
-        return tokenData.id || `client-${token}`;
-      } catch {
-        // If not JSON, use as is
-        return `client-${token}`;
+        const parsedData = JSON.parse(clientData);
+        return `client-${parsedData.uuid}`;
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
       }
-    } catch (e) {
-      console.error("Error extracting client ID:", e);
-      return null;
     }
+    return null;
   };
   
   const userId = getUserId();

@@ -9,16 +9,18 @@ export const ClientPermissionProvider = ({ children }) => {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   useEffect(() => {
     const fetchPermissions = async () => {
       try {
-        const clientId = localStorage.getItem('client_id');
-        if (!clientId) {
+        const clientData = localStorage.getItem('client_data');
+        if (!clientData) {
           setPermissions([]);
           setLoading(false);
           return;
         }
+
+        const parsedData = JSON.parse(clientData);
+        const clientId = parsedData.uuid;
 
         const response = await axios.get(API_ENDPOINTS.CLIENTS.GET_PERMISSIONS(clientId));
         setPermissions(response.data.permissions || []);
