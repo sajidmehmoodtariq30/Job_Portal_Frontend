@@ -41,6 +41,7 @@ import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom";
 import JobFilters from "@/components/UI/admin/JobFilters";
+import { getClientNamesByUuids } from '@/utils/clientUtils';
 
 // Helper to determine page size
 const PAGE_SIZE = 10;
@@ -82,14 +83,16 @@ const AdminJobs = () => {
     category_uuid: '' // Ensure all form fields have initial values
   });
   const [selectedLocationUuid, setSelectedLocationUuid] = useState('');
-  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);  const [visibleJobs, setVisibleJobs] = useState(10);
-  const [selectedJob, setSelectedJob] = useState(null);
+  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);  const [visibleJobs, setVisibleJobs] = useState(10);  const [selectedJob, setSelectedJob] = useState(null);
   const [jobClientName, setJobClientName] = useState("Unknown Client");
   const [confirmRefresh, setConfirmRefresh] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+
+  // State for client names in table rows
+  const [jobClientNames, setJobClientNames] = useState({});
 
   // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -141,14 +144,19 @@ const AdminJobs = () => {
       fetchJobsByRole(userRole, filters);
     }
   }, [activeFilters, useRoleBasedFiltering, userRole]);
-
   // Set selected status when job changes
   useEffect(() => {
     if (selectedJob) {
       setSelectedStatus(selectedJob.status);
     }
   }, [selectedJob]);
-  // Fetch clients for the dropdown
+
+  // Fetch client names when jobs change
+  useEffect(() => {
+    if (jobs && jobs.length > 0) {
+      fetchClientNamesForJobs(jobs);
+    }
+  }, [jobs]);// Fetch clients for the dropdown
   const fetchClients = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
@@ -165,6 +173,59 @@ const AdminJobs = () => {
       console.error('Error fetching clients:', error);
       setClients([]);
     }
+  };
+
+  // Fetch client names for table display
+  const fetchClientNamesForJobs = async (jobsData) => {
+    if (!Array.isArray(jobsData) || jobsData.length === 0) return;
+
+    // Extract unique client UUIDs from jobs
+    const clientUuids = [...new Set(
+      jobsData.map(job => job.company_uuid || job.created_by_staff_uuid)
+        .filter(Boolean)
+    )];
+
+    if (clientUuids.length === 0) return;
+
+    try {
+      // Fetch client names using the utility function
+      const clientNamesMap = await getClientNamesByUuids(clientUuids);
+      setJobClientNames(clientNamesMap);
+    } catch (error) {
+      console.error('Error fetching client names for jobs:', error);
+    }
+  };
+  // Helper function to format job number from UUID
+  const formatJobNumber = (uuid) => {
+    if (!uuid) return 'N/A';
+    // Extract only numeric digits from UUID
+    const numericDigits = uuid.replace(/[^0-9]/g, '');
+    // Take the first 8 digits or pad with zeros if less than 8
+    const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
+    return `${jobNumber}`;
+  };
+
+  // Helper function to format job address
+  const formatJobAddress = (job) => {
+    if (!job) return 'No address';
+
+    // Try location fields first (new structure)
+    if (job.location_address) {
+      return job.location_address;
+    }
+
+    // Try geo fields
+    const geoParts = [];
+    if (job.geo_street) geoParts.push(job.geo_street);
+    if (job.geo_city) geoParts.push(job.geo_city);
+    if (job.geo_state) geoParts.push(job.geo_state);
+    
+    if (geoParts.length > 0) {
+      return geoParts.join(', ');
+    }
+
+    // Fallback to job_address
+    return job.job_address || 'No address';
   };
 
   // Fetch categories for the dropdown
@@ -970,11 +1031,13 @@ const AdminJobs = () => {
             )}
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent>            <div className="overflow-x-auto">
               <table className="w-full text-sm">                <thead>                <tr className="border-b">
                   <th className="py-3 text-left">S.No</th>
+                  <th className="py-3 text-left">Job Number</th>
+                  <th className="py-3 text-left">Client Name</th>
                   <th className="py-3 text-left">Description</th>
+                  <th className="py-3 text-left">Address</th>
                   <th className="py-3 text-left">Category</th>
                   <th className="py-3 text-left">Status</th>
                   <th 
@@ -987,46 +1050,66 @@ const AdminJobs = () => {
                 </tr>
               </thead>              <tbody>
                   {loading ? (
-                    <tr><td colSpan="6" className="py-4 text-center">Loading...</td></tr>
+                    <tr><td colSpan="9" className="py-4 text-center">Loading...</td></tr>
                   ) : filteredJobs.length > 0 ? (
-                    displayedJobs.map((job, index) => (
-                      <tr key={job.uuid} className="border-b">
-                        <td className="py-3">{index + 1}</td>
-                        <td className="py-3">{job.job_description?.slice(0, 50)}...</td>
-                        <td className="py-3">
-                          {job.category_name ? (
-                            <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
-                              {job.category_name}
+                    displayedJobs.map((job, index) => {
+                      const clientUuid = job.company_uuid || job.created_by_staff_uuid;
+                      const clientName = jobClientNames[clientUuid] || 'Loading...';
+                      
+                      return (
+                        <tr key={job.uuid} className="border-b">
+                          <td className="py-3">{index + 1}</td>
+                          <td className="py-3">
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                              {formatJobNumber(job.uuid)}
                             </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">No Category</span>
-                          )}
-                        </td>
-                        <td className="py-3">                          <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
-                              ? 'bg-orange-100 text-orange-800'
-                              : job.status === 'Work Order'
-                                ? 'bg-blue-100 text-blue-800'
-                                : job.status === 'In Progress'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-green-100 text-green-800'
-                            }`}>                            {job.status}
-                          </span>
-                        </td>
-                        <td className="py-3">{formatDate(job.date)}</td>
-                        <td className="py-3">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(job)}
-                          >
-                            View Details
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="py-3">
+                            <span className="font-medium text-blue-700">
+                              {clientName}
+                            </span>
+                          </td>
+                          <td className="py-3">{job.job_description?.slice(0, 40)}...</td>
+                          <td className="py-3">
+                            <span className="text-gray-600 text-xs">
+                              {formatJobAddress(job).slice(0, 30)}...
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            {job.category_name ? (
+                              <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                                {job.category_name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">No Category</span>
+                            )}
+                          </td>
+                          <td className="py-3">                            <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
+                                ? 'bg-orange-100 text-orange-800'
+                                : job.status === 'Work Order'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : job.status === 'In Progress'
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-green-100 text-green-800'
+                              }`}>                              {job.status}
+                            </span>
+                          </td>
+                          <td className="py-3">{formatDate(job.date)}</td>
+                          <td className="py-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(job)}
+                            >
+                              View Details
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan="6" className="py-4 text-center text-muted-foreground">
+                      <td colSpan="9" className="py-4 text-center text-muted-foreground">
                         No jobs found
                       </td>
                     </tr>
@@ -1077,9 +1160,8 @@ const AdminJobs = () => {
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
               </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <Label className="font-bold text-sm md:text-base text-blue-800">Client Information</Label>
-                  <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>
-                  <div className="flex justify-between items-center mt-1">
-                    <p className="text-xs text-gray-500">Reference ID: {selectedJob.uuid ? selectedJob.uuid.substring(0, 8) + '...' : 'N/A'}</p>
+                  <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs text-gray-500">Job Number: {formatJobNumber(selectedJob.uuid)}</p>
                     <p className="text-xs text-gray-500">Full UUID: {selectedJob.uuid}</p>
                   </div>
                 </div>
