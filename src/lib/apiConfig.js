@@ -36,6 +36,15 @@ export const API_ENDPOINTS = {
     UPDATE_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`)
   },
 
+  SITES: {
+    GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
+    CREATE: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
+    UPDATE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
+    DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
+    GET_DEFAULT: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/default`),
+    SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`)
+  },
+
   QUOTES: {
     GET_ALL: buildApiEndpoint('api/quotes'),
     GET_BY_ID: (id) => buildApiEndpoint(`api/quotes/${id}`),
