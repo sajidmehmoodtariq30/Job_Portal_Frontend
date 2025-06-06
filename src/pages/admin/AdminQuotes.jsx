@@ -37,8 +37,8 @@ const AdminQuotes = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);  const [loading, setLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(false);
   const [clients, setClients] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [quotes, setQuotes] = useState([]);
@@ -86,16 +86,18 @@ const AdminQuotes = () => {
       setLoading(false);
     }
   };
-
   // Fetch jobs for job selection
   const fetchJobs = async () => {
     try {
+      setJobsLoading(true);
       const response = await axios.get(`${API_URL}/fetch/jobs`);
       setJobs(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
+    } finally {
+      setJobsLoading(false);
     }
-  };  // Fetch clients for client selection
+  };// Fetch clients for client selection
   const fetchClients = async () => {
     try {
       const response = await axios.get(`${API_URL}/fetch/clients`);
@@ -519,6 +521,7 @@ const AdminQuotes = () => {
                   value={newQuote.jobId}
                   onValueChange={handleJobChange}
                   placeholder="Search and select a job..."
+                  isLoading={jobsLoading}
                 />
               </div>
 

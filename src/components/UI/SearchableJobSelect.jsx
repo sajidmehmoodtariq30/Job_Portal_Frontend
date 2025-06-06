@@ -3,7 +3,7 @@ import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { Input } from './input';
 import { Button } from './button';
 
-const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select related job" }) => {
+const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select related job", isLoading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef(null);
@@ -89,11 +89,16 @@ const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select
                 className="pl-9 text-sm"
               />
             </div>
-          </div>
-
-          {/* Job List */}
+          </div>          {/* Job List */}
           <div className="max-h-60 overflow-y-auto">
-            {filteredJobs.length > 0 ? (
+            {isLoading ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  Loading jobs...
+                </div>
+              </div>
+            ) : filteredJobs.length > 0 ? (
               filteredJobs.map((job) => (
                 <div
                   key={job.uuid}
