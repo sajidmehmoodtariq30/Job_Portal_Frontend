@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
+import { Switch } from "@/components/UI/switch";
 import { 
   Card, 
   CardContent, 
@@ -40,12 +41,12 @@ const AdminClients = () => {
     address_postcode: '',
     address_country: '',
     permissions: CLIENT_PERMISSION_TEMPLATES['Basic Client'] || []
-  });
-  const [clients, setClients] = useState([]);  // Ensure this is initialized as an empty array
+  });  const [clients, setClients] = useState([]);  // Ensure this is initialized as an empty array
   const [visibleClients, setVisibleClients] = useState(5);
   const [selectedClient, setSelectedClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState({}); // Track which clients are being updated
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -149,9 +150,51 @@ const AdminClients = () => {
   }) : [];
 
   const displayedClients = filteredClients.slice(0, visibleClients);
-
   const handleViewClient = (clientId) => {
     navigate(`/admin/clients/${clientId}`);
+  };
+
+  const handleToggleClientStatus = async (clientUuid, currentStatus) => {
+    // Set loading state for this specific client
+    setUpdatingStatus(prev => ({ ...prev, [clientUuid]: true }));
+    
+    try {
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      
+      const response = await axios.put(API_ENDPOINTS.CLIENTS.UPDATE_STATUS(clientUuid), {
+        active: newStatus
+      });
+        if (response.data.success) {
+        // Update the client in the local state
+        setClients(prevClients => 
+          prevClients.map(client => 
+            client.uuid === clientUuid 
+              ? { ...client, active: newStatus }
+              : client
+          )
+        );
+        
+        // Update selected client if it's the one being changed
+        if (selectedClient && selectedClient.uuid === clientUuid) {
+          setSelectedClient(prev => ({ ...prev, active: newStatus }));
+        }
+        
+        console.log(`Client ${clientUuid} status updated to ${newStatus === 1 ? 'active' : 'inactive'}`);
+      } else {
+        console.error('Failed to update client status:', response.data);
+        alert('Failed to update client status. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating client status:', error);
+      alert('Error updating client status. Please try again.');
+    } finally {
+      // Remove loading state for this client
+      setUpdatingStatus(prev => {
+        const updated = { ...prev };
+        delete updated[clientUuid];
+        return updated;
+      });
+    }
   };
 
   return (
@@ -316,7 +359,7 @@ const AdminClients = () => {
                         <th className="py-3 text-left">Name</th>
                         <th className="py-3 text-left">Address</th>
                         <th className="py-3 text-left">Edit Date</th>
-                        <th className="py-3 text-left">Active</th>
+                        <th className="py-3 text-left">Access Control</th>
                         <th className="py-3 text-left">Actions</th>
                       </tr>
                     </thead>
@@ -327,7 +370,21 @@ const AdminClients = () => {
                           <td className="py-3">{client.name || '...'}</td>
                           <td className="py-3">{client.address || '...'}</td>
                           <td className="py-3">{client.edit_date || '...'}</td>
-                          <td className="py-3">{client.active ? 'Yes' : 'No'}</td>
+                          <td className="py-3">
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                checked={client.active === 1}
+                                onCheckedChange={() => handleToggleClientStatus(client.uuid, client.active)}
+                                disabled={updatingStatus[client.uuid]}
+                              />
+                              <Label className="text-sm">
+                                {updatingStatus[client.uuid] 
+                                  ? 'Updating...' 
+                                  : client.active === 1 ? 'Active' : 'Inactive'
+                                }
+                              </Label>
+                            </div>
+                          </td>
                           <td className="py-3">
                             <Button onClick={() => handleViewDetails(client)}>
                               Details
@@ -350,7 +407,22 @@ const AdminClients = () => {
                         <p><strong>Name:</strong> {client.name || '...'}</p>
                         <p><strong>Address:</strong> {client.address || '...'}</p>
                         <p><strong>Edit Date:</strong> {client.edit_date || '...'}</p>
-                        <p><strong>Active:</strong> {client.active ? 'Yes' : 'No'}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <strong>Access Control:</strong>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={client.active === 1}
+                              onCheckedChange={() => handleToggleClientStatus(client.uuid, client.active)}
+                              disabled={updatingStatus[client.uuid]}
+                            />
+                            <Label className="text-sm">
+                              {updatingStatus[client.uuid] 
+                                ? 'Updating...' 
+                                : client.active === 1 ? 'Active' : 'Inactive'
+                              }
+                            </Label>
+                          </div>
+                        </div>
                         <Button className="mt-2" onClick={() => handleViewDetails(client)}>
                           Details
                         </Button>
@@ -406,14 +478,25 @@ const AdminClients = () => {
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-700">Country:</span>
                   <span className="text-gray-900">{selectedClient.address_country || 'Not Provided'}</span>
-                </div>
-                <div className="flex justify-between">
+                </div>                <div className="flex justify-between">
                   <span className="font-semibold text-gray-700">Edit Date:</span>
                   <span className="text-gray-900">{selectedClient.edit_date || 'Not Provided'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-gray-700">Active:</span>
-                  <span className="text-gray-900">{selectedClient.active ? 'Yes' : 'No'}</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-700">Access Status:</span>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={selectedClient.active === 1}
+                      onCheckedChange={() => handleToggleClientStatus(selectedClient.uuid, selectedClient.active)}
+                      disabled={updatingStatus[selectedClient.uuid]}
+                    />
+                    <span className="text-gray-900">
+                      {updatingStatus[selectedClient.uuid] 
+                        ? 'Updating...' 
+                        : selectedClient.active === 1 ? 'Active' : 'Inactive'
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="mt-6 flex justify-end">
