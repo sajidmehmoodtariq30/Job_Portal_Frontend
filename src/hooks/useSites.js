@@ -44,11 +44,10 @@ export const useSites = (clientId) => {
         active: true
       };
       setSites([fallbackSite]);
-      setCurrentSite(fallbackSite);
-    } finally {
+      setCurrentSite(fallbackSite);    } finally {
       setLoading(false);
     }
-  }, [clientId, currentSite]);
+  }, [clientId]);
 
   // Create a new site
   const createSite = async (siteData) => {

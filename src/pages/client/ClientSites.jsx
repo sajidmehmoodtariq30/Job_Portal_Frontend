@@ -40,7 +40,23 @@ import { Switch } from "@/components/UI/switch";
 import { useSites } from '@/hooks/useSites';
 
 const SiteManagement = () => {
-  const clientId = localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  // Get client data from localStorage (same method as ClientHome)
+  const getClientData = () => {
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
+      try {
+        return JSON.parse(clientData);
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const clientData = getClientData();
+  // Get client ID from localStorage with fallbacks (same as ClientHome)
+  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
   
   const { 
     sites, 

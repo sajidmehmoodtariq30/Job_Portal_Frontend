@@ -75,14 +75,14 @@ const ClientHome = () => {
   const clientData = getClientData();
   // Get client ID from localStorage with fallbacks
   const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
-  
-  // Use the sites hook for managing sites
+    // Use the sites hook for managing sites
   const { 
     sites, 
     currentSite, 
     loading: sitesLoading, 
     error: sitesError, 
-    changeSite 
+    changeSite,
+    fetchSites
   } = useSites(clientId);
     // Debugging - check what client ID we have
   useEffect(() => {
@@ -154,8 +154,7 @@ const ClientHome = () => {
       setDataRefreshing(false);
     }
   }, [clientId]);
-  
-  // Initial data loading
+    // Initial data loading
   useEffect(() => {
     fetchDashboardData(false);
     
@@ -166,6 +165,31 @@ const ClientHome = () => {
     
     return () => clearInterval(intervalId);
   }, [fetchDashboardData]);
+
+  // Add visibility change listener to refresh sites when user navigates back to dashboard
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page is now visible, refresh sites data
+        fetchSites();
+      }
+    };
+
+    const handleFocus = () => {
+      // Window regained focus, refresh sites data
+      fetchSites();
+    };
+
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      // Cleanup event listeners
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchSites]);
   
   // For demo purposes, if API is not available, load mock data
   const loadMockData = () => {
