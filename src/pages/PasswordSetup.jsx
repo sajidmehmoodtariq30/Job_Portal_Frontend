@@ -183,111 +183,122 @@ const PasswordSetup = () => {
         </Card>
       </div>
     );
-  }
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-lg mx-auto">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <Shield className="text-blue-600" size={32} />
-          </div>
-          <div>
-            <CardTitle className="text-xl">Set Up Your Password</CardTitle>
-            <CardDescription className="mt-2">
-              Welcome{clientInfo?.clientName ? `, ${clientInfo.clientName}` : ''}! Please create a secure password for your account.
-            </CardDescription>
-          </div>
-        </CardHeader>        
-        <CardContent className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Display */}
-            {clientInfo?.email && (
-              <div className="space-y-2">
-                <Label>Email Address</Label>
-                <Input 
-                  type="email" 
-                  value={clientInfo.email} 
-                  disabled 
-                  className="bg-gray-50 text-gray-600"
-                />
-              </div>
-            )}
-
-            {/* Password Input */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
+  }  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        <Card className="w-full">
+          <CardHeader className="text-center space-y-4 pb-6">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+              <Shield className="text-blue-600" size={32} />
             </div>
-
-            {/* Password Requirements */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Password Requirements</Label>
-              <div className="space-y-2 p-4 bg-gray-50 rounded-lg border">
-                <RequirementItem met={passwordRequirements.length} text="At least 8 characters" />
-                <RequirementItem met={passwordRequirements.uppercase} text="One uppercase letter" />
-                <RequirementItem met={passwordRequirements.lowercase} text="One lowercase letter" />
-                <RequirementItem met={passwordRequirements.number} text="One number" />
-                <RequirementItem met={passwordRequirements.special} text="One special character (!@#$%^&*)" />
-              </div>
+            <div>
+              <CardTitle className="text-xl">Set Up Your Password</CardTitle>
+              <CardDescription className="mt-2">
+                Welcome{clientInfo?.clientName ? `, ${clientInfo.clientName}` : ''}! Please create a secure password for your account.
+              </CardDescription>
             </div>
+          </CardHeader>          <CardContent className="pb-8">
+            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Form Fields */}
+                <div className="space-y-6">
+                  {/* Email Display */}
+                  {clientInfo?.email && (
+                    <div className="space-y-2">
+                      <Label>Email Address</Label>
+                      <Input 
+                        type="email" 
+                        value={clientInfo.email} 
+                        disabled 
+                        className="bg-gray-50 text-gray-600"
+                      />
+                    </div>
+                  )}
 
-            {/* Confirm Password Input */}
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm your password"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                  {/* Password Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm your password"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    {password && confirmPassword && password !== confirmPassword && (
+                      <p className="text-sm text-red-600">Passwords do not match</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column - Password Requirements */}
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Password Requirements</Label>
+                    <div className="space-y-3 p-4 bg-gray-50 rounded-lg border">
+                      <RequirementItem met={passwordRequirements.length} text="At least 8 characters" />
+                      <RequirementItem met={passwordRequirements.uppercase} text="One uppercase letter" />
+                      <RequirementItem met={passwordRequirements.lowercase} text="One lowercase letter" />
+                      <RequirementItem met={passwordRequirements.number} text="One number" />
+                      <RequirementItem met={passwordRequirements.special} text="One special character (!@#$%^&*)" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              {password && confirmPassword && password !== confirmPassword && (
-                <p className="text-sm text-red-600">Passwords do not match</p>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
               )}
-            </div>
 
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
+              {/* Submit Button */}
+              <div className="mt-8 flex justify-center">
+                <Button 
+                  type="submit" 
+                  className="w-full max-w-md py-3 text-lg" 
+                  disabled={loading || !isPasswordValid() || password !== confirmPassword}
+                >
+                  {loading ? 'Setting up...' : 'Set Password'}
+                </Button>
               </div>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full py-3" 
-              disabled={loading || !isPasswordValid() || password !== confirmPassword}
-            >
-              {loading ? 'Setting up...' : 'Set Password'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
