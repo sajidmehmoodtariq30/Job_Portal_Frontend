@@ -66,10 +66,10 @@ import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
 const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
-  const navigate = useNavigate();
-  const { checkPermission } = useClientPermissions();
-    // Use the JobContext to access jobs data and methods  const {
-      const {
+  const navigate = useNavigate();  const { checkPermission } = useClientPermissions();
+  
+  // Use the JobContext to access jobs data and methods
+  const {
     jobs,
     totalJobs,
     loading,
@@ -77,7 +77,9 @@ const ClientJobs = () => {
     resetJobs,
     activeTab,
     setActiveTab
-  } = useJobContext();// Local state
+  } = useJobContext();
+  
+  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewJobDialog, setShowNewJobDialog] = useState(false);
   const [visibleJobs, setVisibleJobs] = useState(PAGE_SIZE);
@@ -557,10 +559,11 @@ const ClientJobs = () => {
       case 'On Hold': return 'bg-gray-600 text-white';      default: return 'bg-gray-600 text-white';
     }
   };
+
   // Handle view job details - updated to open dialog instead of navigating
   const handleViewDetails = async (job) => {
     // Check if user has permission to view jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.VIEW_JOBS)) {
+    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_VIEW)) {
       alert('You don\'t have permission to view job details. Please contact your administrator.');
       return;
     }
@@ -572,25 +575,34 @@ const ClientJobs = () => {
       
       // Fetch full job details if we only have partial data
       if (!job.job_description && job.uuid) {
-        const response = await axios.get(`${API_ENDPOINTS.JOBS.FETCH_BY_ID}/${job.uuid}`);
-        if (response.data && response.data.data) {
+        const response = await axios.get(`${API_ENDPOINTS.JOBS.FETCH_BY_ID}/${job.uuid}`);        if (response.data && response.data.data) {
           setSelectedJob(response.data.data);
-        } else if (response.data) {        setSelectedJob(response.data);
+        } else if (response.data) {
+          setSelectedJob(response.data);
         } else {
           setSelectedJob(job); // Fallback to the job we already have
+        }        // Fetch the client name who created the job
+        const jobData = response.data?.data || response.data || job;
+        const creatorUuid = jobData.created_by_staff_uuid || jobData.company_uuid;
+        
+        if (creatorUuid) {
+          // Import and use the client utility function
+          const { getClientNameByUuid } = await import('@/utils/clientUtils');
+          const clientName = await getClientNameByUuid(creatorUuid);
+          setJobClientName(clientName);
         }
       } else {
         setSelectedJob(job);
-      }
+        
+        // Use the job data we already have
+        const creatorUuid = job.created_by_staff_uuid || job.company_uuid;
       
-      // Fetch the client name who created the job
-      const jobData = response?.data?.data || response?.data || job;
-      const creatorUuid = jobData.created_by_staff_uuid || jobData.company_uuid;
-      if (creatorUuid) {
-        // Import and use the client utility function
-        const { getClientNameByUuid } = await import('@/utils/clientUtils');
-        const clientName = await getClientNameByUuid(creatorUuid);
-        setJobClientName(clientName);
+        if (creatorUuid) {
+          // Import and use the client utility function
+          const { getClientNameByUuid } = await import('@/utils/clientUtils');
+          const clientName = await getClientNameByUuid(creatorUuid);
+          setJobClientName(clientName);
+        }
       }
       
       // Open the dialog
@@ -600,12 +612,14 @@ const ClientJobs = () => {
       const jobId = job.uuid || job.id;
       if (jobId) {
         fetchAttachments(jobId);
-      }    } catch (error) {
+      }
+    } catch (error) {
       console.error('Error fetching job details:', error);
       // Fallback to existing job data
       setSelectedJob(job);
       setJobClientName('Unknown Client');
-      setShowJobDetailsDialog(true);    } finally {
+      setShowJobDetailsDialog(true);
+    } finally {
       setJobDetailsLoading(false);
     }
   };
@@ -616,15 +630,17 @@ const ClientJobs = () => {
 
     try {
       // In a real implementation, this would call an API to add the note
-      alert('Adding note functionality would be implemented here');
-      setNewNote('');
-      setIsAddingNote(false);    } catch (error) {
+      alert('Adding note functionality would be implemented here');      setNewNote('');
+      setIsAddingNote(false);
+    } catch (error) {
       console.error('Error adding note:', error);
     }
-  };  // Handle job status update
+  };
+
+  // Handle job status update
   const handleStatusUpdate = async () => {
     // Check if user has permission to update jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.UPDATE_JOBS)) {
+    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_EDIT)) {
       alert('You don\'t have permission to update job status. Please contact your administrator.');
       return;
     }
@@ -713,12 +729,12 @@ const ClientJobs = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-    // Handle file upload
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];  };
+  
+  // Handle file upload
   const handleFileUpload = async () => {
     // Check if user has permission to manage attachments
-    if (!checkPermission(CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS)) {
+    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_EDIT)) {
       alert('You don\'t have permission to upload files. Please contact your administrator.');
       return;
     }
@@ -800,15 +816,16 @@ const ClientJobs = () => {
       // Clean up the URL object
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading file:', error);
-      alert('Failed to download file. Please try again.');
+      console.error('Error downloading file:', error);      alert('Failed to download file. Please try again.');
     }
-  };  // Handle create new job form submission - updated to remove manual UUID generation
+  };
+
+  // Handle create new job form submission - updated to remove manual UUID generation
   const handleCreateJob = async (e) => {
     if (e) e.preventDefault();
     
     // Check if user has permission to create jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.CREATE_JOBS)) {
+    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_CREATE)) {
       alert('You don\'t have permission to create new jobs. Please contact your administrator.');
       return;
     }
@@ -876,9 +893,10 @@ const ClientJobs = () => {
       alert("Your service request has been submitted successfully!");
     } catch (error) {
       console.error('Error creating job:', error);
-      alert(`Error creating job: ${error.response?.data?.message || error.message}`);
-    }
-  };  // Convert job data for JobCard component
+      alert(`Error creating job: ${error.response?.data?.message || error.message}`);    }
+  };
+
+  // Convert job data for JobCard component
   const prepareJobForCard = (job) => {
     const jobId = job.uuid || job.id;
     const attachmentCount = attachmentCounts[jobId];
@@ -895,7 +913,9 @@ const ClientJobs = () => {
       description: job.job_description || job.description || 'No description',
       location: job.job_address || 'No address',      attachments: attachmentCount !== undefined ? attachmentCount : '...' // Show loading indicator if count not yet loaded
     };
-  };  // Reset form with client UUID - ServiceM8 will generate job ID automatically
+  };
+
+  // Reset form with client UUID - ServiceM8 will generate job ID automatically
   const resetJobForm = () => {
     setNewJob({
       created_by_staff_uuid: clientUuid,
@@ -925,7 +945,7 @@ const ClientJobs = () => {
             // Increment trigger to refresh locations when dialog opens
             setLocationRefreshTrigger(prev => prev + 1);
           }        }}>
-          <PermissionGuard permission={CLIENT_PERMISSIONS.CREATE_JOBS}>
+          <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_CREATE}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2">
                 <Plus size={16} />
@@ -1110,7 +1130,7 @@ const ClientJobs = () => {
               </div>
             </div>
           ) : filteredJobs.length > 0 ? (          <div>
-            <PermissionGuard permission={CLIENT_PERMISSIONS.VIEW_JOBS}>
+            <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_VIEW}>
               <div className="space-y-4">
                 {displayedJobs.map(job => (
                   <JobCard 
@@ -1155,7 +1175,7 @@ const ClientJobs = () => {
           </div>
           ) : (
             <PermissionGuard 
-              permission={CLIENT_PERMISSIONS.VIEW_JOBS}
+              permission={CLIENT_PERMISSIONS.JOBS_VIEW}
               fallback={
                 <div className="flex flex-col items-center justify-center py-12">
                   <Clipboard size={48} className="text-muted-foreground mb-4" />
@@ -1257,7 +1277,7 @@ const ClientJobs = () => {
                           <p className="text-xs md:text-sm">{selectedJob.active === 1 || selectedJob.active === true ? 'Yes' : 'No'}</p>
                         </div>
                       </div>                      {/* Job Status Update Section */}
-                      <PermissionGuard permission={CLIENT_PERMISSIONS.UPDATE_JOBS}>
+                      <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_EDIT}>
                         <div className="space-y-3 border border-gray-200 rounded-lg p-3 md:p-4 bg-blue-50">
                           <Label className="font-bold text-sm md:text-base text-gray-800">Update Job Status</Label>
                           <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
@@ -1411,9 +1431,8 @@ const ClientJobs = () => {
                       <CardHeader className="p-3 md:p-4">                        <div className="flex justify-between items-center">
                           <CardTitle className="text-sm md:text-base flex items-center">
                             <FileText className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                            Attachments
-                          </CardTitle>
-                          <PermissionGuard permission={CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS}>
+                            Attachments                        </CardTitle>
+                          <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_EDIT}>
                             <Button 
                               size="sm" 
                               className="text-xs md:text-sm h-8 md:h-9"
@@ -1424,8 +1443,8 @@ const ClientJobs = () => {
                           </PermissionGuard>
                         </div>
                       </CardHeader>                      <CardContent className="p-3 md:p-4">                        
-                        <PermissionGuard permission={CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS}>
-                          {isUploadingFile && (                          <div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
+                        <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_EDIT}>
+                          {isUploadingFile && (<div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
                             <Label htmlFor="fileUpload" className="text-xs md:text-sm font-medium mb-2 block">Upload File</Label>
                             <Input
                               id="fileUpload"
@@ -1517,11 +1536,10 @@ const ClientJobs = () => {
                                 </div>
                               );
                             })}
-                          </div>                        ) : (
-                          <div className="py-8 md:py-10 text-center">
+                          </div>                        ) : (                          <div className="py-8 md:py-10 text-center">
                             <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
                             <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>
-                            <PermissionGuard permission={CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS}>
+                            <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_EDIT}>
                               <Button 
                                 variant="outline" 
                                 size="sm" 
@@ -1550,8 +1568,7 @@ const ClientJobs = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>  );
 };
 
 export default ClientJobs;
