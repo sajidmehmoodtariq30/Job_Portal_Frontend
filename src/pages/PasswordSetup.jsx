@@ -99,7 +99,18 @@ const PasswordSetup = () => {
       }
     } catch (error) {
       console.error('Password setup error:', error);
-      setError(error.response?.data?.message || 'An error occurred. Please try again.');
+      
+      if (error.response?.data?.error) {
+        setError(error.response.data.error);
+      } else if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else if (error.response?.status === 400) {
+        setError('Invalid request. Please check your information and try again.');
+      } else if (error.response?.status === 500) {
+        setError('Server error. Please try again later.');
+      } else {
+        setError('An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -173,21 +184,21 @@ const PasswordSetup = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+      <Card className="w-full max-w-lg mx-auto">
+        <CardHeader className="text-center space-y-4">
+          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
             <Shield className="text-blue-600" size={32} />
           </div>
-          <CardTitle>Set Up Your Password</CardTitle>
-          <CardDescription>
-            Welcome{clientInfo?.clientName ? `, ${clientInfo.clientName}` : ''}! Please create a secure password for your account.
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent>
+          <div>
+            <CardTitle className="text-xl">Set Up Your Password</CardTitle>
+            <CardDescription className="mt-2">
+              Welcome{clientInfo?.clientName ? `, ${clientInfo.clientName}` : ''}! Please create a secure password for your account.
+            </CardDescription>
+          </div>
+        </CardHeader>        
+        <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Display */}
             {clientInfo?.email && (
@@ -197,7 +208,7 @@ const PasswordSetup = () => {
                   type="email" 
                   value={clientInfo.email} 
                   disabled 
-                  className="bg-gray-50"
+                  className="bg-gray-50 text-gray-600"
                 />
               </div>
             )}
@@ -212,6 +223,7 @@ const PasswordSetup = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
+                  className="pr-10"
                 />
                 <button
                   type="button"
@@ -224,9 +236,9 @@ const PasswordSetup = () => {
             </div>
 
             {/* Password Requirements */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label className="text-sm font-medium">Password Requirements</Label>
-              <div className="space-y-1 p-3 bg-gray-50 rounded-md">
+              <div className="space-y-2 p-4 bg-gray-50 rounded-lg border">
                 <RequirementItem met={passwordRequirements.length} text="At least 8 characters" />
                 <RequirementItem met={passwordRequirements.uppercase} text="One uppercase letter" />
                 <RequirementItem met={passwordRequirements.lowercase} text="One lowercase letter" />
@@ -245,6 +257,7 @@ const PasswordSetup = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm your password"
+                  className="pr-10"
                 />
                 <button
                   type="button"
@@ -260,14 +273,14 @@ const PasswordSetup = () => {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full py-3" 
               disabled={loading || !isPasswordValid() || password !== confirmPassword}
             >
               {loading ? 'Setting up...' : 'Set Password'}

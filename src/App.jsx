@@ -40,12 +40,11 @@ function App() {
     <JobProvider>
       <Router>
         <TokenHandler />
-        <Routes>
-          {/* Public Routes */}
+        <Routes>          {/* Public Routes */}
           <Route element={<AppLayout />}>
             <Route index element={<Home />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/password-setup" element={<PasswordSetup />} />
+            <Route path="/password-setup/:token" element={<PasswordSetup />} />
             <Route path="/SignUp" element={<SignUp />} />
           </Route>
 
