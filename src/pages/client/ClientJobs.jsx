@@ -89,11 +89,11 @@ const ClientJobs = () => {
     // Attachment counts state
   const [attachmentCounts, setAttachmentCounts] = useState({});
   const [attachmentCountsLoading, setAttachmentCountsLoading] = useState(false);
-  
-  // New state for job details dialog
+    // New state for job details dialog
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [jobDetailsLoading, setJobDetailsLoading] = useState(false);
+  const [jobClientName, setJobClientName] = useState("Unknown Client");
 
   const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -544,7 +544,7 @@ const ClientJobs = () => {
       case 'On Hold': return 'bg-gray-600 text-white';      default: return 'bg-gray-600 text-white';
     }
   };
-    // Handle view job details - updated to open dialog instead of navigating
+  // Handle view job details - updated to open dialog instead of navigating
   const handleViewDetails = async (job) => {
     // Check if user has permission to view jobs
     if (!checkPermission(CLIENT_PERMISSIONS.VIEW_JOBS)) {
@@ -555,19 +555,29 @@ const ClientJobs = () => {
     try {
       setJobDetailsLoading(true);
       setSelectedJob(null); // Reset selected job
+      setJobClientName("Unknown Client"); // Reset client name
       
       // Fetch full job details if we only have partial data
       if (!job.job_description && job.uuid) {
         const response = await axios.get(`${API_ENDPOINTS.JOBS.FETCH_BY_ID}/${job.uuid}`);
         if (response.data && response.data.data) {
           setSelectedJob(response.data.data);
-        } else if (response.data) {
-          setSelectedJob(response.data);
+        } else if (response.data) {        setSelectedJob(response.data);
         } else {
           setSelectedJob(job); // Fallback to the job we already have
         }
       } else {
         setSelectedJob(job);
+      }
+      
+      // Fetch the client name who created the job
+      const jobData = response?.data?.data || response?.data || job;
+      const creatorUuid = jobData.created_by_staff_uuid || jobData.company_uuid;
+      if (creatorUuid) {
+        // Import and use the client utility function
+        const { getClientNameByUuid } = await import('@/utils/clientUtils');
+        const clientName = await getClientNameByUuid(creatorUuid);
+        setJobClientName(clientName);
       }
       
       // Open the dialog
@@ -577,13 +587,12 @@ const ClientJobs = () => {
       const jobId = job.uuid || job.id;
       if (jobId) {
         fetchAttachments(jobId);
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Error fetching job details:', error);
       // Fallback to existing job data
       setSelectedJob(job);
-      setShowJobDetailsDialog(true);
-    } finally {
+      setJobClientName('Unknown Client');
+      setShowJobDetailsDialog(true);    } finally {
       setJobDetailsLoading(false);
     }
   };
@@ -1178,10 +1187,9 @@ const ClientJobs = () => {
             </div>
           ) : (
             <>
-              <DialogHeader className="border-b pb-3 md:pb-4">
-                <div className="flex justify-between items-center">                  <div>
+              <DialogHeader className="border-b pb-3 md:pb-4">                <div className="flex justify-between items-center">                  <div>
                     <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-                      {selectedJob.uuid || selectedJob.id}
+                      Job by {jobClientName}
                     </DialogTitle>
                     <DialogDescription className="text-xs md:text-sm">
                       {selectedJob.job_description || selectedJob.description || 'No description available'}
@@ -1205,8 +1213,9 @@ const ClientJobs = () => {
                   </TabsList>                  <TabsContent value="details" className="p-0 mt-3 md:mt-4">
                     <div className="grid gap-3 md:gap-5">                      <div className="grid grid-cols-1 gap-3 md:gap-5 p-3 md:p-4 bg-gray-50 rounded-lg">
                         <div className="space-y-1 md:space-y-2 overflow-hidden">
-                          <Label className="font-bold text-xs md:text-sm text-gray-600">Job ID</Label>
-                          <p className="text-xs md:text-sm font-medium break-all overflow-auto">{selectedJob.uuid || selectedJob.id}</p>
+                          <Label className="font-bold text-xs md:text-sm text-gray-600">Created By</Label>
+                          <p className="text-xs md:text-sm font-medium">{jobClientName}</p>
+                          <p className="text-xs text-gray-500 mt-1">Reference: {selectedJob.uuid ? selectedJob.uuid.substring(0, 8) + '...' : selectedJob.id}</p>
                         </div>
                       </div>
                       

@@ -82,9 +82,9 @@ const AdminJobs = () => {
     category_uuid: '' // Ensure all form fields have initial values
   });
   const [selectedLocationUuid, setSelectedLocationUuid] = useState('');
-  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);
-  const [visibleJobs, setVisibleJobs] = useState(10);
+  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);  const [visibleJobs, setVisibleJobs] = useState(10);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [jobClientName, setJobClientName] = useState("Unknown Client");
   const [confirmRefresh, setConfirmRefresh] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -448,17 +448,30 @@ const AdminJobs = () => {
     };
     const handleViewJob = (jobId) => {
       navigate(`/admin/jobs/${jobId}`);
-    };
-
-    const handleViewDetails = (job) => {
+    };    const handleViewDetails = async (job) => {
       setSelectedJob(job);
+      setJobClientName("Unknown Client"); // Reset client name
+
+      // Fetch the client name who created the job
+      const creatorUuid = job.company_uuid || job.created_by_staff_uuid;
+      if (creatorUuid) {
+        try {
+          // Import and use the client utility function
+          const { getClientNameByUuid } = await import('@/utils/clientUtils');
+          const clientName = await getClientNameByUuid(creatorUuid);
+          setJobClientName(clientName);
+        } catch (error) {
+          console.error("Error fetching client name:", error);
+          setJobClientName("Unknown Client");
+        }
+      }
 
       // Fetch attachments for the selected job
       const jobId = job.uuid || job.id;
       if (jobId) {
         fetchAttachments(jobId);
       }
-    };    // Handle job status update
+    };// Handle job status update
     const handleStatusUpdate = async () => {
       if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
         return;
@@ -1044,13 +1057,12 @@ const AdminJobs = () => {
               </Button>
             </div>
           </CardContent>
-        </Card>      {selectedJob && (<Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
-          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">            <DialogHeader className="border-b pb-3 md:pb-4">
+        </Card>      {selectedJob && (<Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">            <DialogHeader className="border-b pb-3 md:pb-4">
             <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-              Job Details
+              Job by {jobClientName}
             </DialogTitle>
             <DialogDescription className="text-xs md:text-sm">
-              Detailed information about the selected job
+              {selectedJob.job_description || 'No description available'}
             </DialogDescription>
           </DialogHeader>
             <Tabs defaultValue="details" className="mt-3 md:mt-4">
@@ -1063,10 +1075,13 @@ const AdminJobs = () => {
                   </div>
                 </TabsTrigger>
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
-              </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">
-                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <Label className="font-bold text-sm md:text-base text-blue-800">Job UUID</Label>
-                  <p className="text-sm md:text-base font-mono break-all overflow-auto bg-white p-2 rounded border">{selectedJob.uuid}</p>
+              </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Label className="font-bold text-sm md:text-base text-blue-800">Client Information</Label>
+                  <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs text-gray-500">Reference ID: {selectedJob.uuid ? selectedJob.uuid.substring(0, 8) + '...' : 'N/A'}</p>
+                    <p className="text-xs text-gray-500">Full UUID: {selectedJob.uuid}</p>
+                  </div>
                 </div>
 
                 <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
