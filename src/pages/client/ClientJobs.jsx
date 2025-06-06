@@ -59,6 +59,7 @@ import { useJobContext } from '@/components/JobContext';
 import PermissionGuard from '@/components/client/PermissionGuard';
 import { CLIENT_PERMISSIONS } from '@/types/clientPermissions';
 import { useClientPermissions } from '@/hooks/useClientPermissions';
+import { useSites } from '@/hooks/useSites';
 import axios from 'axios';
 import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
 
@@ -66,7 +67,34 @@ import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
 const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
-  const navigate = useNavigate();  const { checkPermission } = useClientPermissions();
+  const navigate = useNavigate();  
+  const { checkPermission, permissions, loading: permissionsLoading, checkJobPermission } = useClientPermissions();
+    // Enhanced permission debugging
+  useEffect(() => {
+    if (!permissionsLoading && permissions && permissions.length > 0) {
+      const jobPermissions = checkJobPermission();
+      
+      console.log('🔐 Enhanced Permission Debug:', {
+        permissions,
+        hasJobsCreate: checkPermission(CLIENT_PERMISSIONS.JOBS_CREATE),
+        hasJobsView: checkPermission(CLIENT_PERMISSIONS.JOBS_VIEW),
+        hasJobsViewAlias: checkPermission(CLIENT_PERMISSIONS.VIEW_JOBS),
+        jobsCreateConstant: CLIENT_PERMISSIONS.JOBS_CREATE,
+        jobsViewConstant: CLIENT_PERMISSIONS.JOBS_VIEW,
+        jobPermissionsHelper: jobPermissions,
+        permissionsLoading
+      });
+      
+      // Log a warning if there are potential permission issues
+      if (!jobPermissions.canViewJobs) {
+        console.warn('⚠️ User cannot view jobs! This may indicate a permission configuration issue.');
+      }
+      
+      if (!jobPermissions.canCreateJobs && jobPermissions.isEnterprise) {
+        console.warn('⚠️ Enterprise client cannot create jobs! This may indicate a permission configuration issue.');
+      }
+    }
+  }, [permissions, permissionsLoading]);
   
   // Use the JobContext to access jobs data and methods
   const {
@@ -149,14 +177,25 @@ const ClientJobs = () => {
     created_by_staff_uuid: clientUuid || '', 
     date: new Date().toISOString().split('T')[0], 
     company_uuid: clientUuid || '',
+    job_name: '', // New field: separate job name
     job_description: '',
     location_uuid: '', // Changed from job_address
     status: 'Quote', // Client requests always start as quote
     work_done_description: '',
     category_uuid: 'none',
+    site_id: '', // New field: selected site
+    site_contact_name: '', // New field: site contact name
+    site_contact_email: '', // New field: site contact email
+    purchase_order_number: '', // New field: purchase order number
+    work_completion_date_start: '', // New field: work start date
+    work_completion_date_end: '', // New field: work end date
+    initial_attachment: null // New field: initial attachment file
   });
   const [selectedLocationUuid, setSelectedLocationUuid] = useState('');
-  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);// Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
+  const [locationRefreshTrigger, setLocationRefreshTrigger] = useState(0);
+
+  // Sites hook for site selection
+  const { sites, loading: sitesLoading, fetchSites } = useSites(clientUuid);// Fetch jobs on mount and when active tab changes - using client-specific fetch for better performance
   useEffect(() => {
     if (!clientUuid) {
       console.error('No client UUID found in localStorage');
@@ -370,7 +409,6 @@ const ClientJobs = () => {
       setAttachmentCountsLoading(false);
     }
   };
-
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -378,6 +416,22 @@ const ClientJobs = () => {
       ...newJob,
       [name]: value
     });
+  };
+  // Handle file input changes for initial attachments
+  const handleInitialFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        e.target.value = '';
+        return;
+      }
+      setNewJob({
+        ...newJob,
+        initial_attachment: file
+      });
+    }
   };
   // Handle select changes
   const handleSelectChange = (name, value) => {
@@ -561,8 +615,11 @@ const ClientJobs = () => {
   };
   // Handle view job details - updated to open dialog instead of navigating
   const handleViewDetails = async (job) => {
-    // Check if user has permission to view jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_VIEW)) {
+    // Use our enhanced job permissions helper
+    const jobPermissions = checkJobPermission();
+    
+    if (!jobPermissions.canViewJobs) {
+      console.log('🔐 Permission denied for viewing job details', jobPermissions);
       alert('You don\'t have permission to view job details. Please contact your administrator.');
       return;
     }
@@ -760,13 +817,20 @@ const ClientJobs = () => {
           }
         }
       );
-      
-      if (response.data && response.data.success) {
+        if (response.data && response.data.success) {
+        const jobId = selectedJob.uuid || selectedJob.id;
         // Refresh attachments list
-        await fetchAttachments(selectedJob.uuid || selectedJob.id);
+        await fetchAttachments(jobId);
+        
+        // Update attachment count in the main job list
+        setAttachmentCounts(prev => ({
+          ...prev, 
+          [jobId]: (prev[jobId] || 0) + 1
+        }));
+        
         setSelectedFile(null);
         setIsUploadingFile(false);
-      }    
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
       
@@ -822,7 +886,7 @@ const ClientJobs = () => {
     if (e) e.preventDefault();
     
     // Check if user has permission to create jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.CREATE_JOBS)) {
+    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_CREATE)) {
       alert('You don\'t have permission to create new jobs. Please contact your administrator.');
       return;
     }
@@ -835,25 +899,57 @@ const ClientJobs = () => {
         created_by_staff_uuid: clientUuid
       }));
     }
-      
-    // Validate required fields (removed uuid check since ServiceM8 will generate it)
-    if (!newJob.job_description || !newJob.location_uuid) {
-      alert("Please fill in all required fields");
+        // Validate required fields (removed uuid check since ServiceM8 will generate it)
+    if (!newJob.job_name || !newJob.job_description || !newJob.location_uuid) {
+      alert("Please fill in all required fields (Job Name, Job Description, and Service Location)");
       return;
     }
-    
-    try {      
+      try {        // Handle initial attachment upload first if provided
+      let attachmentUrl = null;
+      if (newJob.initial_attachment) {
+        try {
+          // Create a temporary job ID for initial upload
+          const tempJobId = 'temp-' + Date.now();
+          const formData = new FormData();
+          formData.append('file', newJob.initial_attachment);
+          formData.append('userType', 'client');
+          formData.append('userName', userInfo.name || userInfo.email || 'Client');
+          
+          const uploadResponse = await axios.post(API_ENDPOINTS.ATTACHMENTS.UPLOAD(tempJobId), formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          
+          if (uploadResponse.data && uploadResponse.data.success) {
+            attachmentUrl = uploadResponse.data.data.id; // Store the attachment ID
+          }
+        } catch (uploadError) {
+          console.error('Error uploading initial attachment:', uploadError);
+          // Continue with job creation even if attachment upload fails
+        }
+      }
+
       // Prepare payload to match ServiceM8 API format - removed uuid and generated_job_id
       const payload = {        
         active: 1,
         created_by_staff_uuid: clientUuid, // Always use logged-in client UUID
         company_uuid: clientUuid, // Always use logged-in client UUID
         date: newJob.date,
+        job_name: newJob.job_name, // New field
         // Use job_description since the API doesn't accept "description" field
         job_description: newJob.job_description,
         location_uuid: newJob.location_uuid,
         status: 'Quote', // Default to Quote for client requests
         work_done_description: newJob.work_done_description || '',
+        // Add new fields to payload
+        site_id: newJob.site_id,
+        site_contact_name: newJob.site_contact_name,
+        site_contact_email: newJob.site_contact_email,
+        purchase_order_number: newJob.purchase_order_number,
+        work_completion_date_start: newJob.work_completion_date_start,
+        work_completion_date_end: newJob.work_completion_date_end,
+        initial_attachment_url: attachmentUrl
       };
       
       // Add category_uuid if selected and not "none"
@@ -876,27 +972,38 @@ const ClientJobs = () => {
         created_by_staff_uuid: clientUuid, // Automatically set to logged-in client
         date: new Date().toISOString().split('T')[0],
         company_uuid: clientUuid, // Automatically set to logged-in client
+        job_name: '', // Reset new field
         job_description: '',
         location_uuid: '',
         status: 'Quote',
         work_done_description: '',
         category_uuid: 'none',
+        site_id: '', // Reset new field
+        site_contact_name: '', // Reset new field
+        site_contact_email: '', // Reset new field
+        purchase_order_number: '', // Reset new field
+        work_completion_date_start: '', // Reset new field
+        work_completion_date_end: '', // Reset new field
+        initial_attachment: null // Reset new field
       });
       
       // Clear selected location
       setSelectedLocationUuid('');
-      
-      // Show success message
+        // Show success message
       alert("Your service request has been submitted successfully!");
     } catch (error) {
       console.error('Error creating job:', error);
-      alert(`Error creating job: ${error.response?.data?.message || error.message}`);    }
+      alert(`Error creating job: ${error.response?.data?.message || error.message}`);
+    }
   };
 
   // Convert job data for JobCard component
   const prepareJobForCard = (job) => {
     const jobId = job.uuid || job.id;
     const attachmentCount = attachmentCounts[jobId];
+    
+    // Add debug logging for attachment count
+    console.log(`Job ${jobId} attachment count:`, attachmentCount);
     
     return {
       id: job.uuid, // Use ServiceM8-generated UUID as the primary ID
@@ -908,21 +1015,30 @@ const ClientJobs = () => {
       completedDate: job.completion_date,
       type: job.status === 'Quote' ? 'Quote' : 'Work Order',
       description: job.job_description || job.description || 'No description',
-      location: job.job_address || 'No address',      attachments: attachmentCount !== undefined ? attachmentCount : '...' // Show loading indicator if count not yet loaded
+      location: job.job_address || 'No address',
+      // Use 0 instead of '...' for better display
+      attachments: attachmentCount !== undefined ? attachmentCount : 0
     };
   };
-
   // Reset form with client UUID - ServiceM8 will generate job ID automatically
   const resetJobForm = () => {
     setNewJob({
       created_by_staff_uuid: clientUuid,
       company_uuid: clientUuid,
       date: new Date().toISOString().split('T')[0],
+      job_name: '', // Reset new field
       job_description: '',
       location_uuid: '',
       status: 'Quote',
       work_done_description: '',
       category_uuid: 'none',
+      site_id: '', // Reset new field
+      site_contact_name: '', // Reset new field
+      site_contact_email: '', // Reset new field
+      purchase_order_number: '', // Reset new field
+      work_completion_date_start: '', // Reset new field
+      work_completion_date_end: '', // Reset new field
+      initial_attachment: null // Reset new field
     });
     setSelectedLocationUuid('');
   };
@@ -933,37 +1049,62 @@ const ClientJobs = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Jobs</h1>
-          <p className="text-lg mt-1">View and manage all your service jobs</p>
-        </div>        <Dialog open={showNewJobDialog} onOpenChange={(open) => {
-          setShowNewJobDialog(open);
-          if (open) {
-            // Reset and populate form with client UUID when dialog opens
-            resetJobForm();
-            // Increment trigger to refresh locations when dialog opens
-            setLocationRefreshTrigger(prev => prev + 1);
-          }        }}>
-          <PermissionGuard permission={CLIENT_PERMISSIONS.CREATE_JOBS}>
+          <p className="text-lg mt-1">View and manage all your service jobs</p>        </div>        {/* Wrap the Dialog with PermissionGuard */}
+        <PermissionGuard 
+          requiredPermission={CLIENT_PERMISSIONS.JOBS_CREATE} 
+          fallback={
+            <Button disabled className="flex items-center gap-2 opacity-50" title="No permission to create jobs">
+              <Plus size={16} />
+              New Request
+            </Button>
+          }
+        >
+          <Dialog open={showNewJobDialog} onOpenChange={(open) => {
+            setShowNewJobDialog(open);
+            if (open) {
+              // Reset and populate form with client UUID when dialog opens
+              resetJobForm();
+              // Increment trigger to refresh locations when dialog opens
+              setLocationRefreshTrigger(prev => prev + 1);
+              // Fetch sites when dialog opens
+              if (clientUuid) {
+                fetchSites();
+              }
+            }
+          }}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2">
                 <Plus size={16} />
                 New Request
               </Button>
             </DialogTrigger>
-          </PermissionGuard>
-          <DialogContent className="max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Service Request</DialogTitle>
-              <DialogDescription>
-                Submit a new service request to our team. We'll review it and get back to you promptly.
-              </DialogDescription>
-            </DialogHeader>            <form onSubmit={handleCreateJob} className="overflow-y-auto">
+            <DialogContent className="max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Service Request</DialogTitle>
+                <DialogDescription>
+                  Submit a new service request to our team. We'll review it and get back to you promptly.
+                </DialogDescription>
+              </DialogHeader><form onSubmit={handleCreateJob} className="overflow-y-auto">
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>                  <Input
+                  <Label htmlFor="date">Date</Label>
+                  <Input
                     id="date"
                     name="date"
                     type="date"
                     value={newJob.date}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="job_name">Job Name *</Label>
+                  <Input
+                    id="job_name"
+                    name="job_name"
+                    placeholder="Enter a brief job title..."
+                    value={newJob.job_name}
                     onChange={handleInputChange}
                     required
                   />
@@ -977,7 +1118,8 @@ const ClientJobs = () => {
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>                    <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                       {(() => {
                         console.log('🎨 Rendering dropdown - loadingCategories:', loadingCategories);
                         console.log('🎨 Rendering dropdown - categories:', categories);
@@ -1009,9 +1151,92 @@ const ClientJobs = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="site_id">Site</Label>
+                  <Select
+                    value={newJob.site_id}
+                    onValueChange={(value) => handleSelectChange('site_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a site" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sitesLoading ? (
+                        <SelectItem value="loading">Loading sites...</SelectItem>
+                      ) : sites.length === 0 ? (
+                        <SelectItem value="none">No sites available</SelectItem>
+                      ) : (
+                        sites.map(site => (
+                          <SelectItem key={site.id} value={site.id}>
+                            {site.name} {site.isDefault && '(Default)'}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="site_contact_name">Site Contact Name</Label>
+                    <Input
+                      id="site_contact_name"
+                      name="site_contact_name"
+                      placeholder="Contact person at site..."
+                      value={newJob.site_contact_name}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="site_contact_email">Site Contact Email</Label>
+                    <Input
+                      id="site_contact_email"
+                      name="site_contact_email"
+                      type="email"
+                      placeholder="contact@example.com"
+                      value={newJob.site_contact_email}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="purchase_order_number">Purchase Order Number</Label>
+                  <Input
+                    id="purchase_order_number"
+                    name="purchase_order_number"
+                    placeholder="PO-2025-001"
+                    value={newJob.purchase_order_number}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="work_completion_date_start">Work Start Date</Label>
+                    <Input
+                      id="work_completion_date_start"
+                      name="work_completion_date_start"
+                      type="date"
+                      value={newJob.work_completion_date_start}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="work_completion_date_end">Work End Date</Label>
+                    <Input
+                      id="work_completion_date_end"
+                      name="work_completion_date_end"
+                      type="date"
+                      value={newJob.work_completion_date_end}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
                 
                 <div className="grid gap-2">
-                  <Label htmlFor="job_description">Job Description</Label>
+                  <Label htmlFor="job_description">Job Description *</Label>
                   <Textarea
                     id="job_description"
                     name="job_description"
@@ -1021,8 +1246,10 @@ const ClientJobs = () => {
                     onChange={handleInputChange}
                     required
                   />
-                </div>                <div className="grid gap-2">
-                  <Label htmlFor="location_uuid">Service Location</Label>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="location_uuid">Service Location *</Label>
                   <LocationSelector
                     clientUuid={clientUuid}
                     selectedLocationUuid={selectedLocationUuid}
@@ -1040,7 +1267,26 @@ const ClientJobs = () => {
                     value={newJob.work_done_description}
                     onChange={handleInputChange}
                   />
-                </div>              </div>
+                </div>                <div className="grid gap-2">
+                  <Label htmlFor="initial_attachment">Initial Attachment</Label>
+                  <Input
+                    id="initial_attachment"
+                    name="initial_attachment"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                    onChange={handleInitialFileChange}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Upload a file related to this job (Max 10MB). Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
+                  </p>
+                  {newJob.initial_attachment && (
+                    <p className="text-sm text-green-600">
+                      Selected: {newJob.initial_attachment.name}
+                    </p>
+                  )}
+                </div>
+              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
                 <Button type="submit">Submit Request</Button>
@@ -1048,6 +1294,7 @@ const ClientJobs = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </PermissionGuard>
       </div>
   
       {/* Tabs and Search */}
@@ -1125,9 +1372,16 @@ const ClientJobs = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          ) : filteredJobs.length > 0 ? (          <div>
-            <PermissionGuard permission={CLIENT_PERMISSIONS.VIEW_JOBS}>
+            </div>          ) : filteredJobs.length > 0 ? (          <div>            <PermissionGuard 
+              requiredPermissions={[CLIENT_PERMISSIONS.JOBS_VIEW, CLIENT_PERMISSIONS.VIEW_JOBS]} 
+              requireAll={false}
+              fallback={
+                <Card className="p-6 text-center">
+                  <p className="text-lg font-medium text-gray-800">Access Restricted</p>
+                  <p className="text-gray-600 mt-2">You need permission to view jobs. If you believe this is an error, please contact your administrator.</p>
+                </Card>
+              }
+            >
               <div className="space-y-4">
                 {displayedJobs.map(job => (
                   <JobCard 
@@ -1273,8 +1527,7 @@ const ClientJobs = () => {
                           <Label className="font-bold text-xs md:text-sm">Active</Label>
                           <p className="text-xs md:text-sm">{selectedJob.active === 1 || selectedJob.active === true ? 'Yes' : 'No'}</p>
                         </div>
-                      </div>                      {/* Job Status Update Section */}
-                      <PermissionGuard permission={CLIENT_PERMISSIONS.UPDATE_JOBS}>
+                      </div>                      {/* Job Status Update Section */}                      <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_STATUS_UPDATE}>
                         <div className="space-y-3 border border-gray-200 rounded-lg p-3 md:p-4 bg-blue-50">
                           <Label className="font-bold text-sm md:text-base text-gray-800">Update Job Status</Label>
                           <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
@@ -1564,10 +1817,10 @@ const ClientJobs = () => {
                 </Button>
               </DialogFooter>
             </>
-          )}
-        </DialogContent>
+          )}        </DialogContent>
       </Dialog>
-    </div>  );
+    </div>
+  );
 };
 
 export default ClientJobs;

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/card';
 const PermissionGuard = ({ 
   children, 
   requiredPermission, 
+  permission, // Added support for 'permission' prop for backward compatibility
   requiredPermissions, 
   requireAll = false,
   fallback = null 
@@ -21,8 +22,11 @@ const PermissionGuard = ({
 
   let hasAccess = false;
 
-  if (requiredPermission) {
-    hasAccess = checkPermission(requiredPermission);
+  // Support both 'permission' and 'requiredPermission' props for backward compatibility
+  const permissionToCheck = permission || requiredPermission;
+  
+  if (permissionToCheck) {
+    hasAccess = checkPermission(permissionToCheck);
   } else if (requiredPermissions) {
     if (requireAll) {
       hasAccess = requiredPermissions.every(permission => checkPermission(permission));
