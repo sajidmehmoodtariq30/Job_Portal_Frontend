@@ -121,62 +121,19 @@ const ClientQuotes = () => {
       setError('Failed to load quotes. Please try again later.');
     } finally {
       setLoading(false);
-    }  };  // Fetch jobs for quote creation
+    }  };
+  // Fetch jobs for quote creation
   const fetchJobs = async () => {
-    if (!clientId) {
-      console.log('No clientId found for fetching jobs');
-      return;
-    }
+    if (!clientId) return;
     
-    console.log('Fetching jobs for client:', clientId);
-    setJobsLoading(true);    try {
-      // Use the correct jobs endpoint that works
-      const response = await axios.get(`${API_URL}/fetch/jobs`);
-      console.log('All jobs response:', response.data);
-        // Filter jobs on the frontend for this specific client
-      const allJobs = Array.isArray(response.data) ? response.data : [];
-      
-      // Log client ID and first few jobs for debugging
-      console.log('Client ID from localStorage:', clientId);
-      console.log('First job structure:', allJobs[0]);
-      
-      // Try multiple filtering approaches
-      const clientJobs = allJobs.filter(job => {
-        const matchCompany = job.company_uuid === clientId;
-        const matchCreated = job.created_by_staff_uuid === clientId;
-        const matchClient = job.client_uuid === clientId;
-        const matchAnyField = Object.values(job).includes(clientId);
-        
-        const matches = matchCompany || matchCreated || matchClient || matchAnyField;
-        
-        if (matches) {
-          console.log('Job matches client:', {
-            jobId: job.uuid,
-            company_uuid: job.company_uuid,
-            created_by_staff_uuid: job.created_by_staff_uuid,
-            client_uuid: job.client_uuid,
-            matches: { matchCompany, matchCreated, matchClient, matchAnyField }
-          });
-        }
-        
-        return matches;
-      });
-      
-      console.log('Filtered jobs for client:', clientJobs);
-      console.log('Client jobs count:', clientJobs.length);
-        setJobs(clientJobs);
-      
-      if (clientJobs.length === 0) {
-        console.log('No jobs found for client:', clientId);
-        console.log('Showing all jobs for debugging...');
-        // Temporarily show all jobs for debugging
-        setJobs(allJobs.slice(0, 10)); // Show first 10 jobs
-        setError('Debug: Showing all jobs since none match your client ID. Check console for details.');
-      }
+    setJobsLoading(true);
+    try {
+      // Fetch jobs for this specific client
+      const response = await axios.get(`${API_URL}/jobs/client/${clientId}`);
+      setJobs(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      console.error('Error details:', error.response?.data);
-      setError('Failed to load jobs for quote creation. Please check your connection and try again.');
+      setError('Failed to load jobs for quote creation.');
     } finally {
       setJobsLoading(false);
     }

@@ -31,6 +31,7 @@ import {
 import { Badge } from "@/components/UI/badge";
 import { API_ENDPOINTS } from '@/lib/apiConfig';
 import { Search, Edit, Save, X, UserCheck, Mail } from 'lucide-react';
+import SearchableClientSelect from '@/components/UI/SearchableClientSelect';
 
 const ClientNameManager = () => {
   const [clients, setClients] = useState([]);
@@ -202,23 +203,15 @@ const ClientNameManager = () => {
                   onChange={(e) => setNewMapping({...newMapping, username: e.target.value})}
                   placeholder="johnsmith"
                 />
-              </div>
-
-              <div className="grid gap-2">
+              </div>              <div className="grid gap-2">
                 <Label htmlFor="clientSelect">Associated Client (Optional)</Label>
-                <select 
-                  id="clientSelect"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                <SearchableClientSelect
+                  clients={clients}
                   value={newMapping.clientUuid}
-                  onChange={(e) => setNewMapping({...newMapping, clientUuid: e.target.value})}
-                >
-                  <option value="">Select a client...</option>
-                  {clients.map(client => (
-                    <option key={client.uuid} value={client.uuid}>
-                      {client.name} ({client.uuid})
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(value) => setNewMapping({...newMapping, clientUuid: value})}
+                  placeholder="Select a client..."
+                  isLoading={isLoading}
+                />
               </div>
             </div>
             

@@ -57,8 +57,7 @@ const LoginPage = () => {
   const handleAdminSubmit = (e) => {
     e.preventDefault();
     window.location.href = API_ENDPOINTS.AUTH.SERVICE_M8;
-  };
-  const handleClientSubmit = async (e) => {
+  };  const handleClientSubmit = async (e) => {
     e.preventDefault();
     if (email === "" || password === "") {
       alert("Please fill in all fields.");
@@ -81,7 +80,11 @@ const LoginPage = () => {
       }
     } catch (error) {
       console.error("Error during login:", error);
-      if (error.response?.status === 401) {
+      
+      // Handle specific error codes for deactivated accounts
+      if (error.response?.status === 403 && error.response?.data?.code === 'ACCOUNT_DEACTIVATED') {
+        alert("Your account has been deactivated. Please contact support for assistance.");
+      } else if (error.response?.status === 401) {
         alert("Invalid email or password. Please try again.");
       } else {
         alert("An error occurred during login. Please try again later.");

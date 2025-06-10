@@ -14,6 +14,7 @@ import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
 import { ClientPermissionProvider } from '@/hooks/useClientPermissions'
 import EnterprisePermissionHandler from '@/components/client/EnterprisePermissionHandler'
+import setupAuthInterceptor, { addClientUuidHeader, removeClientUuidHeader } from '@/utils/authInterceptor'
 import logo from '../../assets/logo.jpg'
 
 const ClientLayout = () => {
@@ -29,6 +30,10 @@ const ClientLayout = () => {
                 const clientData = JSON.parse(storedClientData);
                 setClientId(clientData.uuid);
                 setClientName(clientData.name || 'Client User');
+                
+                // Set up auth interceptor and client UUID header
+                setupAuthInterceptor(navigate);
+                addClientUuidHeader();
             } catch (error) {
                 console.error('Error parsing client data:', error);
                 // If parsing fails, redirect to login
@@ -38,6 +43,11 @@ const ClientLayout = () => {
             // If no client data is found, redirect to login
             navigate('/login');
         }
+        
+        // Cleanup function to remove headers when component unmounts
+        return () => {
+            removeClientUuidHeader();
+        };
     }, [navigate]);
 
     // User data with actual client name
@@ -53,11 +63,14 @@ const ClientLayout = () => {
         { name: 'Invoices', href: '/client/invoices' },
         { name: 'Support', href: '/client/support' },
         { name: 'Settings', href: '/client/settings' }
-    ];
-
-    const handleLogout = () => {
+    ];    const handleLogout = () => {
+        // Remove client UUID header before logout
+        removeClientUuidHeader();
+        
         // Clear client data from localStorage
         localStorage.removeItem('client_data');
+        localStorage.removeItem('client_email');
+        
         // Navigate to login page
         navigate('/login');
     }

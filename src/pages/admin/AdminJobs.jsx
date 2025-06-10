@@ -1157,9 +1157,8 @@ const AdminJobs = () => {
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
               </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <Label className="font-bold text-sm md:text-base text-blue-800">Client Information</Label>
-                  <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>                  <div className="flex justify-between items-center mt-1">
-                    <p className="text-xs text-gray-500">Job Number: {formatJobNumber(selectedJob.uuid)}</p>
-                    <p className="text-xs text-gray-500">Full UUID: {selectedJob.uuid}</p>
+                  <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>
+                  <div className="mt-1">
                   </div>
                 </div>
 
