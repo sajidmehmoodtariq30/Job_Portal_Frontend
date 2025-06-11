@@ -144,6 +144,9 @@ const SearchableClientSelect = ({ clients, value, onValueChange, placeholder = "
                         <div className="text-sm font-medium text-gray-900">
                           {client.name || 'Unnamed Client'}
                         </div>
+                        <div className="text-xs text-gray-500">
+                          ID: {client.uuid.slice(-8)}
+                        </div>
                       </div>
                     </div>
                   ))
