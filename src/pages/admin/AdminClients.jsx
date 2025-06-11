@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/UI/tabs";
 import { API_ENDPOINTS } from '@/lib/apiConfig';
 import { Skeleton } from "@/components/UI/skeleton";
 import ClientPermissionSelector from "@/components/admin/ClientPermissionSelector";
+import EditUsernameDialog from "@/components/admin/EditUsernameDialog";
 import { CLIENT_PERMISSION_TEMPLATES } from '@/types/clientPermissions';
 
 const AdminClients = () => {
@@ -47,6 +48,39 @@ const AdminClients = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState({}); // Track which clients are being updated
+  // Helper function to format client number from UUID (similar to job numbers)
+  const formatClientNumber = (uuid) => {
+    if (!uuid) return 'N/A';
+    
+    // If we already have a formatted client ID (numeric format), use it directly
+    if (/^\d+$/.test(uuid)) {
+      return uuid;
+    }
+    
+    // Extract only numeric digits from UUID
+    const numericDigits = uuid.replace(/[^0-9]/g, '');
+    
+    // Create a consistent format number similar to job numbers
+    const clientNumber = numericDigits.padStart(8, '0').slice(0, 8);
+    return `${clientNumber}`;
+  };
+
+  // Helper function to format date for display - removes the time part
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    if (dateString === '0000-00-00 00:00:00') return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -115,9 +149,14 @@ const AdminClients = () => {
   const handleShowMore = () => {
     setVisibleClients((prev) => prev + 5);
   };
-
   const handleShowLess = () => {
     setVisibleClients((prev) => Math.max(prev - 5, 5));
+  };
+
+  const handleUsernameAssignSuccess = (data) => {
+    console.log('Username assigned successfully:', data);
+    // You could refresh the client list here if needed
+    // handleRefresh();
   };
 
   const handleRefresh = async () => {
@@ -199,13 +238,19 @@ const AdminClients = () => {
 
   return (
     <div className="space-y-6">
-      <div className='flex flex-col gap-4'>
-        <div className="flex justify-between items-center">
+      <div className='flex flex-col gap-4'>        <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Client Management</h1>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>Add New Client</Button>
-            </DialogTrigger>            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <div className="flex gap-3">
+            <EditUsernameDialog 
+              clients={clients}
+              isLoading={isLoading}
+              onSuccess={handleUsernameAssignSuccess}            />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>Add New Client</Button>
+              </DialogTrigger>
+              
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
                 <DialogDescription>
@@ -316,11 +361,11 @@ const AdminClients = () => {
                     ) : (
                       'Create Client'
                     )}
-                  </Button>
-                </DialogFooter>
+                  </Button>                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
         
         <Card>
@@ -355,21 +400,23 @@ const AdminClients = () => {
                 <>                  <table className="hidden md:table w-full text-sm">
                     <thead>
                       <tr className="border-b">
-                        <th className="py-3 text-left">S.No</th>
+                        <th className="py-3 text-left">Client Number</th>
                         <th className="py-3 text-left">Name</th>
                         <th className="py-3 text-left">Address</th>
                         <th className="py-3 text-left">Edit Date</th>
                         <th className="py-3 text-left">Access Control</th>
                         <th className="py-3 text-left">Actions</th>
                       </tr>
-                    </thead>
-                    <tbody>
+                    </thead>                    <tbody>
                       {displayedClients.map((client, index) => (
                         <tr key={client.uuid} className="border-b">
-                          <td className="py-3">{index + 1}</td>
-                          <td className="py-3">{client.name || '...'}</td>
+                          <td className="py-3">
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                              {formatClientNumber(client.uuid)}
+                            </span>
+                          </td>                          <td className="py-3">{client.name || '...'}</td>
                           <td className="py-3">{client.address || '...'}</td>
-                          <td className="py-3">{client.edit_date || '...'}</td>
+                          <td className="py-3">{formatDate(client.edit_date)}</td>
                           <td className="py-3">
                             <div className="flex items-center space-x-2">
                               <Switch
@@ -403,10 +450,13 @@ const AdminClients = () => {
                   </table>                  <div className="md:hidden space-y-4">
                     {displayedClients.map((client, index) => (
                       <div key={client.uuid} className="border p-4 rounded shadow">
-                        <p><strong>S.No:</strong> {index + 1}</p>
-                        <p><strong>Name:</strong> {client.name || '...'}</p>
+                        <p><strong>Client Number:</strong> 
+                          <span className="ml-2 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                            {formatClientNumber(client.uuid)}
+                          </span>
+                        </p>                        <p><strong>Name:</strong> {client.name || '...'}</p>
                         <p><strong>Address:</strong> {client.address || '...'}</p>
-                        <p><strong>Edit Date:</strong> {client.edit_date || '...'}</p>
+                        <p><strong>Edit Date:</strong> {formatDate(client.edit_date)}</p>
                         <div className="flex items-center justify-between mt-2">
                           <strong>Access Control:</strong>
                           <div className="flex items-center space-x-2">
@@ -453,8 +503,13 @@ const AdminClients = () => {
               <DialogHeader>
                 <DialogTitle>Client Details</DialogTitle>
                 <DialogDescription>View all the details of the selected client.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
+              </DialogHeader>              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-gray-700">Client Number:</span>
+                  <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                    {formatClientNumber(selectedClient.uuid)}
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-gray-700">Client ID:</span>
                   <span className="text-gray-900">{selectedClient.uuid || 'Not Provided'}</span>
@@ -480,7 +535,7 @@ const AdminClients = () => {
                   <span className="text-gray-900">{selectedClient.address_country || 'Not Provided'}</span>
                 </div>                <div className="flex justify-between">
                   <span className="font-semibold text-gray-700">Edit Date:</span>
-                  <span className="text-gray-900">{selectedClient.edit_date || 'Not Provided'}</span>
+                  <span className="text-gray-900">{formatDate(selectedClient.edit_date)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-700">Access Status:</span>
