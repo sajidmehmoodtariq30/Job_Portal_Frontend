@@ -40,6 +40,7 @@ import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
 import { useSites } from '@/hooks/useSites';
+import { useAllSites } from '@/hooks/useAllSites';
 
 const ClientHome = () => {
   const navigate = useNavigate();
@@ -47,18 +48,19 @@ const ClientHome = () => {
   const [dashboardData, setDashboardData] = useState({
     stats: {},
     jobs: [],
-    quotes: [],
-    upcomingServices: [],
+    quotes: [],    upcomingServices: [],
     recentActivity: []
-  });  const [loading, setLoading] = useState(true);
+  });
+  
+  const [loading, setLoading] = useState(true);
   const [dataRefreshing, setDataRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
-  const [clientName, setClientName] = useState('');
-    // Get client data from localStorage
+  const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');  const [clientName, setClientName] = useState('');
+  
+  // Get client data from localStorage
   const getClientData = () => {
     const clientData = localStorage.getItem('client_data');
     if (clientData) {
@@ -72,18 +74,64 @@ const ClientHome = () => {
     return null;
   };
 
+  // Notification persistence functions
+  const getReadNotificationIds = () => {
+    try {
+      const stored = localStorage.getItem('readNotificationIds');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (error) {
+      console.error('Error loading read notification IDs:', error);
+      return new Set();
+    }
+  };
+
+  const saveReadNotificationIds = (ids) => {
+    try {
+      localStorage.setItem('readNotificationIds', JSON.stringify([...ids]));
+    } catch (error) {
+      console.error('Error saving read notification IDs:', error);
+    }
+  };
+
+  const getClearedNotificationIds = () => {
+    try {
+      const stored = localStorage.getItem('clearedNotificationIds');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch (error) {
+      console.error('Error loading cleared notification IDs:', error);
+      return new Set();
+    }
+  };
+
+  const saveClearedNotificationIds = (ids) => {
+    try {
+      localStorage.setItem('clearedNotificationIds', JSON.stringify([...ids]));
+    } catch (error) {
+      console.error('Error saving cleared notification IDs:', error);
+    }
+  };
   const clientData = getClientData();
   // Get client ID from localStorage with fallbacks
   const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
-    // Use the sites hook for managing sites
+  
+  // Use the global sites hook to show all sites in dropdown
   const { 
-    sites, 
-    currentSite, 
+    sites: allSites, 
     loading: sitesLoading, 
     error: sitesError, 
-    changeSite,
-    fetchSites
-  } = useSites(clientId);
+    fetchAllSites
+  } = useAllSites();
+  
+  // Keep track of current site selection
+  const [currentSite, setCurrentSite] = useState(null);
+  
+  // Change site function
+  const changeSite = (site) => {
+    setCurrentSite(site);
+  };
+  
+  // Use all sites for the dropdown
+  const sites = allSites;
     // Debugging - check what client ID we have
   useEffect(() => {
     console.log('Current clientData:', clientData);
@@ -107,89 +155,10 @@ const ClientHome = () => {
       } else {
         setWelcomeMessage('Welcome back');
         setClientName('');
-      }
-    };
+      }    };
     
     fetchClientInfo();
   }, [clientData, clientId]);
-  
-  // Fetch dashboard data from the backend
-  const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {
-    if (showRefreshIndicator) {
-      setDataRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    
-    setError(null);
-    
-    try {
-      // Call our new backend endpoint for dashboard stats with the correct path prefix '/fetch'
-      // Fall back to a generic endpoint if no clientId is available
-      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId || 'default'}`);
-      setDashboardData(response.data);
-      
-      // Only fetch notifications if we have a valid clientId
-      if (clientId) {
-        try {
-          const notificationsResponse = await axios.get(`${API_URL}/api/notifications?clientId=${clientId}`);
-          setNotifications(Array.isArray(notificationsResponse.data) ? notificationsResponse.data : []);
-        } catch (notificationErr) {
-          console.warn('Error fetching notifications:', notificationErr);
-          // Don't let notification failure block the whole dashboard
-        }
-      }
-      
-      // Set last updated timestamp
-      setLastUpdated(new Date());
-      
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data. Please try refreshing.');
-      
-      // If API fails, load mock data for development purposes
-      loadMockData();
-    } finally {
-      setLoading(false);
-      setDataRefreshing(false);
-    }
-  }, [clientId]);
-    // Initial data loading
-  useEffect(() => {
-    fetchDashboardData(false);
-    
-    // Set up interval for real-time updates
-    const intervalId = setInterval(() => {
-      fetchDashboardData(true);
-    }, 60000); // Refresh every minute
-    
-    return () => clearInterval(intervalId);
-  }, [fetchDashboardData]);
-
-  // Add visibility change listener to refresh sites when user navigates back to dashboard
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Page is now visible, refresh sites data
-        fetchSites();
-      }
-    };
-
-    const handleFocus = () => {
-      // Window regained focus, refresh sites data
-      fetchSites();
-    };
-
-    // Add event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      // Cleanup event listeners
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [fetchSites]);
   
   // For demo purposes, if API is not available, load mock data
   const loadMockData = () => {
@@ -254,32 +223,33 @@ const ClientHome = () => {
       quotes: [
         {
           id: 'JOB-2025-0422',
-          quoteNumber: 'QUOTE-2025-0422',
+          jobNumber: 'JOB-2025-0422',
           title: 'Security System Upgrade',
-          status: 'Quote',
-          date: '2025-04-14',
-          dueDate: '2025-04-25',
+          totalAmount: 4850.00,
+          status: 'Pending',
+          date: '2025-04-13',
           type: 'Quote',
-          price: "4850.00",
-          description: 'Upgrade existing security cameras to 4K resolution',
-          location: 'Warehouse',
-          attachments: 1
+          description: 'Comprehensive security system upgrade including cameras, access control',
+          assignedTech: 'Technical Team',
+          location: 'All Locations'
         }
       ],
       upcomingServices: [
         { 
-          id: 1, 
-          title: 'Surveillance System Maintenance', 
+          id: 'SVC-001', 
+          title: 'Network Maintenance', 
           date: '2025-04-20', 
-          technician: 'Miguel Rodriguez', 
-          location: 'Branch Office' 
+          time: '10:00 AM',
+          location: 'Main Office',
+          tech: 'Alex Johnson'
         },
         { 
-          id: 2, 
-          title: 'Network Performance Review', 
-          date: '2025-04-28', 
-          technician: 'Alex Johnson', 
-          location: 'Main Office' 
+          id: 'SVC-002', 
+          title: 'Security Check', 
+          date: '2025-04-22', 
+          time: '2:00 PM',
+          location: 'Branch Office',
+          tech: 'Sarah Davis'
         }
       ],
       recentActivity: [
@@ -294,20 +264,117 @@ const ClientHome = () => {
     setDashboardData(mockData);
     
     // Mock notifications
-    setNotifications([
+    const mockNotifications = [
       { id: 1, type: 'quote', message: 'New quote available for Security System Upgrade', time: '2 hours ago', read: false },
       { id: 2, type: 'schedule', message: 'Technician scheduled for Apr 20', time: '1 day ago', read: true },
       { id: 3, type: 'job', message: 'Digital Signage Installation completed', time: '2 days ago', read: true },
-    ]);
+    ];
+    
+    // Apply stored read states and filter out cleared notifications for mock data
+    const readIds = getReadNotificationIds();
+    const clearedIds = getClearedNotificationIds();
+    const notificationsWithReadState = mockNotifications
+      .filter(notification => !clearedIds.has(notification.id)) // Don't show cleared notifications
+      .map(notification => ({
+        ...notification,
+        read: readIds.has(notification.id) || notification.read
+      }));
+    
+    setNotifications(notificationsWithReadState);
     
     setLastUpdated(new Date());
   };
-  
+
+  // Fetch dashboard data from the backend
+  const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {
+    if (showRefreshIndicator) {
+      setDataRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    
+    setError(null);
+    
+    try {
+      // Call our new backend endpoint for dashboard stats with the correct path prefix '/fetch'
+      // Fall back to a generic endpoint if no clientId is available
+      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId || 'default'}`);
+      setDashboardData(response.data);
+        // Only fetch notifications if we have a valid clientId
+      if (clientId) {
+        try {
+          const notificationsResponse = await axios.get(`${API_URL}/api/notifications?clientId=${clientId}`);
+          const fetchedNotifications = Array.isArray(notificationsResponse.data) ? notificationsResponse.data : [];          // Apply stored read states and filter out cleared notifications
+          const readIds = getReadNotificationIds();
+          const clearedIds = getClearedNotificationIds();
+          const notificationsWithReadState = fetchedNotifications
+            .filter(notification => !clearedIds.has(notification.id)) // Don't show cleared notifications
+            .map(notification => ({
+              ...notification,
+              read: readIds.has(notification.id) || notification.read
+            }));
+          
+          setNotifications(notificationsWithReadState);
+        } catch (notificationErr) {
+          console.warn('Error fetching notifications:', notificationErr);
+          // Don't let notification failure block the whole dashboard
+        }
+      }
+      
+      // Set last updated timestamp
+      setLastUpdated(new Date());
+      
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. Please try refreshing.');
+      
+      // If API fails, load mock data for development purposes
+      loadMockData();
+    } finally {
+      setLoading(false);
+      setDataRefreshing(false);
+    }
+  }, [clientId]);
+    // Initial data loading
+  useEffect(() => {
+    fetchDashboardData(false);
+    
+    // Set up interval for real-time updates
+    const intervalId = setInterval(() => {
+      fetchDashboardData(true);
+    }, 60000); // Refresh every minute
+    
+    return () => clearInterval(intervalId);
+  }, [fetchDashboardData]);
+  // Add visibility change listener to refresh sites when user navigates back to dashboard
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page is now visible, refresh sites data
+        fetchAllSites();
+      }
+    };
+
+    const handleFocus = () => {
+      // Window regained focus, refresh sites data
+      fetchAllSites();
+    };
+
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);    return () => {
+      // Cleanup event listeners
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchAllSites]);
+
   // Handle manual refresh
   const handleRefresh = () => {
     fetchDashboardData(true);
   };
-    const getStatusColor = (status) => {
+
+  const getStatusColor = (status) => {
     switch(status) {
       case 'In Progress': return 'bg-purple-600 text-white';
       case 'Quote': return 'bg-orange-500 text-white';
@@ -318,6 +385,7 @@ const ClientHome = () => {
       default: return 'bg-gray-600 text-white';
     }
   };
+  
   const getActivityIcon = (type) => {
     switch(type) {
       case 'job_created': return <FileText className="text-blue-500" />;
@@ -328,9 +396,35 @@ const ClientHome = () => {
       default: return <AlertCircle className="text-gray-500" />;
     }
   };
-  
+
   const markAllNotificationsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    const readIds = getReadNotificationIds();
+    const updatedNotifications = notifications.map(n => {
+      readIds.add(n.id);
+      return { ...n, read: true };
+    });
+    
+    setNotifications(updatedNotifications);
+    saveReadNotificationIds(readIds);
+  };
+  // Helper function to mark individual notification as read
+  const markNotificationRead = (notificationId) => {
+    const readIds = getReadNotificationIds();
+    readIds.add(notificationId);
+    
+    const updatedNotifications = notifications.map(n => 
+      n.id === notificationId ? { ...n, read: true } : n
+    );
+    
+    setNotifications(updatedNotifications);
+    saveReadNotificationIds(readIds);
+  };
+  // Helper function to clear all notifications
+  const clearAllNotifications = () => {
+    const clearedIds = getClearedNotificationIds();
+    notifications.forEach(n => clearedIds.add(n.id));
+      setNotifications([]);
+    saveClearedNotificationIds(clearedIds);
   };
 
   // Extract data from the dashboard data object for easier use
@@ -339,7 +433,8 @@ const ClientHome = () => {
   return (
     <div className="space-y-6">
       {/* Header with welcome message, notifications and site selector */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">        <div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
           <h1 className="text-3xl font-bold">{welcomeMessage}</h1>
           <p className="text-muted-foreground mt-1">
             Here's what's happening with your services today
@@ -348,11 +443,11 @@ const ClientHome = () => {
                 (Last updated: {lastUpdated.toLocaleTimeString()})
                 {dataRefreshing && <Loader2 className="ml-1 h-3 w-3 inline animate-spin" />}
               </span>
-            )}
-          </p>
+            )}          </p>
         </div>
-          <div className="flex items-center gap-4">
-          <Select 
+        
+        <div className="flex items-center gap-4">
+          <Select
             value={currentSite?.id || ''} 
             onValueChange={(siteId) => {
               const selectedSite = sites.find(site => site.id === siteId);
@@ -363,8 +458,7 @@ const ClientHome = () => {
             <SelectTrigger className="w-[180px]">
               <Building size={16} className="mr-2" />
               <SelectValue placeholder={sitesLoading ? "Loading sites..." : "Select site"} />
-            </SelectTrigger>
-            <SelectContent>
+            </SelectTrigger>            <SelectContent>
               {sitesLoading ? (
                 <SelectItem value="loading" disabled>Loading sites...</SelectItem>
               ) : sites.length > 0 ? (
@@ -372,6 +466,11 @@ const ClientHome = () => {
                   <SelectItem key={site.id} value={site.id}>
                     <div className="flex items-center gap-2">
                       <span>{site.name}</span>
+                      {site.clientId && site.clientId !== clientId && (
+                        <Badge variant="outline" className="text-xs">
+                          Other Client
+                        </Badge>
+                      )}
                       {site.isDefault && (
                         <Badge variant="secondary" className="text-xs">Default</Badge>
                       )}
@@ -395,17 +494,24 @@ const ClientHome = () => {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="flex justify-between items-center">
+            <DropdownMenuContent align="end" className="w-80">              <DropdownMenuLabel className="flex justify-between items-center">
                 <span>Notifications</span>
-                <Button variant="ghost" size="sm" onClick={markAllNotificationsRead}>
-                  Mark all read
-                </Button>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={markAllNotificationsRead}>
+                    Mark all read
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
+                    Clear all
+                  </Button>
+                </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {notifications.length > 0 ? (
+              <DropdownMenuSeparator />              {notifications.length > 0 ? (
                 notifications.map(notification => (
-                  <DropdownMenuItem key={notification.id} className={`p-3 ${!notification.read ? 'bg-muted/50' : ''}`}>
+                  <DropdownMenuItem 
+                    key={notification.id} 
+                    className={`p-3 ${!notification.read ? 'bg-muted/50' : ''}`}
+                    onClick={() => !notification.read && markNotificationRead(notification.id)}
+                  >
                     <div className="flex gap-3 items-start">
                       {notification.type === 'quote' && <FileText className="text-amber-500" size={20} />}
                       {notification.type === 'schedule' && <Calendar className="text-purple-500" size={20} />}
@@ -500,9 +606,6 @@ const ClientHome = () => {
                 <div className="text-3xl font-bold">
                   {quotes.length}
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  ${quotes.reduce((sum, quote) => sum + parseFloat(quote.price?.replace(/[$,]/g, '') || 0), 0).toLocaleString()} total value
-                </p>
               </>
             )}
           </CardContent>

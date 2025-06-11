@@ -48,9 +48,9 @@ export const API_ENDPOINTS = {  AUTH: {
       GET_BY_EMAIL: (email) => buildApiEndpoint(`fetch/clients/mappings/by-email/${email}`)
     }
   },
-
   SITES: {
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
+    GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // New endpoint for all sites
     CREATE: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     UPDATE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
     DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),

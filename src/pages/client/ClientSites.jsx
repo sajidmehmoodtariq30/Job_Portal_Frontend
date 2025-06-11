@@ -38,8 +38,12 @@ import { Textarea } from "@/components/UI/textarea";
 import { Badge } from "@/components/UI/badge";
 import { Switch } from "@/components/UI/switch";
 import { useSites } from '@/hooks/useSites';
+import { useAllSites } from '@/hooks/useAllSites';
 
 const SiteManagement = () => {
+  // Toggle between client-specific and global sites view
+  const [showAllSites, setShowAllSites] = useState(false);
+  
   // Get client data from localStorage (same method as ClientHome)
   const getClientData = () => {
     const clientData = localStorage.getItem('client_data');
@@ -58,11 +62,12 @@ const SiteManagement = () => {
   // Get client ID from localStorage with fallbacks (same as ClientHome)
   const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
   
+  // Client-specific sites hook
   const { 
-    sites, 
+    sites: clientSites, 
     currentSite, 
-    loading, 
-    error, 
+    loading: clientSitesLoading, 
+    error: clientSitesError, 
     fetchSites, 
     createSite, 
     updateSite, 
@@ -70,6 +75,24 @@ const SiteManagement = () => {
     setDefaultSite,
     changeSite 
   } = useSites(clientId);
+
+  // Global sites hook
+  const {
+    sites: allSites,
+    loading: allSitesLoading,
+    error: allSitesError,
+    fetchAllSites,
+    searchSites,
+    getSitesGroupedByClient,
+    getActiveSites,
+    totalSites
+  } = useAllSites();
+
+  // Use appropriate data based on toggle
+  const sites = showAllSites ? allSites : clientSites;
+  const loading = showAllSites ? allSitesLoading : clientSitesLoading;
+  const error = showAllSites ? allSitesError : clientSitesError;
+  const refreshSites = showAllSites ? fetchAllSites : fetchSites;
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -200,14 +223,13 @@ const SiteManagement = () => {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
         <h3 className="text-lg font-medium text-red-900 mb-2">Error loading sites</h3>
         <p className="text-red-700 mb-4">{error}</p>
-        <Button onClick={fetchSites} variant="outline">
+        <Button onClick={refreshSites} variant="outline">
           Try Again
         </Button>
       </div>
@@ -220,95 +242,113 @@ const SiteManagement = () => {
         <div>
           <h1 className="text-3xl font-bold">Site Management</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your business locations and sites
+            {showAllSites 
+              ? `Viewing all sites from all clients (${totalSites} total)` 
+              : 'Manage your business locations and sites'
+            }
           </p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Site
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Site</DialogTitle>
-              <DialogDescription>
-                Create a new site for your business locations.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateSite} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Site Name *</Label>
-                <Input
-                  id="name"
-                  value={newSiteData.name}
-                  onChange={(e) => handleNewSiteChange('name', e.target.value)}
-                  placeholder="e.g., Main Office, Warehouse, Branch Office"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={newSiteData.address}
-                  onChange={(e) => handleNewSiteChange('address', e.target.value)}
-                  placeholder="Full address of the site"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newSiteData.description}
-                  onChange={(e) => handleNewSiteChange('description', e.target.value)}
-                  placeholder="Optional description of this site"
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="isDefault"
-                  checked={newSiteData.isDefault}
-                  onCheckedChange={(checked) => handleNewSiteChange('isDefault', checked)}
-                />
-                <Label htmlFor="isDefault">Set as default site</Label>
-              </div>
-              
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsCreateDialogOpen(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
+        <div className="flex items-center gap-4">
+          {/* Toggle between client sites and all sites */}
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-all-sites"
+              checked={showAllSites}
+              onCheckedChange={setShowAllSites}
+            />
+            <Label htmlFor="show-all-sites" className="text-sm">
+              Show all sites
+            </Label>
+          </div>
+          
+          {/* Only show create button for client-specific sites */}
+          {!showAllSites && (
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add New Site
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Site'
-                  )}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Sites Grid */}
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Site</DialogTitle>
+                  <DialogDescription>
+                    Create a new site for your business locations.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateSite} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Site Name *</Label>
+                    <Input
+                      id="name"
+                      value={newSiteData.name}
+                      onChange={(e) => handleNewSiteChange('name', e.target.value)}
+                      placeholder="e.g., Main Office, Warehouse, Branch Office"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      value={newSiteData.address}
+                      onChange={(e) => handleNewSiteChange('address', e.target.value)}
+                      placeholder="Full address of the site"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newSiteData.description}
+                      onChange={(e) => handleNewSiteChange('description', e.target.value)}
+                      placeholder="Optional description of this site"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="isDefault"
+                      checked={newSiteData.isDefault}
+                      onCheckedChange={(checked) => handleNewSiteChange('isDefault', checked)}
+                    />
+                    <Label htmlFor="isDefault">Set as default site</Label>
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsCreateDialogOpen(false)}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Site'
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>      {/* Sites Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sites.map((site) => (
-          <Card key={site.id} className={`relative ${site.id === currentSite?.id ? 'ring-2 ring-primary' : ''}`}>
+          <Card key={`${site.clientId || 'unknown'}-${site.id}`} className={`relative ${!showAllSites && site.id === currentSite?.id ? 'ring-2 ring-primary' : ''}`}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
@@ -322,9 +362,15 @@ const SiteManagement = () => {
                       Default
                     </Badge>
                   )}
-                  {site.id === currentSite?.id && (
+                  {!showAllSites && site.id === currentSite?.id && (
                     <Badge variant="default" className="text-xs">
                       Current
+                    </Badge>
+                  )}
+                  {/* Show client info when viewing all sites */}
+                  {showAllSites && site.clientId && (
+                    <Badge variant="outline" className="text-xs">
+                      Client: {site.clientId.substring(0, 8)}...
                     </Badge>
                   )}
                 </div>
@@ -343,78 +389,97 @@ const SiteManagement = () => {
                 <p className="text-sm text-muted-foreground">{site.description}</p>
               )}
               
+              {/* Show client info in global view */}
+              {showAllSites && site.clientId && (
+                <div className="p-2 bg-muted rounded text-xs">
+                  <strong>Client ID:</strong> {site.clientId}
+                </div>
+              )}
+              
               <div className="flex flex-wrap gap-2 pt-2">
-                {site.id !== currentSite?.id && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => changeSite(site)}
-                  >
-                    <Check className="h-3 w-3 mr-1" />
-                    Select
-                  </Button>
-                )}
-                
-                {!site.isDefault && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleSetDefault(site.id)}
-                    disabled={actionLoading[`default-${site.id}`]}
-                  >
-                    {actionLoading[`default-${site.id}`] ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    ) : (
-                      <Star className="h-3 w-3 mr-1" />
-                    )}
-                    Set Default
-                  </Button>
-                )}
-                
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => openEditDialog(site)}
-                >
-                  <Edit className="h-3 w-3 mr-1" />
-                  Edit
-                </Button>
-                
-                {sites.length > 1 && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                {/* Only show action buttons for client-specific view */}
+                {!showAllSites && (
+                  <>
+                    {site.id !== currentSite?.id && (
                       <Button 
                         size="sm" 
-                        variant="destructive"
-                        disabled={actionLoading[`delete-${site.id}`]}
+                        variant="outline"
+                        onClick={() => changeSite(site)}
                       >
-                        {actionLoading[`delete-${site.id}`] ? (
+                        <Check className="h-3 w-3 mr-1" />
+                        Select
+                      </Button>
+                    )}
+                    
+                    {!site.isDefault && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleSetDefault(site.id)}
+                        disabled={actionLoading[`default-${site.id}`]}
+                      >
+                        {actionLoading[`default-${site.id}`] ? (
                           <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         ) : (
-                          <Trash2 className="h-3 w-3 mr-1" />
+                          <Star className="h-3 w-3 mr-1" />
                         )}
-                        Delete
+                        Set Default
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Site</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{site.name}"? This action cannot be undone.
-                          {site.isDefault && " This is your default site."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDeleteSite(site.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Delete Site
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    )}
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => openEditDialog(site)}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                    
+                    {sites.length > 1 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            disabled={actionLoading[`delete-${site.id}`]}
+                          >
+                            {actionLoading[`delete-${site.id}`] ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <Trash2 className="h-3 w-3 mr-1" />
+                            )}
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Site</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{site.name}"? This action cannot be undone.
+                              {site.isDefault && " This is your default site."}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteSite(site.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete Site
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </>
+                )}
+                
+                {/* Read-only badge for global view */}
+                {showAllSites && (
+                  <Badge variant="secondary" className="text-xs">
+                    View Only
+                  </Badge>
                 )}
               </div>
             </CardContent>
@@ -506,20 +571,25 @@ const SiteManagement = () => {
             </div>
           </form>
         </DialogContent>
-      </Dialog>
-
-      {sites.length === 0 && (
+      </Dialog>      {sites.length === 0 && (
         <Card className="text-center py-12">
           <CardContent>
             <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No sites found</h3>
+            <h3 className="text-lg font-medium mb-2">
+              {showAllSites ? 'No sites found across all clients' : 'No sites found'}
+            </h3>
             <p className="text-muted-foreground mb-4">
-              Create your first site to get started with managing your business locations.
+              {showAllSites 
+                ? 'There are no sites created by any clients yet.' 
+                : 'Create your first site to get started with managing your business locations.'
+              }
             </p>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Your First Site
-            </Button>
+            {!showAllSites && (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Site
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

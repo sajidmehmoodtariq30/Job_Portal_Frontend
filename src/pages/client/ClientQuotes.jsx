@@ -83,15 +83,29 @@ const ClientQuotes = () => {
     description: '',
     items: [{ description: '', quantity: 1, price: 0 }]
   });
-  
-  // Get client ID from localStorage
-  const clientId = localStorage.getItem('client_id');
-  
-  // Load quotes data
+    // Get client data from localStorage - same method as other components  
+  const getClientData = () => {
+    const clientData = localStorage.getItem('client_data');
+    if (clientData) {
+      try {
+        return JSON.parse(clientData);
+      } catch (error) {
+        console.error('Error parsing client data:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const clientData = getClientData();
+  // Get client ID from localStorage with fallbacks (same as ClientHome)
+  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+    // Load quotes data
   useEffect(() => {
     if (clientId) {
       fetchQuotes();
     } else {
+      console.error('Client ID not found. Client data:', clientData);
       setError('Client data not found. Please log in again.');
       setLoading(false);
     }
@@ -103,22 +117,26 @@ const ClientQuotes = () => {
       setSearchQuery(activeFilters.search || '');
     }
   }, [activeFilters.search]);
-  
-  // Fetch quotes from API
+    // Fetch quotes from API
   const fetchQuotes = async () => {
     if (!clientId) {
+      console.error('Client ID not found during fetch. Client data:', clientData);
       setError('Client ID not found. Please log in again.');
       setLoading(false);
       return;
     }
     
+    console.log('Fetching quotes for client ID:', clientId);
     setLoading(true);
     try {
       const response = await axios.get(`${API_URL}/api/quotes?clientId=${clientId}`);
+      console.log('Quotes API response:', response.data);
       setQuotes(Array.isArray(response.data) ? response.data : []);
+      setError(null); // Clear any previous errors
     } catch (error) {
       console.error('Error fetching quotes:', error);
-      setError('Failed to load quotes. Please try again later.');
+      console.error('API URL used:', `${API_URL}/api/quotes?clientId=${clientId}`);
+      setError(`Failed to load quotes. Please try again later. (${error.response?.status || 'Network Error'})`);
     } finally {
       setLoading(false);
     }  };
