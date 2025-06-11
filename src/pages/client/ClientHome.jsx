@@ -15,7 +15,7 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "../../components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/UI/card";
 import { 
@@ -44,6 +44,8 @@ import { useAllSites } from '@/hooks/useAllSites';
 
 const ClientHome = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
   // State variables
   const [dashboardData, setDashboardData] = useState({
     stats: {},
@@ -109,10 +111,20 @@ const ClientHome = () => {
     } catch (error) {
       console.error('Error saving cleared notification IDs:', error);
     }
-  };
-  const clientData = getClientData();
-  // Get client ID from localStorage with fallbacks
-  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  };  const clientData = getClientData();
+  
+  // Get client ID - Use localStorage client data as primary source
+  // Only use URL parameter if no client data in localStorage (for testing purposes)
+  const urlClientId = searchParams.get('clientId');
+  const clientId = clientData?.uuid || urlClientId || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  
+  // If URL has clientId, temporarily override localStorage to ensure consistency
+  useEffect(() => {
+    if (urlClientId && urlClientId !== clientData?.uuid) {
+      console.log('🔄 URL clientId detected, overriding localStorage temporarily:', urlClientId);
+      // Don't permanently change localStorage, just ensure our component uses URL parameter
+    }
+  }, [urlClientId, clientData]);
   
   // Use the global sites hook to show all sites in dropdown
   const { 
@@ -131,12 +143,15 @@ const ClientHome = () => {
   };
   
   // Use all sites for the dropdown
-  const sites = allSites;
-    // Debugging - check what client ID we have
+  const sites = allSites;  // Debugging - check what client ID we have
   useEffect(() => {
-    console.log('Current clientData:', clientData);
-    console.log('Current clientId:', clientId);
-  }, [clientData, clientId]);
+    console.log('🏠 DASHBOARD: Current clientData:', clientData);
+    console.log('🔗 DASHBOARD: URL clientId:', urlClientId);
+    console.log('🎯 DASHBOARD: Final clientId used:', clientId);
+    if (clientData?.name) {
+      console.log(`👤 DASHBOARD: Client name: ${clientData.name}`);
+    }
+  }, [clientData, urlClientId, clientId]);
     // Fetch client name and welcome message
   useEffect(() => {
     const fetchClientInfo = async () => {
@@ -329,13 +344,12 @@ const ClientHome = () => {
       setError('Failed to load dashboard data. Please try refreshing.');
       
       // If API fails, load mock data for development purposes
-      loadMockData();
-    } finally {
+      loadMockData();    } finally {
       setLoading(false);
       setDataRefreshing(false);
-    }
-  }, [clientId]);
-    // Initial data loading
+    }  }, [clientId]);
+    
+  // Initial data loading
   useEffect(() => {
     fetchDashboardData(false);
     
@@ -600,11 +614,10 @@ const ClientHome = () => {
               <>
                 <Skeleton className="h-8 w-16 mb-2" />
                 <Skeleton className="h-4 w-24" />
-              </>
-            ) : (
+              </>            ) : (
               <>
                 <div className="text-3xl font-bold">
-                  {quotes.length}
+                  {stats.pendingQuotes || 0}
                 </div>
               </>
             )}
@@ -700,14 +713,13 @@ const ClientHome = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
+                  <div>                    <div className="flex items-center justify-between mb-1">
                       <div className="text-sm font-medium">Quotes</div>
                       <div className="text-sm text-muted-foreground">
-                        {quotes.length}/{jobs.length} ({jobs.length ? Math.round(quotes.length/jobs.length*100) : 0}%)
+                        {stats.pendingQuotes || 0}/{jobs.length} ({jobs.length ? Math.round((stats.pendingQuotes || 0)/jobs.length*100) : 0}%)
                       </div>
                     </div>
-                    <Progress value={jobs.length ? quotes.length/jobs.length*100 : 0} className="h-2 bg-muted" />
+                    <Progress value={jobs.length ? (stats.pendingQuotes || 0)/jobs.length*100 : 0} className="h-2 bg-muted" />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
