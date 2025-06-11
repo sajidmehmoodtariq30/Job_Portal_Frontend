@@ -43,8 +43,7 @@ const AdminClients = () => {
     address_country: '',
     permissions: CLIENT_PERMISSION_TEMPLATES['Basic Client'] || []
   });  const [clients, setClients] = useState([]);  // Ensure this is initialized as an empty array
-  const [visibleClients, setVisibleClients] = useState(5);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [visibleClients, setVisibleClients] = useState(5);  const [selectedClient, setSelectedClient] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState({}); // Track which clients are being updated
@@ -231,14 +230,12 @@ const AdminClients = () => {
       setUpdatingStatus(prev => {
         const updated = { ...prev };
         delete updated[clientUuid];
-        return updated;
-      });
-    }
+        return updated;      });    }
   };
 
   return (
     <div className="space-y-6">
-      <div className='flex flex-col gap-4'>        <div className="flex justify-between items-center">
+      <div className='flex flex-col gap-4'><div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Client Management</h1>
           <div className="flex gap-3">
             <EditUsernameDialog 
@@ -371,8 +368,7 @@ const AdminClients = () => {
         <Card>
           <CardHeader>
             <CardTitle>Clients</CardTitle>
-            <CardDescription>View and manage all clients in the system</CardDescription>
-            <div className="flex items-center gap-4 mt-4">
+            <CardDescription>View and manage all clients in the system</CardDescription>            <div className="flex items-center gap-4 mt-4">
               <div className="relative flex-1">
                 <Input
                   placeholder="Search clients..."
@@ -558,10 +554,8 @@ const AdminClients = () => {
                 <Button variant="secondary" onClick={() => setSelectedClient(null)}>
                   Close
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+              </div>            </DialogContent>
+          </Dialog>        )}
       </div>
     </div>
   );

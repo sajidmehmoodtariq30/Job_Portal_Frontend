@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {  AUTH: {
     FETCH_ALL: buildApiEndpoint('fetch/clients'),
     CREATE: buildApiEndpoint('fetch/clients'),
     UPDATE_STATUS: (uuid) => buildApiEndpoint(`fetch/clients/${uuid}/status`),
+    BULK_UPDATE_STATUS: buildApiEndpoint('fetch/clients/bulk-status'),
     GET_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
     UPDATE_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
     ASSIGN_USERNAME: (uuid) => buildApiEndpoint(`fetch/clients/${uuid}/assign-username`),
