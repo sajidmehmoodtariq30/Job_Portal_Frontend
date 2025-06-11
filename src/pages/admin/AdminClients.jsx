@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/UI/tabs";
 import { API_ENDPOINTS } from '@/lib/apiConfig';
 import { Skeleton } from "@/components/UI/skeleton";
 import ClientPermissionSelector from "@/components/admin/ClientPermissionSelector";
+import EditUsernameDialog from "@/components/admin/EditUsernameDialog";
 import { CLIENT_PERMISSION_TEMPLATES } from '@/types/clientPermissions';
 
 const AdminClients = () => {
@@ -115,9 +116,14 @@ const AdminClients = () => {
   const handleShowMore = () => {
     setVisibleClients((prev) => prev + 5);
   };
-
   const handleShowLess = () => {
     setVisibleClients((prev) => Math.max(prev - 5, 5));
+  };
+
+  const handleUsernameAssignSuccess = (data) => {
+    console.log('Username assigned successfully:', data);
+    // You could refresh the client list here if needed
+    // handleRefresh();
   };
 
   const handleRefresh = async () => {
@@ -199,13 +205,19 @@ const AdminClients = () => {
 
   return (
     <div className="space-y-6">
-      <div className='flex flex-col gap-4'>
-        <div className="flex justify-between items-center">
+      <div className='flex flex-col gap-4'>        <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Client Management</h1>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>Add New Client</Button>
-            </DialogTrigger>            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <div className="flex gap-3">
+            <EditUsernameDialog 
+              clients={clients}
+              isLoading={isLoading}
+              onSuccess={handleUsernameAssignSuccess}            />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>Add New Client</Button>
+              </DialogTrigger>
+              
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Client</DialogTitle>
                 <DialogDescription>
@@ -316,11 +328,11 @@ const AdminClients = () => {
                     ) : (
                       'Create Client'
                     )}
-                  </Button>
-                </DialogFooter>
+                  </Button>                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
         
         <Card>
