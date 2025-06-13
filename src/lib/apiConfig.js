@@ -51,8 +51,7 @@ export const API_ENDPOINTS = {  AUTH: {
       UPDATE: (id) => buildApiEndpoint(`fetch/clients/mappings/${id}`),
       DELETE: (id) => buildApiEndpoint(`fetch/clients/mappings/${id}`),
       GET_BY_EMAIL: (email) => buildApiEndpoint(`fetch/clients/mappings/by-email/${email}`)    }
-  },
-    USERS: {
+  },    USERS: {
     FETCH_ALL: buildApiEndpoint('api/users'),
     CREATE: buildApiEndpoint('api/users'),
     UPDATE: (id) => buildApiEndpoint(`api/users/${id}`),
@@ -60,7 +59,9 @@ export const API_ENDPOINTS = {  AUTH: {
     UPDATE_STATUS: (id) => buildApiEndpoint(`api/users/${id}/status`),
     GET_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
     UPDATE_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
-    RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`)
+    RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`),
+    GET_CLIENT_NAME: (uuid) => buildApiEndpoint(`api/users/client-name/${uuid}`), // Add client name endpoint
+    GET_CLIENT_SITES: (id) => buildApiEndpoint(`api/users/${id}/client-sites`) // Add client sites endpoint
   },
     SITES: {
     // READ-ONLY ENDPOINTS (ServiceM8 site data)
