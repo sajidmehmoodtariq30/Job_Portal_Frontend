@@ -14,6 +14,7 @@ import AdminCategories from '@/pages/admin/AdminCategories'
 import Home from './pages/Home'
 import ClientHome from './pages/client/ClientHome'
 import AdminHome from './pages/admin/AdminHome'
+import AdminUser from './pages/admin/AdminUser'
 import AdminSchedule from './pages/admin/AdminSchedule'
 import AdminTeam from './pages/admin/AdminTeam'
 import ClientJobs from './pages/client/ClientJobs.jsx'
@@ -32,7 +33,6 @@ import AdminSettings from '@/pages/admin/AdminSettings';
 import NotificationsSettings from '@/pages/admin/settings/NotificationsSettings';
 import ApiPlugin from '@/pages/admin/ApiPlugin';
 import AdminQuotes from '@/pages/admin/AdminQuotes';
-import ClientNameManager from '@/components/admin/ClientNameManager';
 import { JobProvider } from './components/JobContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import TokenHandler from './components/TokenHandler';
@@ -54,14 +54,12 @@ function App() {
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminLayout />
-            </ProtectedRoute>
-          }>            <Route index element={<AdminHome />} />
+            </ProtectedRoute>          }>            <Route index element={<AdminHome />} />
+            <Route path="users" element={<AdminUser />} />
             <Route path="jobs" element={<AdminJobs />} />
             <Route path="jobs/:jobId" element={<AdminJobDetails />} />
-            <Route path="categories" element={<AdminCategories />} />
-            <Route path="quotes" element={<AdminQuotes />} />            <Route path="clients" element={<AdminClients />} />
+            <Route path="categories" element={<AdminCategories />} />            <Route path="quotes" element={<AdminQuotes />} />            <Route path="clients" element={<AdminClients />} />
             <Route path="clients/:clientId" element={<AdminClientDetails />} />
-            <Route path="client-names" element={<ClientNameManager />} />
             <Route path="api-plugin" element={<ApiPlugin />} />
             <Route path="profile" element={<AdminProfile />} />
             <Route path="settings" element={<AdminSettings />} />

@@ -9,9 +9,10 @@ export const buildApiEndpoint = (path) => {
 export const API_ENDPOINTS = {  AUTH: {
     SERVICE_M8: buildApiEndpoint('api/auth/servicem8'),
     CLIENT_LOGIN: (email) => buildApiEndpoint(`fetch/clientLogin/${email}`),
-    CLIENT_AUTH: buildApiEndpoint('fetch/client-login'),
-    PASSWORD_SETUP: buildApiEndpoint('fetch/password-setup'),
-    VALIDATE_SETUP_TOKEN: (token) => buildApiEndpoint(`fetch/validate-setup-token/${token}`)
+    CLIENT_AUTH: buildApiEndpoint('fetch/client-login'),    PASSWORD_SETUP: buildApiEndpoint('api/password-setup'),
+    USER_PASSWORD_SETUP: buildApiEndpoint('api/users/password-setup'),
+    VALIDATE_SETUP_TOKEN: (token) => buildApiEndpoint(`fetch/validate-setup-token/${token}`),
+    VALIDATE_USER_SETUP_TOKEN: (token) => buildApiEndpoint(`api/users/validate-setup-token/${token}`)
   },
   
   JOBS: {
@@ -45,9 +46,19 @@ export const API_ENDPOINTS = {  AUTH: {
       CREATE: buildApiEndpoint('fetch/clients/mappings'),
       UPDATE: (id) => buildApiEndpoint(`fetch/clients/mappings/${id}`),
       DELETE: (id) => buildApiEndpoint(`fetch/clients/mappings/${id}`),
-      GET_BY_EMAIL: (email) => buildApiEndpoint(`fetch/clients/mappings/by-email/${email}`)
-    }
+      GET_BY_EMAIL: (email) => buildApiEndpoint(`fetch/clients/mappings/by-email/${email}`)    }
   },
+    USERS: {
+    FETCH_ALL: buildApiEndpoint('api/users'),
+    CREATE: buildApiEndpoint('api/users'),
+    UPDATE: (id) => buildApiEndpoint(`api/users/${id}`),
+    DELETE: (id) => buildApiEndpoint(`api/users/${id}`),
+    UPDATE_STATUS: (id) => buildApiEndpoint(`api/users/${id}/status`),
+    GET_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
+    UPDATE_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
+    RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`)
+  },
+  
   SITES: {
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // New endpoint for all sites

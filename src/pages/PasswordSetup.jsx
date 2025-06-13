@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
 import { Label } from "@/components/UI/label";
@@ -10,6 +10,7 @@ import { API_ENDPOINTS } from '@/lib/apiConfig';
 
 const PasswordSetup = () => {
   const { token } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
   const [password, setPassword] = useState('');
@@ -19,7 +20,8 @@ const PasswordSetup = () => {
   const [loading, setLoading] = useState(false);
   const [validatingToken, setValidatingToken] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
-  const [clientInfo, setClientInfo] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+  const [userType, setUserType] = useState('client'); // 'client' or 'user'
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -30,12 +32,43 @@ const PasswordSetup = () => {
     lowercase: false,
     number: false,
     special: false
-  });
-
-  // Validate token on component mount
+  });  // Validate token on component mount
   useEffect(() => {
-    validateSetupToken();
-  }, [token]);
+    const validateSetupToken = async () => {
+      const typeFromParams = searchParams.get('type');
+      if (typeFromParams === 'user') {
+        setUserType('user');
+      }
+
+      try {
+        setValidatingToken(true);
+        setError('');        console.log('Validating token:', token);
+        console.log('Validation endpoint:', API_ENDPOINTS.AUTH.VALIDATE_USER_SETUP_TOKEN(token));
+        const response = await fetch(API_ENDPOINTS.AUTH.VALIDATE_USER_SETUP_TOKEN(token));
+        const data = await response.json();
+        console.log('Token validation response:', data);
+
+        if (data.success) {
+          console.log('Token valid, user info:', data.data);
+          setTokenValid(true);
+          setUserInfo(data.data);
+        } else {
+          setTokenValid(false);
+          setError('Invalid or expired setup link. Please contact support for assistance.');
+        }
+      } catch (error) {
+        console.error('Error validating setup token:', error);
+        setTokenValid(false);
+        setError('Error validating setup link. Please try again or contact support.');
+      } finally {
+        setValidatingToken(false);
+      }
+    };
+
+    if (token) {
+      validateSetupToken();
+    }
+  }, [token, searchParams]);
 
   // Update password requirements as user types
   useEffect(() => {
@@ -47,16 +80,56 @@ const PasswordSetup = () => {
       special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
     });
   }, [password]);
+
   const validateSetupToken = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.AUTH.VALIDATE_SETUP_TOKEN(token));
-
-      if (response.data.valid) {
-        setTokenValid(true);
-        setClientInfo(response.data);
-      } else {
-        setError('Invalid or expired setup link. Please contact support for assistance.');
+      // First try to determine type from URL params
+      const typeFromParams = searchParams.get('type');
+      
+      if (typeFromParams === 'user') {
+        // Try user token validation first
+        try {
+          const response = await axios.get(API_ENDPOINTS.AUTH.VALIDATE_USER_SETUP_TOKEN(token));
+          if (response.data.valid) {
+            setTokenValid(true);
+            setUserInfo(response.data);
+            setUserType('user');
+            return;
+          }
+        } catch (userError) {
+          console.log('User token validation failed, trying client...');
+        }
       }
+
+      // Try client token validation (default or fallback)
+      try {
+        const response = await axios.get(API_ENDPOINTS.AUTH.VALIDATE_SETUP_TOKEN(token));
+        if (response.data.valid) {
+          setTokenValid(true);
+          setUserInfo(response.data);
+          setUserType('client');
+          return;
+        }
+      } catch (clientError) {
+        console.log('Client token validation failed');
+      }
+
+      // If both failed and no type specified, try user validation as fallback
+      if (!typeFromParams) {
+        try {
+          const response = await axios.get(API_ENDPOINTS.AUTH.VALIDATE_USER_SETUP_TOKEN(token));
+          if (response.data.valid) {
+            setTokenValid(true);
+            setUserInfo(response.data);
+            setUserType('user');
+            return;
+          }
+        } catch (userError) {
+          console.log('Fallback user token validation also failed');
+        }
+      }
+
+      setError('Invalid or expired setup link. Please contact support for assistance.');
     } catch (error) {
       console.error('Token validation error:', error);
       setError('Invalid or expired setup link. Please contact support for assistance.');
@@ -68,7 +141,6 @@ const PasswordSetup = () => {
   const isPasswordValid = () => {
     return Object.values(passwordRequirements).every(req => req);
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -83,8 +155,15 @@ const PasswordSetup = () => {
     }
 
     setLoading(true);
-    setError('');    try {
-      const response = await axios.post(API_ENDPOINTS.AUTH.PASSWORD_SETUP, {
+    setError('');
+
+    try {
+      // Use appropriate endpoint based on user type
+      const endpoint = userType === 'user' 
+        ? API_ENDPOINTS.AUTH.USER_PASSWORD_SETUP 
+        : API_ENDPOINTS.AUTH.PASSWORD_SETUP;
+
+      const response = await axios.post(endpoint, {
         token,
         password
       });
@@ -190,25 +269,21 @@ const PasswordSetup = () => {
           <CardHeader className="text-center space-y-4 pb-6">
             <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
               <Shield className="text-blue-600" size={32} />
-            </div>
-            <div>
-              <CardTitle className="text-xl">Set Up Your Password</CardTitle>
-              <CardDescription className="mt-2">
-                Welcome{clientInfo?.clientName ? `, ${clientInfo.clientName}` : ''}! Please create a secure password for your account.
+            </div>            <div>
+              <CardTitle className="text-xl">Set Up Your Password</CardTitle>              <CardDescription className="mt-2">
+                Welcome{userInfo?.clientName || userInfo?.name ? `, ${userInfo?.clientName || userInfo?.name}` : ''}! Please create a secure password for your {userType === 'user' ? 'user' : 'client'} account.
               </CardDescription>
             </div>
           </CardHeader>          <CardContent className="pb-8">
             <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column - Form Fields */}
-                <div className="space-y-6">
-                  {/* Email Display */}
-                  {clientInfo?.email && (
-                    <div className="space-y-2">
+                <div className="space-y-6">                  {/* Email Display */}
+                  {userInfo?.email && (                    <div className="space-y-2">
                       <Label>Email Address</Label>
                       <Input 
                         type="email" 
-                        value={clientInfo.email} 
+                        value={userInfo?.email || ''}
                         disabled 
                         className="bg-gray-50 text-gray-600"
                       />

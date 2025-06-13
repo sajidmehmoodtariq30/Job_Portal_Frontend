@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
 import { Label } from "@/components/UI/label"
+import { Switch } from "@/components/UI/switch"
 import { 
   Card, 
   CardContent, 
@@ -19,84 +20,315 @@ import {
   DialogTrigger,
 } from "@/components/UI/dialog"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/UI/select"
-
-// Mock data - in production would come from ServiceM8 API
-const mockUsers = [
-  { id: 1, name: 'John Smith', email: 'john@example.com', role: 'Client Admin', status: 'Active' },
-  { id: 2, name: 'Sara Johnson', email: 'sara@example.com', role: 'Client User', status: 'Active' },
-  { id: 3, name: 'Mike Wilson', email: 'mike@example.com', role: 'Client User', status: 'Inactive' },
-  { id: 4, name: 'Lisa Brown', email: 'lisa@example.com', role: 'Client Admin', status: 'Pending' },
-]
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/UI/alert-dialog"
+import { Eye, EyeOff, Loader2, Mail, UserPlus, Edit, Trash2, KeyRound } from 'lucide-react'
+import API_ENDPOINTS from "@/lib/apiConfig"
 
 const AdminUsers = () => {
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState('')
   const [newUser, setNewUser] = useState({
     name: '',
-    email: '',
-    role: '',
+    username: '',
+    email: ''
   })
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editUser, setEditUser] = useState(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [userPassword, setUserPassword] = useState(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  
-  const handleInviteUser = async (e) => {
-    e.preventDefault()
-    
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
     try {
-      // In production, this would call the ServiceM8 API
-      // const response = await inviteUser(newUser)
-      
-      // For now, simulate adding a new user
-      const createdUser = {
-        ...newUser,
-        id: users.length + 1,
-        status: 'Pending'
+      setLoading(true)
+      const response = await fetch(API_ENDPOINTS.USERS.FETCH_ALL)
+      const data = await response.json()
+      if (data.success) {
+        setUsers(data.data)
+      } else {
+        alert("Failed to fetch users")
       }
-      
-      setUsers([...users, createdUser])
-      setNewUser({ name: '', email: '', role: '' })
-      setIsDialogOpen(false)
     } catch (error) {
-      console.error('Error inviting user:', error)
-      // Handle error (show notification, etc.)
+      console.error('Error fetching users:', error)
+      alert("Failed to fetch users")
+    } finally {
+      setLoading(false)
     }
   }
-  
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setNewUser({ ...newUser, [name]: value })
+  const handleCreateUser = async (e) => {
+    e.preventDefault()
+    if (!newUser.name || !newUser.username || !newUser.email) {
+      alert("All fields are required")
+      return
+    }
+
+    try {
+      setActionLoading('create')
+      const response = await fetch(API_ENDPOINTS.USERS.CREATE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newUser)
+      })
+        const data = await response.json()
+      if (data.success) {
+        alert("User created successfully! Password setup email sent.")
+        setUsers([...users, data.data])
+        setNewUser({ name: '', username: '', email: '' })
+        setIsCreateDialogOpen(false)
+      } else {
+        alert(data.message || "Failed to create user")
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      alert("Failed to create user")
+    } finally {
+      setActionLoading('')
+    }
   }
-  
-  const handleRoleChange = (value) => {
-    setNewUser({ ...newUser, role: value })
+  const handleEditUser = async (e) => {
+    e.preventDefault()
+    if (!editUser.name || !editUser.username || !editUser.email) {
+      alert("All fields are required")
+      return
+    }
+
+    try {
+      setActionLoading('edit')
+      const response = await fetch(API_ENDPOINTS.USERS.UPDATE(editUser.uuid), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editUser)
+      })
+        const data = await response.json()
+      if (data.success) {
+        alert("User updated successfully")
+        setUsers(users.map(user => 
+          user.uuid === editUser.uuid ? data.data : user
+        ))
+        setEditUser(null)
+        setIsEditDialogOpen(false)
+      } else {
+        alert(data.message || "Failed to update user")
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
+      alert("Failed to update user")
+    } finally {
+      setActionLoading('')
+    }
   }
-  
+  const handleToggleActive = async (user) => {
+    try {
+      setActionLoading(`toggle-${user.uuid}`)
+      const response = await fetch(API_ENDPOINTS.USERS.UPDATE_STATUS(user.uuid), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          isActive: !user.isActive
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        alert(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully`)
+        setUsers(users.map(u => 
+          u.uuid === user.uuid ? { ...u, isActive: !user.isActive } : u
+        ))
+      } else {
+        alert(data.message || "Failed to update user status")
+      }
+    } catch (error) {
+      console.error('Error toggling user status:', error)
+      alert("Failed to update user status")
+    } finally {
+      setActionLoading('')
+    }
+  }
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return
+
+    try {
+      setActionLoading('delete')
+      const response = await fetch(API_ENDPOINTS.USERS.DELETE(selectedUser.uuid), {
+        method: 'DELETE'
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        alert("User deleted successfully")
+        // Remove user completely from the list
+        setUsers(users.filter(u => u.uuid !== selectedUser.uuid))
+      } else {
+        alert(data.message || "Failed to delete user")
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert("Failed to delete user")
+    } finally {
+      setActionLoading('')
+      setIsDeleteDialogOpen(false)
+      setSelectedUser(null)
+    }
+  }
+
+  const handleViewPassword = async (user) => {
+    try {
+      setActionLoading(`password-${user.uuid}`)
+      const response = await fetch(API_ENDPOINTS.USERS.GET_PASSWORD(user.uuid))
+      const data = await response.json()
+        if (data.success) {
+        setUserPassword(data.data)
+        setSelectedUser(user)
+        setIsPasswordDialogOpen(true)
+      } else {
+        alert(data.message || "Failed to fetch password")
+      }
+    } catch (error) {
+      console.error('Error fetching password:', error)
+      alert("Failed to fetch password")
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  const handleResendSetup = async (user) => {
+    try {
+      setActionLoading(`resend-${user.uuid}`)
+      const response = await fetch(API_ENDPOINTS.USERS.RESEND_SETUP(user.uuid), {
+        method: 'POST'
+      })
+        const data = await response.json()
+      if (data.success) {
+        alert("Password setup email sent successfully")
+      } else {
+        alert(data.message || "Failed to send email")
+      }
+    } catch (error) {
+      console.error('Error resending setup email:', error)
+      alert("Failed to send email")
+    } finally {
+      setActionLoading('')
+    }
+  }
+
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.username.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const openEditDialog = (user) => {
+    setEditUser({ ...user })
+    setIsEditDialogOpen(true)
+  }
+
+  const openDeleteDialog = (user) => {
+    setSelectedUser(user)
+    setIsDeleteDialogOpen(true)
+  }
+  const closePasswordDialog = () => {
+    setIsPasswordDialogOpen(false)
+    setUserPassword(null)
+    setSelectedUser(null)
+    setShowPassword(false)
+  }
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    if (!newPassword.trim()) {
+      alert("Please enter a new password")
+      return
+    }
+
+    try {
+      setActionLoading('change-password')
+      const response = await fetch(API_ENDPOINTS.USERS.UPDATE_PASSWORD(selectedUser.uuid), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          password: newPassword
+        })
+      })
+      
+      const data = await response.json()
+      if (data.success) {
+        alert("Password changed successfully")
+        setNewPassword('')
+        setIsChangePasswordDialogOpen(false)
+        // Update user status if password was set for the first time
+        if (selectedUser.passwordSetupRequired) {
+          setUsers(users.map(u => 
+            u.uuid === selectedUser.uuid 
+              ? { ...u, passwordSetupRequired: false } 
+              : u
+          ))
+        }
+      } else {
+        alert(data.message || "Failed to change password")
+      }
+    } catch (error) {
+      console.error('Error changing password:', error)
+      alert("Failed to change password")
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  const openChangePasswordDialog = (user) => {
+    setSelectedUser(user)
+    setNewPassword('')
+    setIsChangePasswordDialogOpen(true)
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">User Management</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Invite User</Button>
+            <Button>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Create User
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Invite New User</DialogTitle>
+              <DialogTitle>Create New User</DialogTitle>
               <DialogDescription>
-                Invite a client to access the portal. They will receive an email with instructions.
+                Create a new user account. They will receive an email with password setup instructions.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleInviteUser}>
+            <form onSubmit={handleCreateUser}>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -104,7 +336,17 @@ const AdminUsers = () => {
                     id="name"
                     name="name"
                     value={newUser.name}
-                    onChange={handleInputChange}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    name="username"
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                     required
                   />
                 </div>
@@ -115,30 +357,16 @@ const AdminUsers = () => {
                     name="email"
                     type="email"
                     value={newUser.email}
-                    onChange={handleInputChange}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                     required
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    name="role"
-                    value={newUser.role}
-                    onValueChange={handleRoleChange}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Client Admin">Client Admin</SelectItem>
-                      <SelectItem value="Client User">Client User</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Send Invitation</Button>
+                <Button type="submit" disabled={actionLoading === 'create'}>
+                  {actionLoading === 'create' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Create User
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -148,7 +376,7 @@ const AdminUsers = () => {
       <Card>
         <CardHeader>
           <CardTitle>Users</CardTitle>
-          <CardDescription>Manage client access to the portal</CardDescription>
+          <CardDescription>Manage user accounts and access</CardDescription>
           <div className="mt-2">
             <Input
               placeholder="Search users..."
@@ -158,55 +386,288 @@ const AdminUsers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">              <thead>
-                <tr className="border-b">
-                  <th className="py-3 text-left">S.No</th>
-                  <th className="py-3 text-left">Name</th>
-                  <th className="py-3 text-left">Email</th>
-                  <th className="py-3 text-left">Role</th>
-                  <th className="py-3 text-left">Status</th>
-                  <th className="py-3 text-left">Actions</th>
-                </tr>
-              </thead>              <tbody>
-                {filteredUsers.map((user, index) => (
-                  <tr key={user.id} className="border-b">
-                    <td className="py-3">{index + 1}</td>
-                    <td className="py-3">{user.name}</td>
-                    <td className="py-3">{user.email}</td>
-                    <td className="py-3">{user.role}</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        user.status === 'Active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : user.status === 'Pending' 
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <div className="flex space-x-2">
-                        <Button variant="ghost" size="sm">Edit</Button>
-                        {user.status !== 'Active' && (
-                          <Button variant="ghost" size="sm">Resend</Button>
-                        )}
-                      </div>
-                    </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span className="ml-2">Loading users...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-3 text-left">S.No</th>
+                    <th className="py-3 text-left">Name</th>
+                    <th className="py-3 text-left">Username</th>
+                    <th className="py-3 text-left">Email</th>
+                    <th className="py-3 text-left">Status</th>
+                    <th className="py-3 text-left">Password Setup</th>
+                    <th className="py-3 text-left">Actions</th>
                   </tr>
-                ))}                {filteredUsers.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="py-4 text-center text-muted-foreground">
-                      No users found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user, index) => (
+                    <tr key={user.uuid} className="border-b">
+                      <td className="py-3">{index + 1}</td>
+                      <td className="py-3 font-medium">{user.name}</td>
+                      <td className="py-3">{user.username}</td>
+                      <td className="py-3">{user.email}</td>
+                      <td className="py-3">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={user.isActive}
+                            onCheckedChange={() => handleToggleActive(user)}
+                            disabled={actionLoading === `toggle-${user.uuid}`}
+                          />
+                          <span className={`text-sm ${user.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                            {user.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          !user.passwordSetupRequired 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {!user.passwordSetupRequired ? 'Complete' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex space-x-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => openEditDialog(user)}
+                            disabled={actionLoading.includes(user.uuid)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewPassword(user)}
+                            disabled={actionLoading === `password-${user.uuid}`}
+                          >                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openChangePasswordDialog(user)}
+                            disabled={actionLoading === `password-${user.uuid}`}
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </Button>
+                          {user.passwordSetupRequired && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleResendSetup(user)}
+                              disabled={actionLoading === `resend-${user.uuid}`}
+                            >
+                              <Mail className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => openDeleteDialog(user)}
+                            disabled={actionLoading.includes(user.uuid)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="py-4 text-center text-muted-foreground">
+                        No users found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information
+            </DialogDescription>
+          </DialogHeader>
+          {editUser && (
+            <form onSubmit={handleEditUser}>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editUser.name}
+                    onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-username">Username</Label>
+                  <Input
+                    id="edit-username"
+                    value={editUser.username}
+                    onChange={(e) => setEditUser({ ...editUser, username: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Email Address</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editUser.email}
+                    onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={editUser.isActive}
+                    onCheckedChange={(checked) => setEditUser({ ...editUser, isActive: checked })}
+                  />
+                  <Label>Active</Label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={actionLoading === 'edit'}>
+                  {actionLoading === 'edit' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Update User
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={actionLoading === 'change-password'}>
+                {actionLoading === 'change-password' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Change Password
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password View Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={closePasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Password</DialogTitle>
+            <DialogDescription>
+              Password information for {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {userPassword && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Password Setup Status</Label>
+                <span className={`px-2 py-1 rounded text-xs w-fit ${
+                  !userPassword.passwordSetupRequired 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {!userPassword.passwordSetupRequired ? 'Setup Complete' : 'Setup Required'}
+                </span>
+              </div>
+              {userPassword.password && (
+                <div className="grid gap-2">
+                  <Label>Password</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={userPassword.password}
+                      readOnly
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!userPassword.hasPassword && (
+                <div className="text-sm text-muted-foreground">
+                  No password set. User needs to complete password setup.
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate {selectedUser?.name}? 
+              This will prevent them from accessing the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteUser}
+              disabled={actionLoading === 'delete'}
+            >
+              {actionLoading === 'delete' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

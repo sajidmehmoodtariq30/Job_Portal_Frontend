@@ -47,11 +47,9 @@ const AdminLayout = () => {
     avatar: null
   }
     // Navigation data needed for mobile page title
-  const navigation = [
-    { name: 'Dashboard', href: '/admin' },
+  const navigation = [    { name: 'Dashboard', href: '/admin' },
     { name: 'Jobs', href: '/admin/jobs' },
     { name: 'Clients', href: '/admin/clients' },
-    { name: 'Client Names', href: '/admin/client-names' },
     { name: 'Schedule', href: '/admin/schedule' },
     { name: 'Team', href: '/admin/team' },
     { name: 'Settings', href: '/admin/settings' }
