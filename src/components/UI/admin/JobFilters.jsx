@@ -22,6 +22,9 @@ const JobFilters = ({
     const [categories, setCategories] = useState([])
     const [loadingCategories, setLoadingCategories] = useState(false)
     const [categoryError, setCategoryError] = useState(null)
+    const [sites, setSites] = useState([])
+    const [loadingSites, setLoadingSites] = useState(false)
+    const [siteError, setSiteError] = useState(null)
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
@@ -31,6 +34,7 @@ const JobFilters = ({
         status: 'all',
         category: 'all',
         type: 'all',
+        site: 'all',
         role: userRole,
         ...currentFilters
     })
@@ -58,10 +62,9 @@ const JobFilters = ({
         'Technician Apprentice',
         'Client Admin',
         'Client User'
-    ];
-
-    useEffect(() => {
+    ];    useEffect(() => {
         fetchCategoriesForRole(filters.role);
+        fetchAllSites();
         loadSavedFilters();
     }, [filters.role]);
 
@@ -73,9 +76,7 @@ const JobFilters = ({
         }, 300);
 
         return () => clearTimeout(timeoutId);
-    }, [filters, onFiltersChange]);
-
-    const fetchCategoriesForRole = async (role) => {
+    }, [filters, onFiltersChange]);    const fetchCategoriesForRole = async (role) => {
         try {
             setLoadingCategories(true)
             setCategoryError(null)
@@ -88,6 +89,26 @@ const JobFilters = ({
             setCategories([])
         } finally {
             setLoadingCategories(false)
+        }
+    }
+
+    const fetchAllSites = async () => {
+        try {
+            setLoadingSites(true)
+            setSiteError(null)
+            
+            const response = await axios.get(`${API_URL}/api/sites/all`)
+            if (response.data && response.data.success) {
+                setSites(response.data.sites || [])
+            } else {
+                setSites([])
+            }
+        } catch (error) {
+            console.error('Error fetching sites:', error)
+            setSiteError('Failed to load sites')
+            setSites([])
+        } finally {
+            setLoadingSites(false)
         }
     }
 
@@ -107,8 +128,7 @@ const JobFilters = ({
 
         try {
             setSavingFilter(true)
-            
-            const filterToSave = {
+              const filterToSave = {
                 name: filterName,
                 filters: { ...filters },
                 createdAt: new Date().toISOString()
@@ -117,7 +137,8 @@ const JobFilters = ({
             const updatedSavedFilters = [...savedFilters, filterToSave]
             setSavedFilters(updatedSavedFilters)
             localStorage.setItem(`jobFilters_${userRole}`, JSON.stringify(updatedSavedFilters))
-              setFilterName('')
+            
+            setFilterName('')
         } catch (error) {
             console.error('Error saving filter:', error)
         } finally {
@@ -148,6 +169,7 @@ const JobFilters = ({
             status: 'all',
             category: 'all',
             type: 'all',
+            site: 'all',
             role: userRole
         })
     }
@@ -196,8 +218,7 @@ const JobFilters = ({
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid gap-4">
-                    {/* Category Loading Error Alert */}
+                <div className="grid gap-4">                    {/* Category Loading Error Alert */}
                     {categoryError && (
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
@@ -207,6 +228,23 @@ const JobFilters = ({
                                     variant="link" 
                                     className="p-0 h-auto font-normal underline ml-1"
                                     onClick={retryFetchCategories}
+                                >
+                                    Try again
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* Site Loading Error Alert */}
+                    {siteError && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                {siteError}. 
+                                <Button 
+                                    variant="link" 
+                                    className="p-0 h-auto font-normal underline ml-1"
+                                    onClick={fetchAllSites}
                                 >
                                     Try again
                                 </Button>
@@ -225,7 +263,7 @@ const JobFilters = ({
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         {/* Role Filter (Admin only) */}
                         {isAdminOrManager && (
                             <div>
@@ -287,9 +325,7 @@ const JobFilters = ({
                                     )}
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        {/* Type Filter */}
+                        </div>                        {/* Type Filter */}
                         <div>
                             <Label htmlFor="type">Type</Label>
                             <Select value={filters.type} onValueChange={(value) => updateFilter('type', value)}>
@@ -302,6 +338,33 @@ const JobFilters = ({
                                             {type.label}
                                         </SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Site Filter */}
+                        <div>
+                            <Label htmlFor="site">Site/Location</Label>
+                            <Select 
+                                value={filters.site} 
+                                onValueChange={(value) => updateFilter('site', value)}
+                                disabled={loadingSites}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder={loadingSites ? "Loading..." : "All sites"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All sites</SelectItem>
+                                    {loadingSites ? (
+                                        <div className="p-2">
+                                            <Skeleton className="h-4 w-full" />                                        </div>
+                                    ) : (
+                                        Array.isArray(sites) && sites.map(site => (
+                                            <SelectItem key={site.uuid} value={site.uuid}>
+                                                {site.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -393,6 +456,15 @@ const JobFilters = ({
                                         <X 
                                             className="h-3 w-3 cursor-pointer" 
                                             onClick={() => updateFilter('type', 'all')}
+                                        />
+                                    </Badge>
+                                )}
+                                {filters.site && filters.site !== 'all' && (
+                                    <Badge variant="outline" className="gap-1">
+                                        Site: {sites.find(s => s.uuid === filters.site)?.name || 'Unknown'}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer" 
+                                            onClick={() => updateFilter('site', 'all')}
                                         />
                                     </Badge>
                                 )}

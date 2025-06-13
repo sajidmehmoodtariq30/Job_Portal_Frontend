@@ -10,10 +10,10 @@ export const JobProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [lastFetchedPage, setLastFetchedPage] = useState(0);
   const [activeTab, setActiveTab] = useState('all');
-
   // Fetch jobs with lazy loading
   const fetchJobs = async (page, status = 'all', forceRefresh = false) => {
     if (loading && !forceRefresh) return; // Prevent multiple simultaneous fetches unless forced
+    
     setLoading(true);
     try {
       console.log(`Fetching jobs with status: ${status}`);
@@ -43,7 +43,10 @@ export const JobProvider = ({ children }) => {
       setJobs(filteredJobs);
       setTotalJobs(filteredJobs.length);
       setLastFetchedPage(page);
-      setActiveTab(status);
+      // Only set activeTab if it's different to avoid unnecessary re-renders
+      if (activeTab !== status) {
+        setActiveTab(status);
+      }
     } catch (error) {
       console.error('Error fetching jobs:', error);
       setJobs([]);
@@ -52,7 +55,6 @@ export const JobProvider = ({ children }) => {
       setLoading(false);
     }
   };
-
   // Fetch jobs for a specific client using server-side filtering (optimized for client portal)
   const fetchJobsByClient = async (clientUuid, status = 'all', forceRefresh = false) => {
     if (loading && !forceRefresh) return; // Prevent multiple simultaneous fetches unless forced
@@ -90,7 +92,10 @@ export const JobProvider = ({ children }) => {
       setJobs(filteredJobs);
       setTotalJobs(filteredJobs.length);
       setLastFetchedPage(1); // Always page 1 for client-specific fetches
-      setActiveTab(status);
+      // Only set activeTab if it's different to avoid unnecessary re-renders
+      if (activeTab !== status) {
+        setActiveTab(status);
+      }
     } catch (error) {
       console.error('Error fetching client jobs:', error);
       setJobs([]);

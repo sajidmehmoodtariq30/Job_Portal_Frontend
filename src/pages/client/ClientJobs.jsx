@@ -106,8 +106,7 @@ const ClientJobs = () => {
   
   // Categories state for job creation form
   const [categories, setCategories] = useState([]);
-  const [loadingCategories, setLoadingCategories] = useState(false);
-    // Filter state for ClientJobFilters component
+  const [loadingCategories, setLoadingCategories] = useState(false);  // Filter state for ClientJobFilters component
   const [activeFilters, setActiveFilters] = useState({
     search: '',
     status: 'all',
@@ -115,7 +114,8 @@ const ClientJobs = () => {
     type: 'all',
     dateFrom: '',
     dateTo: '',
-    priority: 'all'
+    priority: 'all',
+    site: 'all'
   });
   const [filterLoading, setFilterLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -496,12 +496,18 @@ const ClientJobs = () => {
       const fromDate = new Date(activeFilters.dateFrom);
       if (jobDate < fromDate) return false;
     }
-    
-    if (activeFilters.dateTo && activeFilters.dateTo !== '') {
+      if (activeFilters.dateTo && activeFilters.dateTo !== '') {
       const jobDate = new Date(job.date || job.created_at);
       const toDate = new Date(activeFilters.dateTo);
       if (jobDate > toDate) return false;
-    }      // Priority filter (if you have a priority field)
+    }
+
+    // Site filter
+    if (activeFilters.site && activeFilters.site !== '' && activeFilters.site !== 'all' && job.location_uuid !== activeFilters.site) {
+      return false;
+    }
+
+    // Priority filter (if you have a priority field)
     if (activeFilters.priority && activeFilters.priority !== '' && activeFilters.priority !== 'all' && job.priority !== activeFilters.priority) {
       return false;
     }

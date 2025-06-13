@@ -21,6 +21,9 @@ const ClientJobFilters = ({
     const [categories, setCategories] = useState([])
     const [loadingCategories, setLoadingCategories] = useState(false)
     const [categoryError, setCategoryError] = useState(null)
+    const [sites, setSites] = useState([])
+    const [loadingSites, setLoadingSites] = useState(false)
+    const [siteError, setSiteError] = useState(null)
     const [savedFilters, setSavedFilters] = useState([])
     const [filterName, setFilterName] = useState('')
     const [savingFilter, setSavingFilter] = useState(false)
@@ -31,6 +34,7 @@ const ClientJobFilters = ({
         type: 'all',
         dateRange: 'all',
         priority: 'all',
+        site: 'all',
         ...currentFilters
     })
 
@@ -65,12 +69,11 @@ const ClientJobFilters = ({
         { value: 'medium', label: 'Medium' },
         { value: 'high', label: 'High' },
         { value: 'urgent', label: 'Urgent' }
-    ];
-
-    useEffect(() => {
+    ];    useEffect(() => {
         fetchCategories()
+        fetchSites()
         loadSavedFilters()
-    }, []);    useEffect(() => {
+    }, []);useEffect(() => {
         // Debounce filter changes to prevent excessive API calls
         const timeoutId = setTimeout(() => {
             // Convert dateRange to actual dateFrom/dateTo values before sending
@@ -112,6 +115,37 @@ const ClientJobFilters = ({
         }
     }
 
+    const fetchSites = async () => {
+        try {
+            setLoadingSites(true)
+            setSiteError(null)
+            
+            // Get client info for site filtering
+            const clientData = JSON.parse(localStorage.getItem('client_data') || '{}')
+            const clientUuid = clientData.uuid
+            
+            if (!clientUuid) {
+                setSiteError('Client information not found')
+                return
+            }
+              const response = await axios.get(`${API_URL}/api/sites/clients/${clientUuid}/sites`)
+            
+            // Handle the API response structure: { success: true, sites: [...] }
+            if (response.data && response.data.success && Array.isArray(response.data.sites)) {
+                setSites(response.data.sites)
+            } else {
+                console.warn('Unexpected client sites API response structure:', response.data)
+                setSites(response.data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching sites:', error)
+            setSiteError('Failed to load sites')
+            setSites([])
+        } finally {
+            setLoadingSites(false)
+        }
+    }
+
     const loadSavedFilters = () => {
         try {
             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
@@ -143,10 +177,10 @@ const ClientJobFilters = ({
             const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
             const userId = userInfo.uuid || 'default'
             localStorage.setItem(`clientJobFilters_${userId}`, JSON.stringify(updatedSavedFilters))
-            
-            setFilterName('')
+              setFilterName('')
         } catch (error) {
-            console.error('Error saving filter:', error)        } finally {
+            console.error('Error saving filter:', error)
+        } finally {
             setSavingFilter(false)
         }
     }
@@ -178,11 +212,17 @@ const ClientJobFilters = ({
             category: 'all',
             type: 'all',
             dateRange: 'all',
-            priority: 'all'        })
+            priority: 'all',
+            site: 'all'
+        })
     }
 
     const retryFetchCategories = () => {
         fetchCategories()
+    }
+
+    const retryFetchSites = () => {
+        fetchSites()
     }
 
     const getDateRangeValues = (dateRange) => {
@@ -264,8 +304,7 @@ const ClientJobFilters = ({
                     </div>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="grid gap-4">
+            <CardContent>                <div className="grid gap-4">
                     {/* Category Loading Error Alert */}
                     {categoryError && (
                         <Alert variant="destructive">
@@ -276,6 +315,23 @@ const ClientJobFilters = ({
                                     variant="link" 
                                     className="p-0 h-auto font-normal underline ml-1"
                                     onClick={retryFetchCategories}
+                                >
+                                    Try again
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* Site Loading Error Alert */}
+                    {siteError && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                {siteError}. 
+                                <Button 
+                                    variant="link" 
+                                    className="p-0 h-auto font-normal underline ml-1"
+                                    onClick={retryFetchSites}
                                 >
                                     Try again
                                 </Button>
@@ -354,9 +410,7 @@ const ClientJobFilters = ({
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        {/* Date Range Filter */}
+                        </div>                        {/* Date Range Filter */}
                         <div>
                             <Label htmlFor="dateRange">Date Range</Label>
                             <Select value={filters.dateRange} onValueChange={(value) => updateFilter('dateRange', value)}>
@@ -370,6 +424,33 @@ const ClientJobFilters = ({
                                             {range.label}
                                         </SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Site Filter */}
+                        <div>
+                            <Label htmlFor="site">Site/Location</Label>
+                            <Select 
+                                value={filters.site} 
+                                onValueChange={(value) => updateFilter('site', value)}
+                                disabled={loadingSites}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder={loadingSites ? "Loading..." : "All sites"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All sites</SelectItem>
+                                    {loadingSites ? (
+                                        <div className="p-2">
+                                            <Skeleton className="h-4 w-full" />
+                                        </div>                                    ) : (
+                                        Array.isArray(sites) && sites.map(site => (
+                                            <SelectItem key={site.uuid} value={site.uuid}>
+                                                {site.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -482,8 +563,7 @@ const ClientJobFilters = ({
                                             onClick={() => updateFilter('type', 'all')}
                                         />
                                     </Badge>
-                                )}
-                                {filters.dateRange && filters.dateRange !== 'all' && (
+                                )}                                {filters.dateRange && filters.dateRange !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Date: {dateRanges.find(d => d.value === filters.dateRange)?.label || filters.dateRange}
                                         <X 
@@ -491,7 +571,16 @@ const ClientJobFilters = ({
                                             onClick={() => updateFilter('dateRange', 'all')}
                                         />
                                     </Badge>
-                                )}                                {filters.priority && filters.priority !== 'all' && (
+                                )}
+                                {filters.site && filters.site !== 'all' && (
+                                    <Badge variant="outline" className="gap-1">
+                                        Site: {sites.find(s => s.uuid === filters.site)?.name || 'Unknown'}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer" 
+                                            onClick={() => updateFilter('site', 'all')}
+                                        />
+                                    </Badge>
+                                )}{filters.priority && filters.priority !== 'all' && (
                                     <Badge variant="outline" className="gap-1">
                                         Priority: {priorityLevels.find(p => p.value === filters.priority)?.label || filters.priority}
                                         <X 

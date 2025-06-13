@@ -40,7 +40,6 @@ import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom";
-import JobFilters from "@/components/UI/admin/JobFilters";
 import { getClientNamesByUuids } from '@/utils/clientUtils';
 
 // Helper to determine page size
@@ -49,17 +48,17 @@ const PAGE_SIZE = 10;
 const AdminJobs = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [clients, setClients] = useState([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);  const [clients, setClients] = useState([]);
   const [categories, setCategories] = useState([]);
-  // Role-based filtering state
-  const [userRole, setUserRole] = useState('');
-  const [activeFilters, setActiveFilters] = useState({
+  const [sites, setSites] = useState([]);
+  const [loadingSites, setLoadingSites] = useState(false);  // Role-based filtering state
+  const [userRole, setUserRole] = useState('');  const [activeFilters, setActiveFilters] = useState({
     search: '',
     status: '',
     category_uuid: '',
-    type: ''
-  });  const [useRoleBasedFiltering, setUseRoleBasedFiltering] = useState(false);
+    type: '',
+    site: 'all'
+  });
   // Filter state for JobFilters component
   const [filterLoading, setFilterLoading] = useState(false);
     const [newJob, setNewJob] = useState({
@@ -116,47 +115,7 @@ const AdminJobs = () => {
     resetJobs,
     activeTab,
     setActiveTab
-  } = useJobContext();  // Fetch jobs on mount and when tab changes
-  useEffect(() => {
-    // Get user role from localStorage
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-    const role = userInfo.role || 'Administrator';
-    setUserRole(role);
-
-    // Use role-based filtering for non-admin roles
-    if (role !== 'Administrator' && role !== 'Office Manager') {
-      setUseRoleBasedFiltering(true);
-      fetchJobsByRole(role, { ...activeFilters, status: activeTab !== 'all' ? activeTab : '' });
-    } else {
-      fetchJobs(1, activeTab);
-    }
-    fetchClients(); // Fetch clients for the dropdown
-    fetchCategories(); // Fetch categories for the dropdown
-  }, [activeTab]);
-
-  // Fetch jobs when filters change (for role-based filtering)
-  useEffect(() => {
-    if (useRoleBasedFiltering && userRole) {
-      const filters = { ...activeFilters };
-      if (activeTab !== 'all') {
-        filters.status = activeTab;
-      }
-      fetchJobsByRole(userRole, filters);
-    }
-  }, [activeFilters, useRoleBasedFiltering, userRole]);
-  // Set selected status when job changes
-  useEffect(() => {
-    if (selectedJob) {
-      setSelectedStatus(selectedJob.status);
-    }
-  }, [selectedJob]);
-
-  // Fetch client names when jobs change
-  useEffect(() => {
-    if (jobs && jobs.length > 0) {
-      fetchClientNamesForJobs(jobs);
-    }
-  }, [jobs]);// Fetch clients for the dropdown
+  } = useJobContext();  // Fetch clients for the dropdown
   const fetchClients = async () => {
     try {
       const response = await axios.get(API_ENDPOINTS.CLIENTS.FETCH_ALL);
@@ -174,27 +133,73 @@ const AdminJobs = () => {
       setClients([]);
     }
   };
-
-  // Fetch client names for table display
-  const fetchClientNamesForJobs = async (jobsData) => {
-    if (!Array.isArray(jobsData) || jobsData.length === 0) return;
-
-    // Extract unique client UUIDs from jobs
-    const clientUuids = [...new Set(
-      jobsData.map(job => job.company_uuid || job.created_by_staff_uuid)
-        .filter(Boolean)
-    )];
-
-    if (clientUuids.length === 0) return;
-
+  // Fetch categories for the dropdown
+  const fetchCategories = async () => {
     try {
-      // Fetch client names using the utility function
-      const clientNamesMap = await getClientNamesByUuids(clientUuids);
-      setJobClientNames(clientNamesMap);
+      const response = await axios.get(API_ENDPOINTS.CATEGORIES.FETCH_ALL);
+      console.log('Categories data response:', response.data);
+      if (response.data && response.data.success) {
+        setCategories(response.data.data || []);
+      } else if (Array.isArray(response.data)) {
+        setCategories(response.data);
+      } else {
+        setCategories([]);
+      }
     } catch (error) {
-      console.error('Error fetching client names for jobs:', error);
+      console.error('Error fetching categories:', error);
+      setCategories([]);
     }
-  };  // Helper function to get job number - now uses ServiceM8's generated_job_id
+  };
+
+  // Fetch all sites for administrators
+  const fetchSites = async () => {
+    try {
+      setLoadingSites(true);
+      const response = await axios.get(`${API_URL}/api/sites/all`);
+      console.log('Sites API response:', response.data);
+      
+      // Handle the API response structure: { success: true, sites: [...] }
+      if (response.data && response.data.success && Array.isArray(response.data.sites)) {
+        setSites(response.data.sites);
+      } else {
+        console.warn('Unexpected sites API response structure:', response.data);
+        setSites([]);
+      }
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+      setSites([]);
+    } finally {
+      setLoadingSites(false);
+    }
+  };
+
+  // Fetch jobs on mount and when tab changes
+  useEffect(() => {
+    // Get user role from localStorage
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const role = userInfo.role || 'Administrator';
+    setUserRole(role);
+
+    // Always use simple filtering for all users
+    fetchJobs(1, activeTab);
+    fetchClients(); // Fetch clients for the dropdown
+    fetchCategories(); // Fetch categories for the dropdown
+    fetchSites(); // Fetch sites for the dropdown
+  }, [activeTab]);
+
+  // Set selected status when job changes
+  useEffect(() => {
+    if (selectedJob) {
+      setSelectedStatus(selectedJob.status);
+    }
+  }, [selectedJob]);
+
+  // Fetch client names when jobs change
+  useEffect(() => {
+    if (jobs && jobs.length > 0) {
+      fetchClientNamesForJobs(jobs);
+    }
+  }, [jobs]);// Helper function to get job number - now uses ServiceM8's generated_job_id
   const getJobNumber = (job) => {
     // Use ServiceM8's generated job ID if available, otherwise fallback to UUID formatting
     if (job.generated_job_id) {
@@ -227,78 +232,24 @@ const AdminJobs = () => {
     
     if (geoParts.length > 0) {
       return geoParts.join(', ');
-    }
-
-    // Fallback to job_address
+    }    // Fallback to job_address
     return job.job_address || 'No address';
   };
 
-  // Fetch categories for the dropdown
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(API_ENDPOINTS.CATEGORIES.FETCH_ALL);
-      console.log('Categories data response:', response.data);
-      if (response.data && response.data.success) {
-        setCategories(response.data.data || []);
-      } else if (Array.isArray(response.data)) {
-        setCategories(response.data);
-      } else {
-        setCategories([]);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setCategories([]);
-    }
-  };
   // Reset jobs when tab changes
   const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    resetJobs();
+    setActiveTab(tab);    resetJobs();
 
-    if (useRoleBasedFiltering && userRole) {
-      const filters = { ...activeFilters };
-      if (tab !== 'all') {
-        filters.status = tab;
-      } else {
-        delete filters.status;
-      }
-      fetchJobsByRole(userRole, filters);
-    } else {
-      fetchJobs(1, tab);
-    }
+    // Always use simple job fetching
+    fetchJobs(1, tab);
 
     // Reset search term and visible jobs count when changing tabs for better performance
     setSearchTerm('');
-    setVisibleJobs(10);
-  };
-  // Handle filter changes from JobFilters component
-  const handleFiltersChange = async (newFilters) => {
-    setActiveFilters(newFilters);
-    setFilterLoading(true);
+    setVisibleJobs(10);  };
 
-    try {
-      // Apply filters to current jobs or fetch new filtered jobs
-      if (useRoleBasedFiltering && userRole) {
-        await fetchJobsByRole(userRole, newFilters);
-      } else {
-        // For backward compatibility, we'll use local filtering
-        setSearchTerm(newFilters.search || '');
-      }
-    } catch (error) {
-      console.error('Error applying filters:', error);
-    } finally {
-      setFilterLoading(false);
-    }
-
-    // Reset visible jobs when filters change
-    setVisibleJobs(10);
-  };
-  // Handle search term changes (for backward compatibility with basic search)
+  // Handle search term changes
   const handleSearchChange = (value) => {
     setSearchTerm(value);
-    if (useRoleBasedFiltering) {
-      setActiveFilters(prev => ({ ...prev, search: value }));
-    }
   };
   // Function to enrich jobs with category names
   const enrichJobsWithCategoryNames = (jobList) => {
@@ -318,7 +269,7 @@ const AdminJobs = () => {
     });
   };
   // Compute filtered jobs based on search term and active filters
-  const filteredJobs = useRoleBasedFiltering ? enrichJobsWithCategoryNames(jobs) : enrichJobsWithCategoryNames(jobs).filter(job => {
+  const filteredJobs = enrichJobsWithCategoryNames(jobs).filter(job => {
     // Search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase().trim();
@@ -341,10 +292,13 @@ const AdminJobs = () => {
     // Category filter
     if (activeFilters.category && activeFilters.category !== '' && job.category_uuid !== activeFilters.category) {
       return false;
+    }    // Type filter (if you have a type field)
+    if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
+      return false;
     }
 
-    // Type filter (if you have a type field)
-    if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
+    // Site filter
+    if (activeFilters.site && activeFilters.site !== '' && activeFilters.site !== 'all' && job.location_uuid !== activeFilters.site) {
       return false;
     }
 
@@ -379,21 +333,13 @@ const AdminJobs = () => {
   };
 
   const confirmRefreshData = async () => {
-      try {
-        setIsRefreshing(true);
-        console.log("Manually refreshing job data...");
-
-        // Reset any search term to show all jobs
+      try {        setIsRefreshing(true);
+        console.log("Manually refreshing job data...");        // Reset any search term to show all jobs
         setSearchTerm('');
-        setActiveFilters({ search: '', status: '', category_uuid: '', type: '' });
+        setActiveFilters({ search: '', status: '', category_uuid: '', type: '', site: 'all' });
 
         // Force reload with timestamp to prevent caching
-        if (useRoleBasedFiltering && userRole) {
-          const filters = activeTab !== 'all' ? { status: activeTab } : {};
-          await fetchJobsByRole(userRole, filters, true);
-        } else {
-          await fetchJobs(1, activeTab, true);
-        }
+        await fetchJobs(1, activeTab, true);
 
         // Reset visible jobs to default
         setVisibleJobs(10);
@@ -1005,37 +951,43 @@ const AdminJobs = () => {
         <Card>
           <CardHeader>
             <CardTitle>Jobs</CardTitle>
-            <CardDescription>View and manage all jobs in the system</CardDescription>
-            <div className="flex flex-col space-y-4 mt-2">            {useRoleBasedFiltering ? (
-              // Use advanced JobFilters for role-based filtering
-              <JobFilters
-                userRole={userRole}
-                onFiltersChange={handleFiltersChange}
-                currentFilters={activeFilters}
-                className="mb-4"
-                showSavedFilters={true}
+            <CardDescription>View and manage all jobs in the system</CardDescription>            <div className="flex flex-col space-y-4 mt-2">
+            <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="all">All Jobs</TabsTrigger>
+                <TabsTrigger value="Quote">Quotes</TabsTrigger>
+                <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
+                <TabsTrigger value="In Progress">In Progress</TabsTrigger>
+                <TabsTrigger value="Completed">Completed</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex gap-4 w-full">
+              <Input
+                className="flex-1"
+                placeholder="Search jobs by job number, description, or address..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
-            ) : (
-              // Use simple tabs and search for Administrators
-              <>
-                <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-                  <TabsList className="w-full justify-start">
-                    <TabsTrigger value="all">All Jobs</TabsTrigger>
-                    <TabsTrigger value="Quote">Quotes</TabsTrigger>
-                    <TabsTrigger value="Work Order">Work Orders</TabsTrigger>
-                    <TabsTrigger value="In Progress">In Progress</TabsTrigger>
-                    <TabsTrigger value="Completed">Completed</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <div className="w-full">                  <Input
-                    className="w-full"
-                    placeholder="Search jobs by job number, description, or address..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
+              <div className="min-w-[200px]">
+                <Select 
+                  value={activeFilters.site} 
+                  onValueChange={(value) => setActiveFilters(prev => ({ ...prev, site: value }))}
+                  disabled={loadingSites}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingSites ? "Loading..." : "All sites"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sites</SelectItem>
+                    {Array.isArray(sites) && sites.map(site => (
+                      <SelectItem key={site.uuid} value={site.uuid}>
+                        {site.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             </div>
           </CardHeader>
           <CardContent>            <div className="overflow-x-auto">              <table className="w-full text-sm">                <thead>                <tr className="border-b">
