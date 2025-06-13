@@ -29,14 +29,14 @@ const ClientSettings = () => {
   const [isLoadingEmails, setIsLoadingEmails] = useState(false);
     // Flag to control the display of the add email form
   const [showAddEmailForm, setShowAddEmailForm] = useState(false);
-  
-  // Get current user ID from localStorage
+    // Get current user ID from localStorage
   const getUserId = () => {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('user_data');
     if (clientData) {
       try {
         const parsedData = JSON.parse(clientData);
-        return `client-${parsedData.uuid}`;
+        const clientUuid = parsedData.assignedClientUuid || parsedData.uuid || parsedData.clientUuid;
+        return `client-${clientUuid}`;
       } catch (error) {
         console.error('Error parsing client data:', error);
         return null;

@@ -24,10 +24,9 @@ const ClientProfile = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState(null);
-  // Get client data from localStorage
+  const [error, setError] = useState(null);  // Get client data from localStorage
   const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('user_data');
     if (clientData) {
       try {
         return JSON.parse(clientData);
@@ -40,7 +39,7 @@ const ClientProfile = () => {
   };
 
   const clientData = getClientData();
-  const clientId = clientData?.uuid;
+  const clientId = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid;
 
   // Fetch client profile data
   useEffect(() => {

@@ -35,61 +35,69 @@ import NotificationsSettings from '@/pages/admin/settings/NotificationsSettings'
 import ApiPlugin from '@/pages/admin/ApiPlugin';
 import AdminQuotes from '@/pages/admin/AdminQuotes';
 import { JobProvider } from './components/JobContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { useToast } from '@/hooks/use-toast';
+import { ToastContainer } from '@/components/UI/toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import TokenHandler from './components/TokenHandler';
 
 function App() {
+  const { toasts, dismiss } = useToast();
+
   return (
-    <JobProvider>
-      <Router>
-        <TokenHandler />
-        <Routes>          {/* Public Routes */}
-          <Route element={<AppLayout />}>
-            <Route index element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/password-setup/:token" element={<PasswordSetup />} />
-            <Route path="/reset-password/:token" element={<ResetPassword />} />
-            <Route path="/SignUp" element={<SignUp />} />
-          </Route>
+    <NotificationProvider>
+      <JobProvider>
+        <Router>
+          <TokenHandler />
+          <Routes>          {/* Public Routes */}
+            <Route element={<AppLayout />}>
+              <Route index element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/password-setup/:token" element={<PasswordSetup />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route path="/SignUp" element={<SignUp />} />
+            </Route>
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={
-            <ProtectedRoute>
-              <AdminLayout />
-            </ProtectedRoute>          }>            <Route index element={<AdminHome />} />
-            <Route path="users" element={<AdminUser />} />
-            <Route path="jobs" element={<AdminJobs />} />
-            <Route path="jobs/:jobId" element={<AdminJobDetails />} />
-            <Route path="categories" element={<AdminCategories />} />            <Route path="quotes" element={<AdminQuotes />} />            <Route path="clients" element={<AdminClients />} />
-            <Route path="clients/:clientId" element={<AdminClientDetails />} />
-            <Route path="api-plugin" element={<ApiPlugin />} />
-            <Route path="profile" element={<AdminProfile />} />
-            <Route path="settings" element={<AdminSettings />} />
-            <Route path="settings/notifications" element={<NotificationsSettings />} />
-            
-            {/* Legacy routes to maintain compatibility */}
-            <Route path="schedule" element={<AdminSchedule />} />
-            <Route path="team" element={<AdminTeam />} />
-          </Route>          <Route path="/client" element={<ClientLayout />}>
-            <Route index element={<ClientHome />} />
-            <Route path="jobs" element={<ClientJobs />} />
-            <Route path="jobs/:jobId" element={<ClientJobDetails />} />
-            <Route path="quotes" element={<ClientQuotes />} />
-            <Route path="sites" element={<ClientSites />} />
-            <Route path="invoices" element={<ClientInvoices />} />
-            <Route path="schedule" element={<ClientSchedule />} />
-            <Route path="reports" element={<ClientReports />} />
-            <Route path="messages" element={<ClientMessages />} />
-            <Route path="support" element={<ClientSupport />} />
-            <Route path="settings" element={<ClientSettings />} />
-            <Route path="profile" element={<ClientProfile />} />
-          </Route>
+            {/* Admin Routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>          }>            <Route index element={<AdminHome />} />
+              <Route path="users" element={<AdminUser />} />
+              <Route path="jobs" element={<AdminJobs />} />
+              <Route path="jobs/:jobId" element={<AdminJobDetails />} />
+              <Route path="categories" element={<AdminCategories />} />            <Route path="quotes" element={<AdminQuotes />} />            <Route path="clients" element={<AdminClients />} />
+              <Route path="clients/:clientId" element={<AdminClientDetails />} />
+              <Route path="api-plugin" element={<ApiPlugin />} />
+              <Route path="profile" element={<AdminProfile />} />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="settings/notifications" element={<NotificationsSettings />} />
+              
+              {/* Legacy routes to maintain compatibility */}
+              <Route path="schedule" element={<AdminSchedule />} />
+              <Route path="team" element={<AdminTeam />} />
+            </Route>          <Route path="/client" element={<ClientLayout />}>
+              <Route index element={<ClientHome />} />
+              <Route path="jobs" element={<ClientJobs />} />
+              <Route path="jobs/:jobId" element={<ClientJobDetails />} />
+              <Route path="quotes" element={<ClientQuotes />} />
+              <Route path="sites" element={<ClientSites />} />
+              <Route path="invoices" element={<ClientInvoices />} />
+              <Route path="schedule" element={<ClientSchedule />} />
+              <Route path="reports" element={<ClientReports />} />
+              <Route path="messages" element={<ClientMessages />} />
+              <Route path="support" element={<ClientSupport />} />
+              <Route path="settings" element={<ClientSettings />} />
+              <Route path="profile" element={<ClientProfile />} />
+            </Route>
 
-          {/* Redirects */}
-          <Route path="/" element={<Navigate to="/admin" replace />} />
-        </Routes>
-      </Router>
-    </JobProvider>
+            {/* Redirects */}
+            <Route path="/" element={<Navigate to="/admin" replace />} />
+          </Routes>
+          <ToastContainer toasts={toasts} onDismiss={dismiss} />
+        </Router>
+      </JobProvider>
+    </NotificationProvider>
   )
 }
 

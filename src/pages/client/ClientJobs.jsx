@@ -122,7 +122,7 @@ const ClientJobs = () => {
   // New state for job sorting
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = newest first, 'asc' = oldest first  // Get client data from localStorage
   const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('user_data');
     if (clientData) {
       try {
         return JSON.parse(clientData);
@@ -133,9 +133,8 @@ const ClientJobs = () => {
     }
     return null;
   };
-
   const clientData = getClientData();
-  const clientUuid = clientData?.uuid;
+  const clientUuid = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid;
 
   // Set selected status when job changes
   useEffect(() => {

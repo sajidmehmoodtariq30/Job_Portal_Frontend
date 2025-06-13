@@ -48,6 +48,7 @@ import {
 import { Skeleton } from "@/components/UI/skeleton"
 import { API_ENDPOINTS } from '@/lib/apiConfig'
 import { format, subDays } from 'date-fns'
+import NotificationTester from '@/components/NotificationTester'
 
 // Default color scheme for charts
 const COLORS = {
@@ -354,11 +355,11 @@ const AdminHome = () => {
         </Button>
       </div>
       
-      <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>
-        <TabsList>
+      <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4">
@@ -515,14 +516,25 @@ const AdminHome = () => {
             <CardHeader>
               <CardTitle>User Management</CardTitle>
               <CardDescription>Invite and manage client access</CardDescription>
-            </CardHeader>
-            <CardContent>
+            </CardHeader>            <CardContent>
               <div className="flex justify-between items-center">
                 <p className="text-lg">Manage your clients and their access</p>
                 <Button onClick={() => navigate('/admin/clients')}>View Clients</Button>
               </div>
             </CardContent>
           </Card>        </TabsContent>
+        
+        <TabsContent value="notifications" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Testing</CardTitle>
+              <CardDescription>Test the business notification system for different workflows</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NotificationTester />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Job Details Dialog */}
