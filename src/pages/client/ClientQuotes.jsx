@@ -77,9 +77,9 @@ const ClientQuotes = () => {
     description: '',
     items: [{ description: '', quantity: 1, price: 0 }]
   });
-    // Get client data from localStorage - same method as other components  
+  // Get client data from localStorage - same method as other components  
   const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('user_data');
     if (clientData) {
       try {
         return JSON.parse(clientData);
@@ -93,7 +93,7 @@ const ClientQuotes = () => {
 
   const clientData = getClientData();
   // Get client ID from localStorage with fallbacks (same as ClientHome)
-  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  const clientId = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
     // Load quotes data
   useEffect(() => {
     if (clientId) {

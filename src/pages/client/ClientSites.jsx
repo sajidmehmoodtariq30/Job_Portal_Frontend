@@ -17,10 +17,9 @@ import { useAllSites } from '@/hooks/useAllSites';
 const SiteManagement = () => {
   // Toggle between client-specific and global sites view
   const [showAllSites, setShowAllSites] = useState(false);
-  
-  // Get client data from localStorage (same method as ClientHome)
+    // Get client data from localStorage (same method as ClientHome)
   const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('user_data');
     if (clientData) {
       try {
         return JSON.parse(clientData);
@@ -34,7 +33,7 @@ const SiteManagement = () => {
 
   const clientData = getClientData();
   // Get client ID from localStorage with fallbacks (same as ClientHome)
-  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  const clientId = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
     // Client-specific sites hook (read-only)
   const { 
     sites: clientSites, 

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Bell, 
-  Calendar, 
+import {
+  Bell,
+  Calendar,
   Clock,
-  CheckCircle, 
-  FileText, 
+  CheckCircle,
+  FileText,
   BarChart3,
   MessageSquare,
   FileBarChart,
@@ -15,10 +15,10 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "../../components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/UI/card";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -41,30 +41,31 @@ import { API_URL } from '@/lib/apiConfig';
 import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
 import { useSites } from '@/hooks/useSites';
 import { useAllSites } from '@/hooks/useAllSites';
+import { useNotifications } from '@/context/NotificationContext';
 
 const ClientHome = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
+  const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
+
   // State variables
   const [dashboardData, setDashboardData] = useState({
     stats: {},
     jobs: [],
-    quotes: [],    upcomingServices: [],
+    quotes: [],
+    upcomingServices: [],
     recentActivity: []
   });
-  
   const [loading, setLoading] = useState(true);
   const [dataRefreshing, setDataRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState([]);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');  const [clientName, setClientName] = useState('');
-  
+  const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
+  const [clientName, setClientName] = useState('');
+
   // Get client data from localStorage
   const getClientData = () => {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('user_data');
     if (clientData) {
       try {
         return JSON.parse(clientData);
@@ -76,88 +77,45 @@ const ClientHome = () => {
     return null;
   };
 
-  // Notification persistence functions
-  const getReadNotificationIds = () => {
-    try {
-      const stored = localStorage.getItem('readNotificationIds');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch (error) {
-      console.error('Error loading read notification IDs:', error);
-      return new Set();
-    }
-  };
+  const clientData = getClientData();
 
-  const saveReadNotificationIds = (ids) => {
-    try {
-      localStorage.setItem('readNotificationIds', JSON.stringify([...ids]));
-    } catch (error) {
-      console.error('Error saving read notification IDs:', error);
-    }
-  };
+  // Get client ID from localStorage only
+  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
 
-  const getClearedNotificationIds = () => {
-    try {
-      const stored = localStorage.getItem('clearedNotificationIds');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch (error) {
-      console.error('Error loading cleared notification IDs:', error);
-      return new Set();
-    }
-  };
-
-  const saveClearedNotificationIds = (ids) => {
-    try {
-      localStorage.setItem('clearedNotificationIds', JSON.stringify([...ids]));
-    } catch (error) {
-      console.error('Error saving cleared notification IDs:', error);
-    }
-  };  const clientData = getClientData();
-  
-  // Get client ID - Use localStorage client data as primary source
-  // Only use URL parameter if no client data in localStorage (for testing purposes)
-  const urlClientId = searchParams.get('clientId');
-  const clientId = clientData?.uuid || urlClientId || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
-  
-  // If URL has clientId, temporarily override localStorage to ensure consistency
-  useEffect(() => {
-    if (urlClientId && urlClientId !== clientData?.uuid) {
-      console.log('🔄 URL clientId detected, overriding localStorage temporarily:', urlClientId);
-      // Don't permanently change localStorage, just ensure our component uses URL parameter
-    }
-  }, [urlClientId, clientData]);
-  
   // Use the global sites hook to show all sites in dropdown
-  const { 
-    sites: allSites, 
-    loading: sitesLoading, 
-    error: sitesError, 
+  const {
+    sites: allSites,
+    loading: sitesLoading,
+    error: sitesError,
     fetchAllSites
   } = useAllSites();
-  
+
   // Keep track of current site selection
   const [currentSite, setCurrentSite] = useState(null);
-  
+
   // Change site function
   const changeSite = (site) => {
     setCurrentSite(site);
   };
-  
+
   // Use all sites for the dropdown
-  const sites = allSites;  // Debugging - check what client ID we have
+  const sites = allSites;
+
+  // Debugging - check what client ID we have
   useEffect(() => {
     console.log('🏠 DASHBOARD: Current clientData:', clientData);
-    console.log('🔗 DASHBOARD: URL clientId:', urlClientId);
     console.log('🎯 DASHBOARD: Final clientId used:', clientId);
     if (clientData?.name) {
       console.log(`👤 DASHBOARD: Client name: ${clientData.name}`);
     }
-  }, [clientData, urlClientId, clientId]);
-    // Fetch client name and welcome message
+  }, [clientData, clientId]);
+
+  // Fetch client name and welcome message
   useEffect(() => {
     const fetchClientInfo = async () => {
       if (clientData) {
         setClientName(clientData.name || 'Client');
-        
+
         if (clientId) {
           try {
             const welcome = await getWelcomeMessage(clientId);
@@ -170,11 +128,12 @@ const ClientHome = () => {
       } else {
         setWelcomeMessage('Welcome back');
         setClientName('');
-      }    };
-    
+      }
+    };
+
     fetchClientInfo();
   }, [clientData, clientId]);
-  
+
   // For demo purposes, if API is not available, load mock data
   const loadMockData = () => {
     // Mock data structure to match our backend API response
@@ -250,18 +209,18 @@ const ClientHome = () => {
         }
       ],
       upcomingServices: [
-        { 
-          id: 'SVC-001', 
-          title: 'Network Maintenance', 
-          date: '2025-04-20', 
+        {
+          id: 'SVC-001',
+          title: 'Network Maintenance',
+          date: '2025-04-20',
           time: '10:00 AM',
           location: 'Main Office',
           tech: 'Alex Johnson'
         },
-        { 
-          id: 'SVC-002', 
-          title: 'Security Check', 
-          date: '2025-04-22', 
+        {
+          id: 'SVC-002',
+          title: 'Security Check',
+          date: '2025-04-22',
           time: '2:00 PM',
           location: 'Branch Office',
           tech: 'Sarah Davis'
@@ -275,28 +234,8 @@ const ClientHome = () => {
         { id: 5, type: 'invoice_paid', title: 'Invoice Paid', description: 'INV-2025-0056', date: '2025-04-08' }
       ]
     };
-    
+
     setDashboardData(mockData);
-    
-    // Mock notifications
-    const mockNotifications = [
-      { id: 1, type: 'quote', message: 'New quote available for Security System Upgrade', time: '2 hours ago', read: false },
-      { id: 2, type: 'schedule', message: 'Technician scheduled for Apr 20', time: '1 day ago', read: true },
-      { id: 3, type: 'job', message: 'Digital Signage Installation completed', time: '2 days ago', read: true },
-    ];
-    
-    // Apply stored read states and filter out cleared notifications for mock data
-    const readIds = getReadNotificationIds();
-    const clearedIds = getClearedNotificationIds();
-    const notificationsWithReadState = mockNotifications
-      .filter(notification => !clearedIds.has(notification.id)) // Don't show cleared notifications
-      .map(notification => ({
-        ...notification,
-        read: readIds.has(notification.id) || notification.read
-      }));
-    
-    setNotifications(notificationsWithReadState);
-    
     setLastUpdated(new Date());
   };
 
@@ -307,59 +246,42 @@ const ClientHome = () => {
     } else {
       setLoading(true);
     }
-    
+
     setError(null);
-    
+
     try {
       // Call our new backend endpoint for dashboard stats with the correct path prefix '/fetch'
       // Fall back to a generic endpoint if no clientId is available
       const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId || 'default'}`);
       setDashboardData(response.data);
-        // Only fetch notifications if we have a valid clientId
-      if (clientId) {
-        try {
-          const notificationsResponse = await axios.get(`${API_URL}/api/notifications?clientId=${clientId}`);
-          const fetchedNotifications = Array.isArray(notificationsResponse.data) ? notificationsResponse.data : [];          // Apply stored read states and filter out cleared notifications
-          const readIds = getReadNotificationIds();
-          const clearedIds = getClearedNotificationIds();
-          const notificationsWithReadState = fetchedNotifications
-            .filter(notification => !clearedIds.has(notification.id)) // Don't show cleared notifications
-            .map(notification => ({
-              ...notification,
-              read: readIds.has(notification.id) || notification.read
-            }));
-          
-          setNotifications(notificationsWithReadState);
-        } catch (notificationErr) {
-          console.warn('Error fetching notifications:', notificationErr);
-          // Don't let notification failure block the whole dashboard
-        }
-      }
-      
+
       // Set last updated timestamp
       setLastUpdated(new Date());
-      
+
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data. Please try refreshing.');
-      
+
       // If API fails, load mock data for development purposes
-      loadMockData();    } finally {
+      loadMockData();
+    } finally {
       setLoading(false);
       setDataRefreshing(false);
-    }  }, [clientId]);
-    
+    }
+  }, [clientId]);
+
   // Initial data loading
   useEffect(() => {
     fetchDashboardData(false);
-    
+
     // Set up interval for real-time updates
     const intervalId = setInterval(() => {
       fetchDashboardData(true);
     }, 60000); // Refresh every minute
-    
+
     return () => clearInterval(intervalId);
   }, [fetchDashboardData]);
+
   // Add visibility change listener to refresh sites when user navigates back to dashboard
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -376,7 +298,9 @@ const ClientHome = () => {
 
     // Add event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);    return () => {
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
       // Cleanup event listeners
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
@@ -389,7 +313,7 @@ const ClientHome = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case 'In Progress': return 'bg-purple-600 text-white';
       case 'Quote': return 'bg-orange-500 text-white';
       case 'Work Order': return 'bg-blue-600 text-white';
@@ -399,9 +323,9 @@ const ClientHome = () => {
       default: return 'bg-gray-600 text-white';
     }
   };
-  
+
   const getActivityIcon = (type) => {
-    switch(type) {
+    switch (type) {
       case 'job_created': return <FileText className="text-blue-500" />;
       case 'quote_received': return <FileText className="text-orange-500" />;
       case 'job_completed': return <CheckCircle className="text-green-500" />;
@@ -409,36 +333,6 @@ const ClientHome = () => {
       case 'invoice_paid': return <BarChart3 className="text-green-500" />;
       default: return <AlertCircle className="text-gray-500" />;
     }
-  };
-
-  const markAllNotificationsRead = () => {
-    const readIds = getReadNotificationIds();
-    const updatedNotifications = notifications.map(n => {
-      readIds.add(n.id);
-      return { ...n, read: true };
-    });
-    
-    setNotifications(updatedNotifications);
-    saveReadNotificationIds(readIds);
-  };
-  // Helper function to mark individual notification as read
-  const markNotificationRead = (notificationId) => {
-    const readIds = getReadNotificationIds();
-    readIds.add(notificationId);
-    
-    const updatedNotifications = notifications.map(n => 
-      n.id === notificationId ? { ...n, read: true } : n
-    );
-    
-    setNotifications(updatedNotifications);
-    saveReadNotificationIds(readIds);
-  };
-  // Helper function to clear all notifications
-  const clearAllNotifications = () => {
-    const clearedIds = getClearedNotificationIds();
-    notifications.forEach(n => clearedIds.add(n.id));
-      setNotifications([]);
-    saveClearedNotificationIds(clearedIds);
   };
 
   // Extract data from the dashboard data object for easier use
@@ -457,12 +351,13 @@ const ClientHome = () => {
                 (Last updated: {lastUpdated.toLocaleTimeString()})
                 {dataRefreshing && <Loader2 className="ml-1 h-3 w-3 inline animate-spin" />}
               </span>
-            )}          </p>
+            )}
+          </p>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <Select
-            value={currentSite?.id || ''} 
+            value={currentSite?.id || ''}
             onValueChange={(siteId) => {
               const selectedSite = sites.find(site => site.id === siteId);
               if (selectedSite) changeSite(selectedSite);
@@ -472,7 +367,8 @@ const ClientHome = () => {
             <SelectTrigger className="w-[180px]">
               <Building size={16} className="mr-2" />
               <SelectValue placeholder={sitesLoading ? "Loading sites..." : "Select site"} />
-            </SelectTrigger>            <SelectContent>
+            </SelectTrigger>
+            <SelectContent>
               {sitesLoading ? (
                 <SelectItem value="loading" disabled>Loading sites...</SelectItem>
               ) : sites.length > 0 ? (
@@ -496,43 +392,48 @@ const ClientHome = () => {
               )}
             </SelectContent>
           </Select>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="relative">
                 <Bell size={20} />
-                {notifications.filter(n => !n.read).length > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
-                    {notifications.filter(n => !n.read).length}
+                    {unreadCount}
                   </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">              <DropdownMenuLabel className="flex justify-between items-center">
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel className="flex justify-between items-center">
                 <span>Notifications</span>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={markAllNotificationsRead}>
+                  <Button variant="ghost" size="sm" onClick={() => contextNotifications.forEach(n => !n.read && markAsRead(n.id))}>
                     Mark all read
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
+                  <Button variant="ghost" size="sm" onClick={clearAll}>
                     Clear all
                   </Button>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />              {notifications.length > 0 ? (
-                notifications.map(notification => (
-                  <DropdownMenuItem 
-                    key={notification.id} 
+              <DropdownMenuSeparator />
+              {contextNotifications.length > 0 ? (
+                contextNotifications.slice(0, 5).map(notification => (
+                  <DropdownMenuItem
+                    key={notification.id}
                     className={`p-3 ${!notification.read ? 'bg-muted/50' : ''}`}
-                    onClick={() => !notification.read && markNotificationRead(notification.id)}
+                    onClick={() => !notification.read && markAsRead(notification.id)}
                   >
                     <div className="flex gap-3 items-start">
-                      {notification.type === 'quote' && <FileText className="text-amber-500" size={20} />}
-                      {notification.type === 'schedule' && <Calendar className="text-purple-500" size={20} />}
-                      {notification.type === 'job' && <CheckCircle className="text-green-500" size={20} />}
+                      {notification.type?.includes('quote') && <FileText className="text-amber-500" size={20} />}
+                      {notification.type?.includes('job') && <CheckCircle className="text-green-500" size={20} />}
+                      {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
+                      {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
                       <div>
-                        <p className="font-medium text-sm">{notification.message}</p>
-                        <p className="text-xs text-muted-foreground">{notification.time}</p>
+                        <p className="font-medium text-sm">{notification.title || notification.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(notification.timestamp).toLocaleTimeString()}
+                        </p>
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -548,7 +449,7 @@ const ClientHome = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <Button
             variant="outline"
             size="icon"
@@ -559,11 +460,11 @@ const ClientHome = () => {
           >
             {dataRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          
+
           <Button onClick={() => navigate('/client/quotes')}>Request Quote</Button>
         </div>
       </div>
-      
+
       {/* Error message if any */}
       {error && (
         <div className="p-4 border border-red-200 rounded-md bg-red-50 text-red-800 flex items-center gap-2">
@@ -574,7 +475,7 @@ const ClientHome = () => {
           </Button>
         </div>
       )}
-      
+
       {/* Dashboard Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
         <Card>
@@ -604,7 +505,7 @@ const ClientHome = () => {
             </Button>
           </CardFooter>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Pending Quotes</CardTitle>
@@ -614,7 +515,8 @@ const ClientHome = () => {
               <>
                 <Skeleton className="h-8 w-16 mb-2" />
                 <Skeleton className="h-4 w-24" />
-              </>            ) : (
+              </>
+            ) : (
               <>
                 <div className="text-3xl font-bold">
                   {stats.pendingQuotes || 0}
@@ -628,7 +530,7 @@ const ClientHome = () => {
             </Button>
           </CardFooter>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Completed Jobs</CardTitle>
@@ -656,7 +558,7 @@ const ClientHome = () => {
             </Button>
           </CardFooter>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Upcoming Services</CardTitle>
@@ -673,8 +575,8 @@ const ClientHome = () => {
                   {upcomingServices.length}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Next: {upcomingServices.length > 0 ? 
-                    new Date(upcomingServices[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 
+                  Next: {upcomingServices.length > 0 ?
+                    new Date(upcomingServices[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
                     'None scheduled'}
                 </p>
               </>
@@ -687,7 +589,7 @@ const ClientHome = () => {
           </CardFooter>
         </Card>
       </div>
-      
+
       {/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content - 2/3 width */}
@@ -713,51 +615,52 @@ const ClientHome = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div>                    <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
                       <div className="text-sm font-medium">Quotes</div>
                       <div className="text-sm text-muted-foreground">
-                        {stats.pendingQuotes || 0}/{jobs.length} ({jobs.length ? Math.round((stats.pendingQuotes || 0)/jobs.length*100) : 0}%)
+                        {stats.pendingQuotes || 0}/{jobs.length} ({jobs.length ? Math.round((stats.pendingQuotes || 0) / jobs.length * 100) : 0}%)
                       </div>
                     </div>
-                    <Progress value={jobs.length ? (stats.pendingQuotes || 0)/jobs.length*100 : 0} className="h-2 bg-muted" />
+                    <Progress value={jobs.length ? (stats.pendingQuotes || 0) / jobs.length * 100 : 0} className="h-2 bg-muted" />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-sm font-medium">In Progress</div>
                       <div className="text-sm text-muted-foreground">
-                        {jobs.filter(j => j.status === 'In Progress').length}/{jobs.length} 
-                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'In Progress').length/jobs.length*100) : 0}%)
+                        {jobs.filter(j => j.status === 'In Progress').length}/{jobs.length}
+                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'In Progress').length / jobs.length * 100) : 0}%)
                       </div>
                     </div>
-                    <Progress 
-                      value={jobs.length ? jobs.filter(j => j.status === 'In Progress').length/jobs.length*100 : 0} 
-                      className="h-2 bg-muted" 
+                    <Progress
+                      value={jobs.length ? jobs.filter(j => j.status === 'In Progress').length / jobs.length * 100 : 0}
+                      className="h-2 bg-muted"
                     />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-sm font-medium">Scheduled</div>
                       <div className="text-sm text-muted-foreground">
-                        {jobs.filter(j => j.status === 'Scheduled').length}/{jobs.length} 
-                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'Scheduled').length/jobs.length*100) : 0}%)
+                        {jobs.filter(j => j.status === 'Scheduled').length}/{jobs.length}
+                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'Scheduled').length / jobs.length * 100) : 0}%)
                       </div>
                     </div>
-                    <Progress 
-                      value={jobs.length ? jobs.filter(j => j.status === 'Scheduled').length/jobs.length*100 : 0} 
-                      className="h-2 bg-muted" 
+                    <Progress
+                      value={jobs.length ? jobs.filter(j => j.status === 'Scheduled').length / jobs.length * 100 : 0}
+                      className="h-2 bg-muted"
                     />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <div className="text-sm font-medium">Completed</div>
                       <div className="text-sm text-muted-foreground">
-                        {jobs.filter(j => j.status === 'Completed').length}/{jobs.length} 
-                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'Completed').length/jobs.length*100) : 0}%)
+                        {jobs.filter(j => j.status === 'Completed').length}/{jobs.length}
+                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'Completed').length / jobs.length * 100) : 0}%)
                       </div>
                     </div>
-                    <Progress 
-                      value={jobs.length ? jobs.filter(j => j.status === 'Completed').length/jobs.length*100 : 0} 
-                      className="h-2 bg-muted" 
+                    <Progress
+                      value={jobs.length ? jobs.filter(j => j.status === 'Completed').length / jobs.length * 100 : 0}
+                      className="h-2 bg-muted"
                     />
                   </div>
                 </div>
