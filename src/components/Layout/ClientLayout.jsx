@@ -12,8 +12,6 @@ import {
 } from '@/components/UI/dropdown-menu'
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
-import { ClientPermissionProvider } from '@/hooks/useClientPermissions'
-import EnterprisePermissionHandler from '@/components/client/EnterprisePermissionHandler'
 import setupAuthInterceptor, { addClientUuidHeader, removeClientUuidHeader } from '@/utils/authInterceptor'
 import logo from '../../assets/logo.jpg'
 
@@ -143,11 +141,7 @@ const ClientLayout = () => {
                     </div>
                 </div>                {/* Main content area */}
                 <main className="flex-1 overflow-auto p-4 lg:p-6">
-                    <ClientPermissionProvider>
-                        <EnterprisePermissionHandler>
-                            <Outlet />
-                        </EnterprisePermissionHandler>
-                    </ClientPermissionProvider>
+                    <Outlet />
                 </main>
             </div>
         </div>

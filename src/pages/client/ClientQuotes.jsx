@@ -37,16 +37,10 @@ import {
 } from "../../components/UI/dialog";
 import { Label } from "../../components/UI/label";
 import SearchableJobSelect from "@/components/UI/SearchableJobSelect";
-import PermissionGuard from "../../components/client/PermissionGuard";
-import { useClientPermissions } from "@/hooks/useClientPermissions";
-import { CLIENT_PERMISSIONS } from "../../types/clientPermissions";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 
 const ClientQuotes = () => {
-  // Permission checking hook
-  const { hasPermission } = useClientPermissions();
-  
   // State for quotes data
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -337,14 +331,6 @@ const ClientQuotes = () => {
     return true;
   });
   
-  // Filter quotes based on search query (legacy support - now using enhanced filtering above)
-  // const filteredQuotes = quotes.filter(quote => 
-  //   quote.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //   quote.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //   quote.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  //   quote.description.toLowerCase().includes(searchQuery.toLowerCase())
-  // );
-  
   // Status color function
   const getStatusColor = (status) => {
     switch(status) {
@@ -374,19 +360,7 @@ const ClientQuotes = () => {
   };
     // Handle quote actions with confirmation
   const handleQuoteAction = (quoteId, action) => {
-    // Check permissions before allowing action
-    if (action === 'Accept' && !hasPermission(CLIENT_PERMISSIONS.QUOTES_ACCEPT)) {
-      setError('You do not have permission to accept quotes.');
-      return;
-    }
-    
-    if (action === 'Reject' && !hasPermission(CLIENT_PERMISSIONS.QUOTES_REJECT)) {
-      setError('You do not have permission to reject quotes.');
-      return;
-    }
-    
     setSelectedAction({ id: quoteId, action });
-    
     if (action === 'Reject') {
       setRejectionReason('');
       setShowRejectionDialog(true);
@@ -398,37 +372,26 @@ const ClientQuotes = () => {
   const confirmQuoteAction = async () => {
     setError(null);
     setSuccess(null);
-    
     // Set loading state for this specific quote
     setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: selectedAction.action }));
-    
     try {
       if (selectedAction.action === 'Accept') {
         await axios.post(`${API_URL}/api/quotes/${selectedAction.id}/accept`, {
           userId: clientId
         });
-        
         setSuccess('Quote accepted successfully. The provider will be notified.');
       } else {
-        // Close the confirmation dialog immediately, rejection will be handled in handleConfirmRejection
         setShowDialog(false);
         setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
         return;
       }
-      
-      // Refresh quotes list
       await fetchQuotes();
-      
-      // Close dialog
       setShowDialog(false);
-      
-      // Clear success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (error) {
       console.error('Error processing quote action:', error);
       setError(`Failed to ${selectedAction.action.toLowerCase()} quote: ${error.response?.data?.message || error.message}`);
     } finally {
-      // Clear loading state for this quote
       setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
     }
   };
@@ -436,35 +399,23 @@ const ClientQuotes = () => {
   const handleConfirmRejection = async () => {
     setError(null);
     setSuccess(null);
-    
-    // Set loading state for this specific quote
     setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: 'Reject' }));
-    
     try {
       await axios.post(`${API_URL}/api/quotes/${selectedAction.id}/reject`, {
         userId: clientId,
         rejectionReason: rejectionReason || 'No reason provided'
       });
-      
       setSuccess('Quote rejected successfully. The provider will be notified.');
-      
-      // Refresh quotes list
       await fetchQuotes();
-      
-      // Close dialogs
       setShowRejectionDialog(false);
-      
-      // Clear success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (error) {
       console.error('Error rejecting quote:', error);
       setError(`Failed to reject quote: ${error.response?.data?.message || error.message}`);
     } finally {
-      // Clear loading state for this quote
       setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
     }
   };
-  
   // Handle refresh
   const handleRefresh = async () => {
     setError(null);
@@ -508,15 +459,13 @@ const ClientQuotes = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>        <div className="flex gap-2 w-full md:w-auto">
-          <PermissionGuard permission={CLIENT_PERMISSIONS.QUOTES_REQUEST}>
-            <Button 
-              onClick={openCreateDialog}
-              className="flex items-center gap-2"
-            >
-              <FileText size={16} />
-              Create Quote
-            </Button>
-          </PermissionGuard>
+          <Button 
+            onClick={openCreateDialog}
+            className="flex items-center gap-2"
+          >
+            <FileText size={16} />
+            Create Quote
+          </Button>
           <Button 
             variant="outline" 
             onClick={toggleFilters}
@@ -545,18 +494,6 @@ const ClientQuotes = () => {
         </div>
       )}
         {/* Quote List */}
-      <PermissionGuard
-        permission={CLIENT_PERMISSIONS.QUOTES_VIEW}
-        fallback={
-          <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-            <XCircle size={48} className="text-gray-400 mb-4" />
-            <h3 className="text-xl font-medium mb-2 text-gray-600">Access Restricted</h3>
-            <p className="text-gray-500 text-center max-w-md">
-              You do not have permission to view quotes. Please contact your administrator to request access to quote management features.
-            </p>
-          </div>
-        }
-      >
         <div className="space-y-4">
           {loading ? (
             <div className="flex justify-center py-12">
@@ -619,8 +556,6 @@ const ClientQuotes = () => {
             </div>
           )}
         </div>
-      </PermissionGuard>
-
       {/* Create Quote Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">

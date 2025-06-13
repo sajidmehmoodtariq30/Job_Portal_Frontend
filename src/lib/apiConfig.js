@@ -40,8 +40,6 @@ export const API_ENDPOINTS = {  AUTH: {
     CREATE: buildApiEndpoint('fetch/clients'),
     UPDATE_STATUS: (uuid) => buildApiEndpoint(`fetch/clients/${uuid}/status`),
     BULK_UPDATE_STATUS: buildApiEndpoint('fetch/clients/bulk-status'),
-    GET_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
-    UPDATE_PERMISSIONS: (clientId) => buildApiEndpoint(`fetch/clients/${clientId}/permissions`),
     ASSIGN_USERNAME: (uuid) => buildApiEndpoint(`fetch/clients/${uuid}/assign-username`),
     
     // Client Name Mappings
@@ -62,17 +60,17 @@ export const API_ENDPOINTS = {  AUTH: {
     UPDATE_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
     RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`)
   },
-    SITES: {
+  SITES: {
     // READ-ONLY ENDPOINTS (ServiceM8 site data)
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // Admin view - all sites
     GET_DEFAULT: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/default`),
+    SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`), // Keep for dropdown functionality
     
     // DISABLED ENDPOINTS (ServiceM8 site data is read-only)
     // CREATE: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     // UPDATE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
-    // DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
-    // SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`)
+    // DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`)
   },
 
   QUOTES: {

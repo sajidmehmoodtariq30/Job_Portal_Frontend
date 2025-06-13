@@ -56,9 +56,6 @@ import JobCard from "@/components/UI/client/JobCard";
 import ChatRoom from "@/components/UI/client/ChatRoom";
 import ClientJobFilters from "@/components/UI/client/ClientJobFilters";
 import { useJobContext } from '@/components/JobContext';
-import PermissionGuard from '@/components/client/PermissionGuard';
-import { CLIENT_PERMISSIONS } from '@/types/clientPermissions';
-import { useClientPermissions } from '@/hooks/useClientPermissions';
 import { useSites } from '@/hooks/useSites';
 import axios from 'axios';
 import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
@@ -68,33 +65,6 @@ const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
   const navigate = useNavigate();  
-  const { checkPermission, permissions, loading: permissionsLoading, checkJobPermission } = useClientPermissions();
-    // Enhanced permission debugging
-  useEffect(() => {
-    if (!permissionsLoading && permissions && permissions.length > 0) {
-      const jobPermissions = checkJobPermission();
-      
-      console.log('🔐 Enhanced Permission Debug:', {
-        permissions,
-        hasJobsCreate: checkPermission(CLIENT_PERMISSIONS.JOBS_CREATE),
-        hasJobsView: checkPermission(CLIENT_PERMISSIONS.JOBS_VIEW),
-        hasJobsViewAlias: checkPermission(CLIENT_PERMISSIONS.VIEW_JOBS),
-        jobsCreateConstant: CLIENT_PERMISSIONS.JOBS_CREATE,
-        jobsViewConstant: CLIENT_PERMISSIONS.JOBS_VIEW,
-        jobPermissionsHelper: jobPermissions,
-        permissionsLoading
-      });
-      
-      // Log a warning if there are potential permission issues
-      if (!jobPermissions.canViewJobs) {
-        console.warn('⚠️ User cannot view jobs! This may indicate a permission configuration issue.');
-      }
-      
-      if (!jobPermissions.canCreateJobs && jobPermissions.isEnterprise) {
-        console.warn('⚠️ Enterprise client cannot create jobs! This may indicate a permission configuration issue.');
-      }
-    }
-  }, [permissions, permissionsLoading]);
   
   // Use the JobContext to access jobs data and methods
   const {
@@ -691,13 +661,10 @@ const ClientJobs = () => {
     } catch (error) {
       console.error('Error adding note:', error);
     }
-  };  // Handle job status update
+  };
+
+  // Handle job status update
   const handleStatusUpdate = async () => {
-    // Check if user has permission to update jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.UPDATE_JOBS)) {
-      alert('You don\'t have permission to update job status. Please contact your administrator.');
-      return;
-    }
 
     if (!selectedJob || !selectedStatus || selectedStatus === selectedJob.status) {
       return;
@@ -787,13 +754,7 @@ const ClientJobs = () => {
   };
     // Handle file upload
   const handleFileUpload = async () => {
-    // Check if user has permission to manage attachments
-    if (!checkPermission(CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS)) {
-      alert('You don\'t have permission to upload files. Please contact your administrator.');
-      return;
-    }
-
-    if (!selectedFile || !selectedJob) return;
+    // Check if user has permission to manage attachments    if (!selectedFile || !selectedJob) return;
     
     try {
       setFileUploading(true);
@@ -880,16 +841,9 @@ const ClientJobs = () => {
       console.error('Error downloading file:', error);      alert('Failed to download file. Please try again.');
     }
   };
-
   // Handle create new job form submission - updated to remove manual UUID generation
   const handleCreateJob = async (e) => {
     if (e) e.preventDefault();
-    
-    // Check if user has permission to create jobs
-    if (!checkPermission(CLIENT_PERMISSIONS.JOBS_CREATE)) {
-      alert('You don\'t have permission to create new jobs. Please contact your administrator.');
-      return;
-    }
     
     // Ensure client UUID is set automatically
     if (!newJob.company_uuid) {
@@ -1045,39 +999,29 @@ const ClientJobs = () => {
   
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      {/* Header */}      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Jobs</h1>
-          <p className="text-lg mt-1">View and manage all your service jobs</p>        </div>        {/* Wrap the Dialog with PermissionGuard */}
-        <PermissionGuard 
-          requiredPermission={CLIENT_PERMISSIONS.JOBS_CREATE} 
-          fallback={
-            <Button disabled className="flex items-center gap-2 opacity-50" title="No permission to create jobs">
+          <p className="text-lg mt-1">View and manage all your service jobs</p>        </div>
+        <Dialog open={showNewJobDialog} onOpenChange={(open) => {
+          setShowNewJobDialog(open);
+          if (open) {
+            // Reset and populate form with client UUID when dialog opens
+            resetJobForm();
+            // Increment trigger to refresh locations when dialog opens
+            setLocationRefreshTrigger(prev => prev + 1);
+            // Fetch sites when dialog opens
+            if (clientUuid) {
+              fetchSites();
+            }
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
               <Plus size={16} />
               New Request
             </Button>
-          }
-        >
-          <Dialog open={showNewJobDialog} onOpenChange={(open) => {
-            setShowNewJobDialog(open);
-            if (open) {
-              // Reset and populate form with client UUID when dialog opens
-              resetJobForm();
-              // Increment trigger to refresh locations when dialog opens
-              setLocationRefreshTrigger(prev => prev + 1);
-              // Fetch sites when dialog opens
-              if (clientUuid) {
-                fetchSites();
-              }
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus size={16} />
-                New Request
-              </Button>
-            </DialogTrigger>
+          </DialogTrigger>
             <DialogContent className="max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Service Request</DialogTitle>
@@ -1285,8 +1229,7 @@ const ClientJobs = () => {
                       Selected: {newJob.initial_attachment.name}
                     </p>
                   )}
-                </div>
-              </div>
+                </div>              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
                 <Button type="submit">Submit Request</Button>
@@ -1294,7 +1237,6 @@ const ClientJobs = () => {
             </form>
           </DialogContent>
         </Dialog>
-        </PermissionGuard>
       </div>
   
       {/* Tabs and Search */}
@@ -1371,17 +1313,7 @@ const ClientJobs = () => {
                     <div className="h-2 bg-muted rounded"></div>
                   </div>
                 </div>
-              </div>
-            </div>          ) : filteredJobs.length > 0 ? (          <div>            <PermissionGuard 
-              requiredPermissions={[CLIENT_PERMISSIONS.JOBS_VIEW, CLIENT_PERMISSIONS.VIEW_JOBS]} 
-              requireAll={false}
-              fallback={
-                <Card className="p-6 text-center">
-                  <p className="text-lg font-medium text-gray-800">Access Restricted</p>
-                  <p className="text-gray-600 mt-2">You need permission to view jobs. If you believe this is an error, please contact your administrator.</p>
-                </Card>
-              }
-            >
+              </div>            </div>          ) : filteredJobs.length > 0 ? (          <div>            
               <div className="space-y-4">
                 {displayedJobs.map(job => (
                   <JobCard 
@@ -1422,25 +1354,13 @@ const ClientJobs = () => {
                   <ChevronDown size={16} />
                   Show More
                 </Button>              </div>
-            </PermissionGuard>
           </div>
           ) : (
-            <PermissionGuard 
-              permission={CLIENT_PERMISSIONS.VIEW_JOBS}
-              fallback={
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Clipboard size={48} className="text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-medium mb-2">Jobs Access Restricted</h3>
-                  <p className="text-muted-foreground">You don't have permission to view jobs. Please contact your administrator.</p>
-                </div>
-              }
-            >
               <div className="flex flex-col items-center justify-center py-12">
                 <Clipboard size={48} className="text-muted-foreground mb-4" />
                 <h3 className="text-xl font-medium mb-2">No jobs found</h3>
                 <p className="text-muted-foreground">Try adjusting your search or create a new request</p>
               </div>
-            </PermissionGuard>
           )}
           ) : (
         </CardContent>
@@ -1527,7 +1447,7 @@ const ClientJobs = () => {
                           <Label className="font-bold text-xs md:text-sm">Active</Label>
                           <p className="text-xs md:text-sm">{selectedJob.active === 1 || selectedJob.active === true ? 'Yes' : 'No'}</p>
                         </div>
-                      </div>                      {/* Job Status Update Section */}                      <PermissionGuard permission={CLIENT_PERMISSIONS.JOBS_STATUS_UPDATE}>
+                      </div>                      {/* Job Status Update Section */}                      
                         <div className="space-y-3 border border-gray-200 rounded-lg p-3 md:p-4 bg-blue-50">
                           <Label className="font-bold text-sm md:text-base text-gray-800">Update Job Status</Label>
                           <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
@@ -1560,9 +1480,7 @@ const ClientJobs = () => {
                             <p className="text-xs text-gray-600">
                               Status will be updated from <strong>{selectedJob.status}</strong> to <strong>{selectedStatus}</strong>
                             </p>
-                          )}
-                        </div>
-                      </PermissionGuard>
+                          )}                        </div>
                       
                       <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
                         <Label className="font-bold text-xs md:text-sm">Service Address</Label>
@@ -1681,9 +1599,7 @@ const ClientJobs = () => {
                       <CardHeader className="p-3 md:p-4">                        <div className="flex justify-between items-center">
                           <CardTitle className="text-sm md:text-base flex items-center">
                             <FileText className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                            Attachments
-                          </CardTitle>
-                          <PermissionGuard permission={CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS}>
+                            Attachments                          </CardTitle>
                             <Button 
                               size="sm" 
                               className="text-xs md:text-sm h-8 md:h-9"
@@ -1691,11 +1607,9 @@ const ClientJobs = () => {
                             >
                               Upload File
                             </Button>
-                          </PermissionGuard>
                         </div>
                       </CardHeader>                      <CardContent className="p-3 md:p-4">                        
-                        <PermissionGuard permission={CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS}>
-                          {isUploadingFile && (                          <div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
+                          {isUploadingFile && (<div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
                             <Label htmlFor="fileUpload" className="text-xs md:text-sm font-medium mb-2 block">Upload File</Label>
                             <Input
                               id="fileUpload"
@@ -1731,9 +1645,7 @@ const ClientJobs = () => {
                                 {fileUploading ? 'Uploading...' : 'Upload'}
                               </Button>
                             </div>
-                          </div>
-                        )}
-                        </PermissionGuard>
+                          </div>                        )}
                           {attachmentsLoading ? (
                           <div className="py-4 md:py-6 flex justify-center">
                             <div className="animate-pulse flex space-x-3 md:space-x-4 w-full">
@@ -1789,9 +1701,7 @@ const ClientJobs = () => {
                             })}
                           </div>                        ) : (
                           <div className="py-8 md:py-10 text-center">
-                            <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
-                            <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>
-                            <PermissionGuard permission={CLIENT_PERMISSIONS.MANAGE_ATTACHMENTS}>
+                            <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />                            <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>
                               <Button 
                                 variant="outline" 
                                 size="sm" 
@@ -1800,7 +1710,6 @@ const ClientJobs = () => {
                               >
                                 Upload First Attachment
                               </Button>
-                            </PermissionGuard>
                           </div>
                         )}
                       </CardContent>

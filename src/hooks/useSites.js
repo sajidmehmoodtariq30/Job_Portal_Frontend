@@ -60,10 +60,21 @@ export const useSites = (clientId) => {
   // Delete a site (DISABLED - ServiceM8 site data is read-only)
   const deleteSite = async (siteId) => {
     throw new Error('Site deletion has been disabled. ServiceM8 site data is read-only.');
-  };
-  // Set a site as default (DISABLED - ServiceM8 site data is read-only)
+  };  // Set a site as default (for dropdown functionality - allows switching between sites)
   const setDefaultSite = async (siteId) => {
-    throw new Error('Setting default site has been disabled. ServiceM8 site data is read-only.');
+    try {
+      const response = await axios.put(API_ENDPOINTS.SITES.SET_DEFAULT(clientId, siteId));
+      
+      if (response.data.success) {
+        await fetchSites(); // Refresh the sites list
+        return true;
+      } else {
+        throw new Error(response.data.message || 'Failed to set default site');
+      }
+    } catch (err) {
+      console.error('Error setting default site:', err);
+      throw err;
+    }
   };
 
   // Change current site
