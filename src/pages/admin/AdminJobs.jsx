@@ -194,15 +194,20 @@ const AdminJobs = () => {
     } catch (error) {
       console.error('Error fetching client names for jobs:', error);
     }
-  };
-  // Helper function to format job number from UUID
-  const formatJobNumber = (uuid) => {
-    if (!uuid) return 'N/A';
-    // Extract only numeric digits from UUID
-    const numericDigits = uuid.replace(/[^0-9]/g, '');
-    // Take the first 8 digits or pad with zeros if less than 8
+  };  // Helper function to get job number - now uses ServiceM8's generated_job_id
+  const getJobNumber = (job) => {
+    // Use ServiceM8's generated job ID if available, otherwise fallback to UUID formatting
+    if (job.generated_job_id) {
+      return job.generated_job_id;
+    }
+    
+    // Fallback for old data or missing generated_job_id
+    if (!job.uuid) return 'N/A';
+    
+    // Extract only numeric digits from UUID as last resort
+    const numericDigits = job.uuid.replace(/[^0-9]/g, '');
     const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
-    return `${jobNumber}`;
+    return jobNumber;
   };
 
   // Helper function to format job address
@@ -312,12 +317,12 @@ const AdminJobs = () => {
       return job;
     });
   };
-
   // Compute filtered jobs based on search term and active filters
-  const filteredJobs = useRoleBasedFiltering ? enrichJobsWithCategoryNames(jobs) : enrichJobsWithCategoryNames(jobs).filter(job => {    // Search filter
+  const filteredJobs = useRoleBasedFiltering ? enrichJobsWithCategoryNames(jobs) : enrichJobsWithCategoryNames(jobs).filter(job => {
+    // Search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase().trim();
-      const jobNumber = formatJobNumber(job.uuid).toLowerCase();
+      const jobNumber = getJobNumber(job).toLowerCase();
       const matchesSearch = (
         (job.uuid && job.uuid.toLowerCase().includes(searchLower)) ||
         (jobNumber.includes(searchLower)) ||
@@ -343,7 +348,8 @@ const AdminJobs = () => {
       return false;
     }
 
-    return true;  });
+    return true;
+  });
 
   // Sort the filtered jobs based on sortOrder
   const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -1057,9 +1063,8 @@ const AdminJobs = () => {
                       
                       return (
                         <tr key={job.uuid} className="border-b">
-                          <td className="py-3">
-                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                              {formatJobNumber(job.uuid)}
+                          <td className="py-3">                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                              {getJobNumber(job)}
                             </span>
                           </td>
                           <td className="py-3">

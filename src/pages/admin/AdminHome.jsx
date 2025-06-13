@@ -231,24 +231,26 @@ const AdminHome = () => {
     } catch (e) {
       return dateString;
     }
-  };
-  // Helper function to format job number from UUID
-  const formatJobNumber = (uuid) => {
-    if (!uuid) return 'N/A';
-    
-    // If we already have a formatted job ID (numeric format), use it directly
-    if (/^\d+$/.test(uuid)) {
-      return uuid;
+  };  // Helper function to get job number - now uses ServiceM8's generated_job_id
+  const getJobNumber = (job) => {
+    // Use ServiceM8's generated job ID if available, otherwise fallback to UUID formatting
+    if (job.generated_job_id) {
+      return job.generated_job_id;
     }
     
-    // Extract only numeric digits from UUID
-    const numericDigits = uuid.replace(/[^0-9]/g, '');
+    // Fallback for old data or missing generated_job_id
+    if (!job.uuid) return 'N/A';
     
-    // For consistency with job management section, create a larger number
-    // Take digits and create a consistent format number
+    // If we already have a formatted job ID (numeric format), use it directly
+    if (/^\d+$/.test(job.uuid)) {
+      return job.uuid;
+    }
+    
+    // Extract only numeric digits from UUID as last resort
+    const numericDigits = job.uuid.replace(/[^0-9]/g, '');
     const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
     return jobNumber;
-  };  // Set selected status when job changes
+  };// Set selected status when job changes
   useEffect(() => {
     if (selectedJob) {
       setSelectedStatus(selectedJob.status);
@@ -451,7 +453,7 @@ const AdminHome = () => {
                     <tbody>                      {recentJobs.length > 0 ? (                        recentJobs.map((job, index) => (
                           <tr key={job.uuid} className="border-b">                            <td className="py-3">
                               <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                                {formatJobNumber(job.uuid) || `JOB-${index + 1}`}
+                                {getJobNumber(job) || `JOB-${index + 1}`}
                               </span>
                             </td>
                             <td className="py-3">{job.client}</td>
@@ -529,7 +531,7 @@ const AdminHome = () => {
           <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">              <DialogHeader className="border-b pb-3 md:pb-4">
               <DialogTitle className="text-lg md:text-2xl font-bold flex items-center gap-2">
                 <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                  {formatJobNumber(selectedJob.uuid)}
+                  {getJobNumber(selectedJob)}
                 </span>
                 <span className="truncate">{jobClientName}</span>
               </DialogTitle>

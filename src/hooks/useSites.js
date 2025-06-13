@@ -48,83 +48,22 @@ export const useSites = (clientId) => {
       setLoading(false);
     }
   }, [clientId]);
-
-  // Create a new site
+  // Create a new site (DISABLED - ServiceM8 site data is read-only)
   const createSite = async (siteData) => {
-    try {
-      const response = await axios.post(API_ENDPOINTS.SITES.CREATE(clientId), siteData);
-      
-      if (response.data.success) {
-        await fetchSites(); // Refresh the sites list
-        return response.data.site;
-      } else {
-        throw new Error(response.data.message || 'Failed to create site');
-      }
-    } catch (err) {
-      console.error('Error creating site:', err);
-      throw err;
-    }
+    throw new Error('Site creation has been disabled. ServiceM8 site data is read-only.');
   };
 
-  // Update an existing site
+  // Update an existing site (DISABLED - ServiceM8 site data is read-only)
   const updateSite = async (siteId, siteData) => {
-    try {
-      const response = await axios.put(API_ENDPOINTS.SITES.UPDATE(clientId, siteId), siteData);
-      
-      if (response.data.success) {
-        await fetchSites(); // Refresh the sites list
-        return response.data.site;
-      } else {
-        throw new Error(response.data.message || 'Failed to update site');
-      }
-    } catch (err) {
-      console.error('Error updating site:', err);
-      throw err;
-    }
+    throw new Error('Site updates have been disabled. ServiceM8 site data is read-only.');
   };
-
-  // Delete a site
+  // Delete a site (DISABLED - ServiceM8 site data is read-only)
   const deleteSite = async (siteId) => {
-    try {
-      const response = await axios.delete(API_ENDPOINTS.SITES.DELETE(clientId, siteId));
-      
-      if (response.data.success) {
-        await fetchSites(); // Refresh the sites list
-        
-        // If deleted site was current, switch to default or first available
-        if (currentSite && currentSite.id === siteId) {
-          const remainingSites = sites.filter(site => site.id !== siteId);
-          if (remainingSites.length > 0) {
-            const newCurrent = remainingSites.find(site => site.isDefault) || remainingSites[0];
-            setCurrentSite(newCurrent);
-          }
-        }
-        
-        return true;
-      } else {
-        throw new Error(response.data.message || 'Failed to delete site');
-      }
-    } catch (err) {
-      console.error('Error deleting site:', err);
-      throw err;
-    }
+    throw new Error('Site deletion has been disabled. ServiceM8 site data is read-only.');
   };
-
-  // Set a site as default
+  // Set a site as default (DISABLED - ServiceM8 site data is read-only)
   const setDefaultSite = async (siteId) => {
-    try {
-      const response = await axios.put(API_ENDPOINTS.SITES.SET_DEFAULT(clientId, siteId));
-      
-      if (response.data.success) {
-        await fetchSites(); // Refresh the sites list
-        return true;
-      } else {
-        throw new Error(response.data.message || 'Failed to set default site');
-      }
-    } catch (err) {
-      console.error('Error setting default site:', err);
-      throw err;
-    }
+    throw new Error('Setting default site has been disabled. ServiceM8 site data is read-only.');
   };
 
   // Change current site

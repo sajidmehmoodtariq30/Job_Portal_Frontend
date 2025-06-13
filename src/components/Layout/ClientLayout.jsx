@@ -22,9 +22,12 @@ const ClientLayout = () => {
     const location = useLocation()
     const navigate = useNavigate()
     const [clientId, setClientId] = useState(null)
-    const [clientName, setClientName] = useState('Client User')    // Check for stored client data on component mount and set client info
+    const [clientName, setClientName] = useState('Loading...')
+    const [isLoading, setIsLoading] = useState(true)// Check for stored client data or user data on component mount and set client info
     useEffect(() => {
         const storedClientData = localStorage.getItem('client_data');
+        const storedUserData = localStorage.getItem('user_data');
+        
         if (storedClientData) {
             try {
                 const clientData = JSON.parse(storedClientData);
@@ -39,23 +42,36 @@ const ClientLayout = () => {
                 // If parsing fails, redirect to login
                 navigate('/login');
             }
-        } else {
-            // If no client data is found, redirect to login
+        } else if (storedUserData) {
+            try {
+                const userData = JSON.parse(storedUserData);
+                setClientId(userData.uuid || userData.userUuid);
+                setClientName(userData.name || userData.email || 'User');
+                
+                // Set up auth interceptor for user
+                setupAuthInterceptor(navigate);
+            } catch (error) {
+                console.error('Error parsing user data:', error);
+                // If parsing fails, redirect to login
+                navigate('/login');
+            }        } else {
+            // If no client or user data is found, redirect to login
             navigate('/login');
         }
+        
+        // Set loading to false after checking authentication
+        setIsLoading(false);
         
         // Cleanup function to remove headers when component unmounts
         return () => {
             removeClientUuidHeader();
         };
-    }, [navigate]);
-
-    // User data with actual client name
+    }, [navigate]);    // User data with actual client/user name and email
     const user = {
         name: clientName,
-        email: 'client@company.com',
+        email: localStorage.getItem('client_email') || localStorage.getItem('user_email') || 'user@company.com',
         avatar: null
-    }    // Navigation data needed for mobile page title
+    }// Navigation data needed for mobile page title
     const navigation = [
         { name: 'Dashboard', href: '/client' },
         { name: 'Jobs', href: '/client/jobs' },
@@ -67,16 +83,16 @@ const ClientLayout = () => {
         // Remove client UUID header before logout
         removeClientUuidHeader();
         
-        // Clear client data from localStorage
+        // Clear both client and user data from localStorage
         localStorage.removeItem('client_data');
         localStorage.removeItem('client_email');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('user_email');
         
         // Navigate to login page
         navigate('/login');
-    }
-
-    // If not authenticated, don't render anything
-    if (!clientId) return null;
+    }    // If not authenticated or still loading, don't render anything
+    if (isLoading || !clientId) return null;
 
     return (
         <div className="flex h-screen overflow-hidden">

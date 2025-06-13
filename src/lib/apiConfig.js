@@ -9,7 +9,11 @@ export const buildApiEndpoint = (path) => {
 export const API_ENDPOINTS = {  AUTH: {
     SERVICE_M8: buildApiEndpoint('api/auth/servicem8'),
     CLIENT_LOGIN: (email) => buildApiEndpoint(`fetch/clientLogin/${email}`),
-    CLIENT_AUTH: buildApiEndpoint('fetch/client-login'),    PASSWORD_SETUP: buildApiEndpoint('api/password-setup'),
+    CLIENT_AUTH: buildApiEndpoint('fetch/client-login'),
+    USER_LOGIN: buildApiEndpoint('api/users/login'),
+    FORGOT_PASSWORD: buildApiEndpoint('api/users/forgot-password'),
+    RESET_PASSWORD: buildApiEndpoint('api/users/reset-password'),
+    PASSWORD_SETUP: buildApiEndpoint('api/password-setup'),
     USER_PASSWORD_SETUP: buildApiEndpoint('api/users/password-setup'),
     VALIDATE_SETUP_TOKEN: (token) => buildApiEndpoint(`fetch/validate-setup-token/${token}`),
     VALIDATE_USER_SETUP_TOKEN: (token) => buildApiEndpoint(`api/users/validate-setup-token/${token}`)
@@ -58,15 +62,17 @@ export const API_ENDPOINTS = {  AUTH: {
     UPDATE_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
     RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`)
   },
-  
-  SITES: {
+    SITES: {
+    // READ-ONLY ENDPOINTS (ServiceM8 site data)
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
-    GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // New endpoint for all sites
-    CREATE: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
-    UPDATE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
-    DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
+    GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // Admin view - all sites
     GET_DEFAULT: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/default`),
-    SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`)
+    
+    // DISABLED ENDPOINTS (ServiceM8 site data is read-only)
+    // CREATE: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
+    // UPDATE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
+    // DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
+    // SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`)
   },
 
   QUOTES: {
