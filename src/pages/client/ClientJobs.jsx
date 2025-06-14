@@ -11,11 +11,11 @@ import {
   Calendar,
   MapPin,
   User,
-  Phone,
-  Mail,
+  Phone,  Mail,
   FileText,
   Download,
-  MessageSquare
+  MessageSquare,
+  StickyNote
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
@@ -54,6 +54,7 @@ import { Badge } from "@/components/UI/badge";
 import LocationSelector from "@/components/UI/LocationSelector";
 import JobCard from "@/components/UI/client/JobCard";
 import ChatRoom from "@/components/UI/client/ChatRoom";
+import NotesTab from "@/components/UI/NotesTab";
 import ClientJobFilters from "@/components/UI/client/ClientJobFilters";
 import { useJobContext } from '@/components/JobContext';
 import { useSites } from '@/hooks/useSites';
@@ -1409,9 +1410,14 @@ const ClientJobs = () => {
                   </Badge>
                 </div>
               </DialogHeader>
-                <div className="py-4">                <Tabs defaultValue="details" className="mt-3 md:mt-4">
-                  <TabsList className="w-full flex-wrap gap-1">
+                <div className="py-4">                <Tabs defaultValue="details" className="mt-3 md:mt-4">                  <TabsList className="w-full flex-wrap gap-1">
                     <TabsTrigger value="details" className="text-xs md:text-base flex-1 md:flex-none">Job Details</TabsTrigger>
+                    <TabsTrigger value="notes" className="text-xs md:text-base flex-1 md:flex-none">
+                      <div className="flex items-center justify-center">
+                        <StickyNote className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                        Notes
+                      </div>
+                    </TabsTrigger>
                     <TabsTrigger value="chat" className="text-xs md:text-base flex-1 md:flex-none">
                       <div className="flex items-center justify-center">
                         <MessageSquare className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
@@ -1595,11 +1601,15 @@ const ClientJobs = () => {
                             <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.work_done_description}</p>
                           </div>
                         </div>
-                      )}
-                    </div></TabsContent>
+                      )}                    </div></TabsContent>
+                  
+                  <TabsContent value="notes" className="space-y-4">
+                    <NotesTab jobId={selectedJob.uuid || selectedJob.id} userType="client" />
+                  </TabsContent>
+
                   <TabsContent value="chat" className="space-y-4">
                     <ChatRoom jobId={selectedJob.uuid || selectedJob.id} />
-                  </TabsContent>                    <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
+                  </TabsContent><TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
                     <Card className="border rounded-lg">
                       <CardHeader className="p-3 md:p-4">                        <div className="flex justify-between items-center">
                           <CardTitle className="text-sm md:text-base flex items-center">

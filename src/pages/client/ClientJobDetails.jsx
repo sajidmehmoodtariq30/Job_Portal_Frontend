@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import API_ENDPOINTS from '@/lib/apiConfig'
+import NotesTab from "@/components/UI/NotesTab"
 
 const ClientJobDetails = () => {
     const { jobId } = useParams();
@@ -273,62 +274,8 @@ const ClientJobDetails = () => {
                             </CardContent>
                         </Card>
                     )}
-                </TabsContent>
-
-                <TabsContent value="notes" className="space-y-4">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Notes & Updates</h3>
-                        <Dialog open={showAddNoteDialog} onOpenChange={setShowAddNoteDialog}>
-                            <DialogTrigger asChild>
-                                <Button size="sm">
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Add Note
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Add Note</DialogTitle>
-                                    <DialogDescription>
-                                        Add a note or update about this job.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div>
-                                        <Label htmlFor="note">Note</Label>
-                                        <Textarea
-                                            id="note"
-                                            value={newNote}
-                                            onChange={(e) => setNewNote(e.target.value)}
-                                            placeholder="Enter your note here..."
-                                            rows={4}
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setShowAddNoteDialog(false)}>
-                                        Cancel
-                                    </Button>
-                                    <Button onClick={handleAddNote}>
-                                        Add Note
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-
-                    <div className="space-y-4">
-                        {/* Notes would be displayed here */}
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-start space-x-3">
-                                    <MessageSquare className="w-5 h-5 mt-1 text-gray-400" />
-                                    <div className="flex-1">
-                                        <p className="text-sm text-gray-600">No notes available for this job yet.</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                </TabsContent>                <TabsContent value="notes" className="space-y-4">
+                    <NotesTab jobId={job.uuid || job.id} userType="client" />
                 </TabsContent>
 
                 <TabsContent value="attachments" className="space-y-4">

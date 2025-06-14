@@ -95,10 +95,17 @@ export const API_ENDPOINTS = {  AUTH: {
     DOWNLOAD: (attachmentId) => buildApiEndpoint(`api/attachments/download/${attachmentId}`),
     DELETE: (attachmentId) => buildApiEndpoint(`api/attachments/${attachmentId}`)
   },
-
   NOTIFICATIONS: {
     GET_SETTINGS: buildApiEndpoint('api/notifications/settings'),
     UPDATE_SETTINGS: buildApiEndpoint('api/notifications/settings')
+  },
+
+  NOTES: {
+    GET_BY_JOB: (jobId) => buildApiEndpoint(`api/notes/${jobId}`),
+    CREATE: buildApiEndpoint('api/notes'),
+    UPDATE: (noteId) => buildApiEndpoint(`api/notes/${noteId}`),
+    DELETE: (noteId) => buildApiEndpoint(`api/notes/${noteId}`),
+    GET_SINGLE: (noteId) => buildApiEndpoint(`api/notes/single/${noteId}`)
   }
 };
 

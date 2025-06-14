@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
 import { Textarea } from "@/components/UI/textarea"
-import { MessageSquare, FileText, Download, Upload } from 'lucide-react'
+import { MessageSquare, FileText, Download, Upload, StickyNote } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -41,6 +41,7 @@ import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom";
+import NotesTab from "@/components/UI/NotesTab";
 import { getClientNamesByUuids } from '@/utils/clientUtils';
 
 // Helper to determine page size
@@ -1147,9 +1148,14 @@ const AdminJobs = () => {
               {selectedJob.job_description || 'No description available'}
             </DialogDescription>
           </DialogHeader>
-            <Tabs defaultValue="details" className="mt-3 md:mt-4">
-              <TabsList className="w-full flex-wrap gap-1">
+            <Tabs defaultValue="details" className="mt-3 md:mt-4">              <TabsList className="w-full flex-wrap gap-1">
                 <TabsTrigger value="details" className="text-xs md:text-base flex-1 md:flex-none">Details</TabsTrigger>
+                <TabsTrigger value="notes" className="text-xs md:text-base flex-1 md:flex-none">
+                  <div className="flex items-center justify-center">
+                    <StickyNote className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                    Notes
+                  </div>
+                </TabsTrigger>
                 <TabsTrigger value="chat" className="relative text-xs md:text-base flex-1 md:flex-none">
                   <div className="flex items-center justify-center">
                     <MessageSquare className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
@@ -1157,7 +1163,7 @@ const AdminJobs = () => {
                   </div>
                 </TabsTrigger>
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
-              </TabsList>                <TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              </TabsList><TabsContent value="details" className="p-0 mt-3 md:mt-4">                <div className="grid gap-3 md:gap-5">                <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <Label className="font-bold text-sm md:text-base text-blue-800">Client Information</Label>
                   <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>
                   <div className="mt-1">
@@ -1271,8 +1277,11 @@ const AdminJobs = () => {
                     <Label className="font-bold text-xs md:text-sm">Purchase Order Number</Label>
                     <p className="text-xs md:text-sm break-words">{selectedJob.purchase_order_number}</p>
                   </div>
-                )}
-              </div>
+                )}              </div>
+              </TabsContent>
+
+              <TabsContent value="notes" className="p-0 mt-6">
+                <NotesTab jobId={selectedJob.uuid || selectedJob.id} userType="admin" />
               </TabsContent>
 
               <TabsContent value="chat" className="p-0 mt-6">
