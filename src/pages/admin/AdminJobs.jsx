@@ -152,7 +152,6 @@ const AdminJobs = () => {
       setCategories([]);
     }
   };
-
   // Fetch all sites for administrators
   const fetchSites = async () => {
     try {
@@ -162,6 +161,7 @@ const AdminJobs = () => {
       
       // Handle the API response structure: { success: true, sites: [...] }
       if (response.data && response.data.success && Array.isArray(response.data.sites)) {
+        console.log(`Loaded ${response.data.sites.length} sites for filtering`);
         setSites(response.data.sites);
       } else {
         console.warn('Unexpected sites API response structure:', response.data);
@@ -169,6 +169,7 @@ const AdminJobs = () => {
       }
     } catch (error) {
       console.error('Error fetching sites:', error);
+      console.error('Sites API error details:', error.response?.data);
       setSites([]);
     } finally {
       setLoadingSites(false);
@@ -232,41 +233,58 @@ const AdminJobs = () => {
     const numericDigits = job.uuid.replace(/[^0-9]/g, '');
     const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
     return jobNumber;
-  };
-  // Helper function to format job address
+  };  // Helper function to format job address
   const formatJobAddress = (job) => {
     if (!job) return 'No location specified';
 
-    // Try location fields first (new structure)
+    console.log('formatJobAddress called with job:', job);
+
+    // Try site name first (if available from our enrichment)
+    if (job.site_name || job.location_name) {
+      const siteName = job.site_name || job.location_name;
+      if (job.location_address) {
+        return `${siteName} - ${job.location_address}`;
+      }
+      return siteName;
+    }
+
+    // Try job_address field first (this is what ServiceM8 uses)
+    if (job.job_address) {
+      return job.job_address.replace(/\n/g, ', ').trim();
+    }
+
+    // Try location_address field
     if (job.location_address) {
       return job.location_address;
     }
 
-    // Try ServiceM8 location fields
-    if (job.location_name) {
-      const parts = [job.location_name];
-      if (job.location_address) parts.push(job.location_address);
-      return parts.join(' - ');
-    }
-
-    // Try geo fields
+    // Build address from geo fields
     const geoParts = [];
+    if (job.geo_number) geoParts.push(job.geo_number);
     if (job.geo_street) geoParts.push(job.geo_street);
     if (job.geo_city) geoParts.push(job.geo_city);
     if (job.geo_state) geoParts.push(job.geo_state);
+    if (job.geo_postcode) geoParts.push(job.geo_postcode);
     
     if (geoParts.length > 0) {
       return geoParts.join(', ');
     }
 
-    // Fallback to job_address
-    if (job.job_address) {
-      return job.job_address;
+    // Check for other possible location fields
+    const possibleLocationFields = [
+      'address', 'street_address', 'service_address', 
+      'site_address', 'work_address', 'job_location', 'billing_address'
+    ];
+    
+    for (const field of possibleLocationFields) {
+      if (job[field]) {
+        return job[field].replace(/\n/g, ', ').trim();
+      }
     }
 
-    // If we have location_uuid but no address, show that
+    // If we have location_uuid but no address, show that with note
     if (job.location_uuid) {
-      return `Location: ${job.location_uuid}`;
+      return `Location UUID: ${job.location_uuid} (Address not loaded)`;
     }
 
     return 'No location specified';
@@ -331,11 +349,49 @@ const AdminJobs = () => {
     }    // Type filter (if you have a type field)
     if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
       return false;
-    }
-
-    // Site filter
-    if (activeFilters.site && activeFilters.site !== '' && activeFilters.site !== 'all' && job.location_uuid !== activeFilters.site) {
-      return false;
+    }    // Site filter - since jobs don't have location_uuid, we'll filter by matching location data
+    if (activeFilters.site && activeFilters.site !== '' && activeFilters.site !== 'all') {
+      // Find the selected site from sites array
+      const selectedSite = sites.find(site => site.uuid === activeFilters.site);
+      console.log('Filtering by site:', activeFilters.site, 'Selected site:', selectedSite);
+      
+      if (selectedSite) {
+        // Try to match job location with site location using various fields
+        let locationMatch = false;
+        
+        // Check if job_address contains site name
+        if (job.job_address && selectedSite.name) {
+          locationMatch = job.job_address.toLowerCase().includes(selectedSite.name.toLowerCase());
+          if (locationMatch) console.log('Match found in job_address:', job.job_address, 'contains', selectedSite.name);
+        }
+        
+        // Check if geo fields match site address
+        if (!locationMatch && selectedSite.city && job.geo_city) {
+          locationMatch = job.geo_city.toLowerCase() === selectedSite.city.toLowerCase();
+          if (locationMatch) console.log('Match found in geo_city:', job.geo_city, '===', selectedSite.city);
+        }
+        
+        // Check if geo street matches site street
+        if (!locationMatch && selectedSite.street && job.geo_street) {
+          locationMatch = job.geo_street.toLowerCase().includes(selectedSite.street.toLowerCase());
+          if (locationMatch) console.log('Match found in geo_street:', job.geo_street, 'contains', selectedSite.street);
+        }
+        
+        // Check if billing address contains site name
+        if (!locationMatch && job.billing_address && selectedSite.name) {
+          locationMatch = job.billing_address.toLowerCase().includes(selectedSite.name.toLowerCase());
+          if (locationMatch) console.log('Match found in billing_address:', job.billing_address, 'contains', selectedSite.name);
+        }
+        
+        if (!locationMatch) {
+          console.log('No location match found for job:', job.uuid, 'with site:', selectedSite.name);
+          return false;
+        }
+      } else {
+        console.log('Site not found in sites array for UUID:', activeFilters.site);
+        // If site not found, don't show any jobs for this filter
+        return false;
+      }
     }
 
     return true;
@@ -519,7 +575,9 @@ const AdminJobs = () => {
           console.error("Error fetching client name:", error);
           setJobClientName("Unknown Client");
         }
-      }
+      }      // The job already contains all the location information we need
+      // No need to fetch additional site data since location info is in geo fields and job_address
+      console.log('Job data in handleViewDetails:', job);
 
       // Fetch attachments for the selected job
       const jobId = job.uuid || job.id;
@@ -1013,23 +1071,28 @@ const AdminJobs = () => {
                 placeholder="Search jobs by job number, description, or address..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-              />
-              <div className="min-w-[200px]">
+              />              <div className="min-w-[200px]">
                 <Select 
                   value={activeFilters.site} 
                   onValueChange={(value) => setActiveFilters(prev => ({ ...prev, site: value }))}
                   disabled={loadingSites}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={loadingSites ? "Loading..." : "All sites"} />
+                    <SelectValue placeholder={loadingSites ? "Loading..." : "All locations"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All sites</SelectItem>
-                    {Array.isArray(sites) && sites.map(site => (
-                      <SelectItem key={site.uuid} value={site.uuid}>
-                        {site.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">All locations</SelectItem>
+                    {loadingSites ? (
+                      <SelectItem value="loading" disabled>Loading sites...</SelectItem>
+                    ) : sites.length === 0 ? (
+                      <SelectItem value="none" disabled>No sites available</SelectItem>
+                    ) : (
+                      Array.isArray(sites) && sites.map(site => (
+                        <SelectItem key={site.uuid} value={site.uuid}>
+                          {site.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1234,7 +1297,48 @@ const AdminJobs = () => {
                   {selectedJob.location_uuid && (
                     <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
                   )}
-                </div>
+                </div>                {/* Site/Location Information Section */}
+                {(selectedJob.site_name || selectedJob.location_name || selectedJob.job_address || selectedJob.geo_street || selectedJob.billing_address) && (
+                  <div className="space-y-1 md:space-y-2 border border-blue-100 rounded-lg p-3 md:p-4 bg-blue-50">
+                    <Label className="font-bold text-xs md:text-sm text-blue-800">Location Information</Label>
+                    <div className="bg-white p-2 rounded border">
+                      <div className="grid grid-cols-1 gap-2 text-xs md:text-sm">
+                        {(selectedJob.site_name || selectedJob.location_name) && (
+                          <p>
+                            <span className="font-semibold">Site Name:</span>{' '}
+                            {selectedJob.site_name || selectedJob.location_name}
+                          </p>
+                        )}
+                        {selectedJob.job_address && (
+                          <p>
+                            <span className="font-semibold">Job Address:</span>{' '}
+                            {selectedJob.job_address.replace(/\n/g, ', ').trim()}
+                          </p>
+                        )}
+                        {selectedJob.billing_address && selectedJob.billing_address !== selectedJob.job_address && (
+                          <p>
+                            <span className="font-semibold">Billing Address:</span>{' '}
+                            {selectedJob.billing_address.replace(/\n/g, ', ').trim()}
+                          </p>
+                        )}
+                        {(selectedJob.geo_street || selectedJob.geo_city) && (
+                          <p>
+                            <span className="font-semibold">Street Address:</span>{' '}
+                            {[selectedJob.geo_number, selectedJob.geo_street, selectedJob.geo_city, selectedJob.geo_state, selectedJob.geo_postcode].filter(Boolean).join(', ')}
+                          </p>
+                        )}
+                        {selectedJob.location_uuid && (
+                          <p>
+                            <span className="font-semibold">Location UUID:</span>{' '}
+                            <span className="font-mono text-xs bg-gray-100 px-1 rounded">
+                              {selectedJob.location_uuid}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3 md:gap-5">
                   <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
@@ -1245,13 +1349,11 @@ const AdminJobs = () => {
                     <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
                     <p className="text-xs md:text-sm">{selectedJob.edit_date || 'N/A'}</p>
                   </div>
-                </div>
-
-                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                </div>                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
                   <Label className="font-bold text-xs md:text-sm">Location Details</Label>
                   <div className="bg-gray-50 p-2 rounded">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
-                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number || ''} {selectedJob.geo_street || 'N/A'}</p>
+                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number && selectedJob.geo_street ? `${selectedJob.geo_number} ${selectedJob.geo_street}` : selectedJob.geo_street || 'N/A'}</p>
                       <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
                       <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
                       <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
