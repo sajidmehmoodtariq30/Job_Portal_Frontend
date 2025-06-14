@@ -34,6 +34,7 @@ import {
 } from "@/components/UI/select"
 import { MessageSquare } from 'lucide-react'
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom"
+import NotesTab from "@/components/UI/NotesTab"
 import axios from 'axios'
 import { API_ENDPOINTS } from '@/lib/apiConfig'
 
@@ -363,51 +364,8 @@ const AdminJobDetails = () => {
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Chat
                     </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="notes" className="p-0 mt-6">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex justify-between items-center">
-                                <CardTitle>Job Notes</CardTitle>
-                                <Button size="sm" onClick={() => setIsAddingNote(true)}>Add Note</Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {isAddingNote && (
-                                <div className="mb-6 p-4 border rounded-md">
-                                    <Label htmlFor="newNote" className="mb-2 block">New Note</Label>
-                                    <Input
-                                        id="newNote"
-                                        placeholder="Enter your note..."
-                                        value={newNote}
-                                        onChange={(e) => setNewNote(e.target.value)}
-                                        className="mb-4"
-                                    />
-                                    <div className="flex justify-end gap-2">
-                                        <Button variant="outline" onClick={() => setIsAddingNote(false)}>Cancel</Button>
-                                        <Button onClick={handleAddNote}>Add Note</Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {job.notes && job.notes.length === 0 ? (
-                                <p className="text-muted-foreground text-center py-6">No notes added yet</p>
-                            ) : (
-                                <div className="space-y-4">
-                                    {job.notes && job.notes.map(note => (
-                                        <div key={note.id} className="p-4 border rounded-md">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <span className="font-medium">{note.author}</span>
-                                                <span className="text-sm text-muted-foreground">{note.createdAt}</span>
-                                            </div>
-                                            <p>{note.text}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                </TabsList>                <TabsContent value="notes" className="p-0 mt-6">
+                    <NotesTab jobId={job.id || job.uuid} userType="admin" />
                 </TabsContent>
 
                 <TabsContent value="attachments" className="p-0 mt-6">
