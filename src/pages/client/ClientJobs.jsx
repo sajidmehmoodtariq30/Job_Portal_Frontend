@@ -16,7 +16,8 @@ import {
   Download,
   MessageSquare,
   StickyNote,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
@@ -47,7 +48,7 @@ import {
   Card,
   CardContent, 
   CardDescription, 
-  CardHeader, 
+  CardHeader,
   CardTitle 
 } from "@/components/UI/card";
 import PermissionProtectedClientPage from '@/components/client/PermissionProtectedClientPage';
@@ -65,6 +66,7 @@ import { useJobContext } from '@/components/JobContext';
 import { useSites } from '@/hooks/useSites';
 import { useSession } from '@/context/SessionContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { useClientAssignment } from '@/context/ClientAssignmentContext';
 import axios from 'axios';
 import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
 
@@ -73,9 +75,9 @@ const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
   const navigate = useNavigate();  
-  const { hasPermission } = usePermissions();
-  const { user, hasAssignedClient } = useSession();
+  const { hasPermission } = usePermissions();  const { user } = useSession();
   const { pausePolling, resumePolling } = useNotifications();
+  const { forceRefresh: refreshClientAssignment } = useClientAssignment();
   
   // Use the JobContext to access jobs data and methods
   const {
@@ -103,15 +105,16 @@ const ClientJobs = () => {
     // New state for job details dialog
   const [selectedJob, setSelectedJob] = useState(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
-  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);
-  const [jobClientName, setJobClientName] = useState("Unknown Client");
+  const [jobDetailsLoading, setJobDetailsLoading] = useState(false);  const [jobClientName, setJobClientName] = useState("Unknown Client");
 
   const [newNote, setNewNote] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
-  const [attachments, setAttachments] = useState([]);
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [attachments, setAttachments] = useState([]);  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [fileUploading, setFileUploading] = useState(false);  const [attachmentsLoading, setAttachmentsLoading] = useState(false);  // New state for job status update
+  const [fileUploading, setFileUploading] = useState(false);
+  const [jobActionSuccess, setJobActionSuccess] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState(null);const [attachmentsLoading, setAttachmentsLoading] = useState(false);  // New state for job status update
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
   
@@ -768,7 +771,112 @@ const ClientJobs = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };  // Handle file upload
+  };  // Simple inline file upload handler
+  const handleSimpleFileUpload = async () => {
+    if (!selectedFile || !selectedJob) {
+      setUploadError('Please select a file first');
+      return;
+    }
+
+    if (!hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS)) {
+      setUploadError('You don\'t have permission to upload attachments');
+      return;
+    }
+
+    setFileUploading(true);
+    setUploadProgress(0);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('userType', 'client');
+      formData.append('userName', jobClientName || 'Client');      const response = await axios.post(
+        `${API_BASE_URL}/api/attachment/upload/${selectedJob.uuid || selectedJob.id}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(percentCompleted);
+          },
+        }
+      );
+
+      if (response.data && response.data.success) {
+        setJobActionSuccess('File uploaded successfully');
+        setSelectedFile(null);
+        setIsUploadingFile(false);
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setJobActionSuccess(null);
+        }, 3000);
+        
+        // Refresh attachments
+        setTimeout(() => {
+          fetchAttachments(selectedJob.uuid || selectedJob.id);
+        }, 500);
+      }
+    } catch (error) {
+      console.error('File upload failed:', error);
+      setUploadError(`Upload failed: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setFileUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Handle file selection - simple version
+  const handleSimpleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const maxSize = 9 * 1024 * 1024; // 9MB
+    if (file.size > maxSize) {
+      setUploadError('File is too large. Please upload a file less than 9MB.');
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploadError(null);
+  };
+
+  // Handle file upload completion from the FileUpload component
+  const handleFileUploadComplete = (fileData) => {
+    console.log('File upload completed:', fileData);
+    
+    // Show success message immediately
+    setJobActionSuccess('File uploaded successfully');
+    
+    // Clear success message after 5 seconds
+    setTimeout(() => {
+      setJobActionSuccess(null);
+    }, 5000);
+    
+    // Close upload UI after a short delay to prevent immediate re-render conflicts
+    setTimeout(() => {
+      setIsUploadingFile(false);
+    }, 100);
+    
+    // Refresh attachments list after a longer delay to prevent dialog refresh
+    const jobId = selectedJob.uuid || selectedJob.id;
+    setTimeout(() => {
+      console.log('Refreshing attachments for job:', jobId);
+      fetchAttachments(jobId);
+    }, 1000);
+    
+    // Resume polling after an even longer delay to prevent conflicts
+    setTimeout(() => {
+      resumePolling();
+    }, 2000);
+  };
+  
+  // Legacy file upload handler - keeping for reference but now using FileUpload component
   const handleFileUpload = async () => {
     // Check if user has permission to manage attachments
     if (!hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS)) {
@@ -1017,31 +1125,21 @@ const ClientJobs = () => {
       site_contact_email: '', // Reset new field
       purchase_order_number: '', // Reset new field
       work_completion_date_start: '', // Reset new field
-      work_completion_date_end: '', // Reset new field
-      initial_attachment: null // Reset new field
-    });    setSelectedLocationUuid('');
+      work_completion_date_end: '', // Reset new field      initial_attachment: null // Reset new field
+    });
+    setSelectedLocationUuid('');
   };
-  // Don't show jobs data if user is not assigned to a client
-  if (!hasAssignedClient()) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-8 h-8 text-amber-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
-          <p className="text-gray-600 max-w-md">
-            Your account is not currently linked to any client. Please contact your administrator 
-            to assign you to a client to access job data.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <PermissionProtectedClientPage permission={PERMISSIONS.VIEW_JOBS} title="Jobs">
-      <div className="space-y-6">
+    <PermissionProtectedClientPage permission={PERMISSIONS.VIEW_JOBS} title="Jobs">      <div className="space-y-6">
+        {/* Success message */}
+        {jobActionSuccess && (
+          <div className="p-4 bg-green-50 text-green-800 rounded-md flex items-start gap-2 border border-green-200">
+            <CheckCircle size={18} className="mt-0.5" />
+            <p>{jobActionSuccess}</p>
+          </div>
+        )}
+        
         {/* Header */}      
         <div className="flex justify-between items-center">
           <div>
@@ -1431,10 +1529,21 @@ const ClientJobs = () => {
             <Button onClick={confirmRefreshData}>Refresh Data</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-
-      {/* Job Details Dialog */}
-      <Dialog open={showJobDetailsDialog} onOpenChange={setShowJobDetailsDialog}>
+      </Dialog>      {/* Job Details Dialog */}
+      <Dialog 
+        open={showJobDetailsDialog} 
+        onOpenChange={(open) => {
+          setShowJobDetailsDialog(open);
+          
+          // Clean up states when dialog closes
+          if (!open) {
+            setIsUploadingFile(false);
+            setSelectedFile(null);
+            setUploadError(null);
+            setJobActionSuccess(null);
+          }
+        }}
+      >
         <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
           {jobDetailsLoading || !selectedJob ? (
             <div className="flex items-center justify-center h-64">
@@ -1687,47 +1796,81 @@ const ClientJobs = () => {
                             <p className="text-sm text-muted-foreground">
                               You don't have permission to view or manage attachments for this job.
                             </p>
-                          </div>
-                        ) : (
-                          <>
-                            {isUploadingFile && (
-                              <div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
-                                <Label htmlFor="fileUpload" className="text-xs md:text-sm font-medium mb-2 block">Upload File</Label>
-                                <Input
-                                  id="fileUpload"
-                                  type="file"
-                                  onChange={handleFileChange}
-                                  className="mb-3 text-xs md:text-sm"
-                                />
-                                <div className="text-xs md:text-sm text-amber-600 mb-3 flex items-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                                    <line x1="12" y1="9" x2="12" y2="13"></line>
-                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                  </svg>
-                                  File size must be less than 9MB to ensure successful upload
-                                </div>
-                                <div className="flex justify-end gap-2">
+                          </div>                        ) : (
+                          <>                            {isUploadingFile && (
+                              <div className="mb-4 p-4 border border-gray-200 rounded-md bg-gray-50">
+                                <div className="flex justify-between items-center mb-3">
+                                  <Label className="text-sm font-medium">Upload File</Label>
                                   <Button 
-                                    variant="outline" 
-                                    className="text-xs md:text-sm h-8 md:h-9"
+                                    variant="ghost" 
+                                    size="sm" 
                                     onClick={() => {
                                       setIsUploadingFile(false);
                                       setSelectedFile(null);
+                                      setUploadError(null);
                                     }}
-                                    disabled={fileUploading}
+                                    type="button"
                                   >
-                                    Cancel
-                                  </Button>
-                                  <Button 
-                                    className="text-xs md:text-sm h-8 md:h-9"
-                                    onClick={handleFileUpload} 
-                                    disabled={!selectedFile || fileUploading}
-                                  >
-                                    {fileUploading ? 'Uploading...' : 'Upload'}
+                                    ×
                                   </Button>
                                 </div>
-                              </div>                            )}
+                                
+                                {/* File Input */}
+                                <div className="space-y-3">
+                                  <div>
+                                    <Input
+                                      type="file"
+                                      onChange={handleSimpleFileChange}
+                                      accept=".pdf,.png,.jpg,.jpeg,.svg,.doc,.docx"
+                                      className="mb-2"
+                                    />
+                                    <p className="text-xs text-gray-500 mb-2">
+                                      Supported formats: PDF, PNG, JPG, SVG, DOC, DOCX (max 9MB)
+                                    </p>
+                                  </div>
+                                  
+                                  {/* Selected File Info */}
+                                  {selectedFile && (
+                                    <div className="bg-blue-50 p-2 rounded text-sm">
+                                      <p><strong>Selected:</strong> {selectedFile.name}</p>
+                                      <p><strong>Size:</strong> {(selectedFile.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Upload Progress */}
+                                  {fileUploading && (
+                                    <div className="space-y-2">
+                                      <div className="bg-gray-200 rounded-full h-2">
+                                        <div 
+                                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                          style={{ width: `${uploadProgress}%` }}
+                                        ></div>
+                                      </div>
+                                      <p className="text-xs text-gray-600">Uploading... {uploadProgress}%</p>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Error Message */}
+                                  {uploadError && (
+                                    <div className="bg-red-50 text-red-800 p-2 rounded text-sm">
+                                      {uploadError}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Upload Button */}
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={handleSimpleFileUpload}
+                                      disabled={!selectedFile || fileUploading}
+                                      className="flex-1"
+                                      type="button"
+                                    >
+                                      {fileUploading ? `Uploading... ${uploadProgress}%` : 'Upload File'}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                             {attachmentsLoading ? (
                               <div className="py-4 md:py-6 flex justify-center">
                                 <div className="animate-pulse flex space-x-3 md:space-x-4 w-full">
@@ -1782,8 +1925,7 @@ const ClientJobs = () => {
                                     </div>
                                   );
                                 })}
-                              </div>
-                            ) : (
+                              </div>                            ) : (
                               <div className="py-8 md:py-10 text-center">
                                 <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
                                 <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>

@@ -13,7 +13,11 @@ import {
   Building,
   User,
   RefreshCw,
-  Loader2
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Activity
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "../../components/UI/button";
@@ -36,6 +40,22 @@ import {
 import { Badge } from "@/components/UI/badge";
 import { Progress } from "@/components/UI/progress";
 import { Skeleton } from "@/components/UI/skeleton";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  AreaChart,
+  Area
+} from 'recharts';
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
@@ -43,11 +63,13 @@ import { useSites } from '@/hooks/useSites';
 import { useAllSites } from '@/hooks/useAllSites';
 import { useNotifications } from '@/context/NotificationContext';
 import { useSession } from '@/context/SessionContext';
+import { useClientAssignment } from '@/context/ClientAssignmentContext';
 
 const ClientHome = () => {
   const navigate = useNavigate();
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
-  const { hasAssignedClient } = useSession();
+  const { } = useSession();
+  const { hasValidAssignment } = useClientAssignment();
 
   // State variables
   const [dashboardData, setDashboardData] = useState({
@@ -81,8 +103,31 @@ const ClientHome = () => {
 
   const clientData = getClientData();
 
-  // Get client ID from localStorage only
-  const clientId = clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+  // Get client ID from localStorage only - this should be the assigned client UUID
+  const clientId = clientData?.assignedClientUuid || clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+
+  // Early return if not assigned to a client
+  if (!hasValidAssignment || !clientId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <AlertCircle className="h-16 w-16 text-muted-foreground" />
+        <div className="text-center">
+          <h3 className="text-lg font-semibold">Access Restricted</h3>
+          <p className="text-muted-foreground mt-2">
+            You need to be assigned to a client to view the dashboard.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Check Access
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Use the global sites hook to show all sites in dropdown
   const {
@@ -102,15 +147,15 @@ const ClientHome = () => {
 
   // Use all sites for the dropdown
   const sites = allSites;
-
   // Debugging - check what client ID we have
   useEffect(() => {
     console.log('🏠 DASHBOARD: Current clientData:', clientData);
     console.log('🎯 DASHBOARD: Final clientId used:', clientId);
+    console.log('🔒 DASHBOARD: hasValidAssignment:', hasValidAssignment);
     if (clientData?.name) {
       console.log(`👤 DASHBOARD: Client name: ${clientData.name}`);
     }
-  }, [clientData, clientId]);
+  }, [clientData, clientId, hasValidAssignment]);
 
   // Fetch client name and welcome message
   useEffect(() => {
@@ -135,25 +180,25 @@ const ClientHome = () => {
 
     fetchClientInfo();
   }, [clientData, clientId]);
-
-  // For demo purposes, if API is not available, load mock data
+  // FOR DEVELOPMENT ONLY - Mock data for development and testing purposes
   const loadMockData = () => {
-    // Mock data structure to match our backend API response
+    console.warn('⚠️ DASHBOARD: Using mock data (DEVELOPMENT ONLY)');
+    
+    // Clear mock data flag in localStorage to remember this is mock data
+    localStorage.setItem('using_mock_dashboard_data', 'true');
+      // Mock data structure to match our backend API response
     const mockData = {
       stats: {
         activeJobs: 3,
         inProgressJobs: 1,
-        pendingQuotes: 1,
-        quotesTotalValue: "4850.00",
         completedJobs: 1,
         completedJobsLast30Days: 1,
         upcomingServices: 2,
         nextServiceDate: "2025-04-20",
         statusBreakdown: {
-          quotes: "25.0",
-          inProgress: "25.0",
-          scheduled: "25.0",
-          completed: "25.0"
+          inProgress: "33.3",
+          scheduled: "33.3",
+          completed: "33.3"
         }
       },
       jobs: [
@@ -168,7 +213,8 @@ const ClientHome = () => {
           description: 'Install new network infrastructure including switches and access points',
           assignedTech: 'Alex Johnson',
           location: 'Main Office',
-          attachments: 2
+          attachments: 2,
+          clientId: clientId // Make sure it's associated with this client
         },
         {
           id: 'JOB-2025-0418',
@@ -181,7 +227,8 @@ const ClientHome = () => {
           description: 'Install 3 digital signage displays in reception area',
           assignedTech: 'Sarah Davis',
           location: 'Main Office',
-          attachments: 3
+          attachments: 3,
+          clientId: clientId
         },
         {
           id: 'JOB-2025-0415',
@@ -193,23 +240,10 @@ const ClientHome = () => {
           description: 'Routine maintenance check on surveillance system',
           assignedTech: 'Miguel Rodriguez',
           location: 'Branch Office',
-          attachments: 0
+          attachments: 0,
+          clientId: clientId
         }
-      ],
-      quotes: [
-        {
-          id: 'JOB-2025-0422',
-          jobNumber: 'JOB-2025-0422',
-          title: 'Security System Upgrade',
-          totalAmount: 4850.00,
-          status: 'Pending',
-          date: '2025-04-13',
-          type: 'Quote',
-          description: 'Comprehensive security system upgrade including cameras, access control',
-          assignedTech: 'Technical Team',
-          location: 'All Locations'
-        }
-      ],
+      ],      quotes: [], // Quotes feature removed
       upcomingServices: [
         {
           id: 'SVC-001',
@@ -217,7 +251,8 @@ const ClientHome = () => {
           date: '2025-04-20',
           time: '10:00 AM',
           location: 'Main Office',
-          tech: 'Alex Johnson'
+          tech: 'Alex Johnson',
+          clientId: clientId
         },
         {
           id: 'SVC-002',
@@ -225,22 +260,24 @@ const ClientHome = () => {
           date: '2025-04-22',
           time: '2:00 PM',
           location: 'Branch Office',
-          tech: 'Sarah Davis'
+          tech: 'Sarah Davis',
+          clientId: clientId
         }
       ],
-      recentActivity: [
-        { id: 1, type: 'job_created', title: 'New Job Request Created', description: 'Network Installation', date: '2025-04-15' },
-        { id: 2, type: 'quote_received', title: 'New Quote Received', description: 'Security System Upgrade', date: '2025-04-14' },
-        { id: 3, type: 'job_completed', title: 'Job Completed', description: 'Digital Signage Installation', date: '2025-04-12' },
-        { id: 4, type: 'document_uploaded', title: 'Document Uploaded', description: 'Network Diagram.pdf', date: '2025-04-11' },
-        { id: 5, type: 'invoice_paid', title: 'Invoice Paid', description: 'INV-2025-0056', date: '2025-04-08' }
+      recentActivity: [        { id: 1, type: 'job_created', title: 'New Job Request Created', description: 'Network Installation', date: '2025-04-15', clientId: clientId },
+        { id: 3, type: 'job_completed', title: 'Job Completed', description: 'Digital Signage Installation', date: '2025-04-12', clientId: clientId },
+        { id: 4, type: 'document_uploaded', title: 'Document Uploaded', description: 'Network Diagram.pdf', date: '2025-04-11', clientId: clientId },
+        { id: 5, type: 'invoice_paid', title: 'Invoice Paid', description: 'INV-2025-0056', date: '2025-04-08', clientId: clientId },
+        { id: 6, type: 'service_scheduled', title: 'Service Scheduled', description: 'Network Maintenance', date: '2025-04-07', clientId: clientId }
       ]
     };
 
     setDashboardData(mockData);
     setLastUpdated(new Date());
+    
+    // Display a warning in the console that this is mock data
+    console.warn('⚠️ DASHBOARD: Mock data loaded for client:', clientId);
   };
-
   // Fetch dashboard data from the backend
   const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {
     if (showRefreshIndicator) {
@@ -252,35 +289,61 @@ const ClientHome = () => {
     setError(null);
 
     try {
-      // Call our new backend endpoint for dashboard stats with the correct path prefix '/fetch'
-      // Fall back to a generic endpoint if no clientId is available
-      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId || 'default'}`);
+      // Make sure we have a valid client ID
+      if (!clientId || !hasValidAssignment) {
+        throw new Error('No valid client assignment found');
+      }
+      
+      // Call our backend endpoint for dashboard stats with the assigned client ID
+      console.log(`🔄 DASHBOARD: Fetching dashboard data for client: ${clientId}`);
+      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId}`);
+      console.log('📊 DASHBOARD: Data received:', response.data);
       setDashboardData(response.data);
 
       // Set last updated timestamp
       setLastUpdated(new Date());
 
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
+      console.error('❌ DASHBOARD: Error fetching dashboard data:', err);
       setError('Failed to load dashboard data. Please try refreshing.');
-
-      // If API fails, load mock data for development purposes
-      loadMockData();
+      
+      // Only use mock data in development environment and if explicitly allowed
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ DASHBOARD: Using mock data for development purposes only');
+        loadMockData();
+      } else {
+        // In production, show empty data instead of mock data
+        setDashboardData({
+          stats: {},
+          jobs: [],
+          quotes: [],
+          upcomingServices: [],
+          recentActivity: []
+        });
+      }
     } finally {
       setLoading(false);
       setDataRefreshing(false);
     }
-  }, [clientId]);
-
+  }, [clientId, hasValidAssignment]);
   // Initial data loading
   useEffect(() => {
-    fetchDashboardData(false);    // Set up interval for real-time updates (reduced frequency)
-    const intervalId = setInterval(() => {
-      fetchDashboardData(true);
-    }, 300000); // Refresh every 5 minutes (reduced from 1 minute)
-
-    return () => clearInterval(intervalId);
-  }, [fetchDashboardData]);
+    // Only fetch data if we have a valid client assignment
+    if (hasValidAssignment && clientId) {
+      console.log('🔄 DASHBOARD: Initial data loading for client:', clientId);
+      fetchDashboardData(false);
+      
+      // Set up interval for real-time updates (reduced frequency)
+      const intervalId = setInterval(() => {
+        // Only refresh if we still have a valid assignment
+        if (hasValidAssignment && clientId) {
+          fetchDashboardData(true);
+        }
+      }, 300000); // Refresh every 5 minutes
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [fetchDashboardData, hasValidAssignment, clientId]);
 
   // Add visibility change listener to refresh sites when user navigates back to dashboard
   useEffect(() => {
@@ -323,37 +386,17 @@ const ClientHome = () => {
       default: return 'bg-gray-600 text-white';
     }
   };
-
   const getActivityIcon = (type) => {
     switch (type) {
       case 'job_created': return <FileText className="text-blue-500" />;
-      case 'quote_received': return <FileText className="text-orange-500" />;
       case 'job_completed': return <CheckCircle className="text-green-500" />;
       case 'document_uploaded': return <FileBarChart className="text-purple-500" />;
       case 'invoice_paid': return <BarChart3 className="text-green-500" />;
+      case 'service_scheduled': return <Calendar className="text-purple-500" />;
       default: return <AlertCircle className="text-gray-500" />;
     }
-  };
-  // Extract data from the dashboard data object for easier use
+  };// Extract data from the dashboard data object for easier use
   const { stats, jobs, quotes, upcomingServices, recentActivity } = dashboardData;
-
-  // Don't show dashboard data if user is not assigned to a client
-  if (!hasAssignedClient()) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-amber-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
-          <p className="text-gray-600 max-w-md">
-            Your account is not currently linked to any client. Please contact your administrator 
-            to assign you to a client to access your dashboard.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -440,12 +483,11 @@ const ClientHome = () => {
                     key={notification.id}
                     className={`p-3 ${!notification.read ? 'bg-muted/50' : ''}`}
                     onClick={() => !notification.read && markAsRead(notification.id)}
-                  >
-                    <div className="flex gap-3 items-start">
-                      {notification.type?.includes('quote') && <FileText className="text-amber-500" size={20} />}
+                  >                  <div className="flex gap-3 items-start">
                       {notification.type?.includes('job') && <CheckCircle className="text-green-500" size={20} />}
                       {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
                       {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
+                      {notification.type?.includes('service') && <Calendar className="text-purple-500" size={20} />}
                       <div>
                         <p className="font-medium text-sm">{notification.title || notification.message}</p>
                         <p className="text-xs text-muted-foreground">
@@ -478,17 +520,29 @@ const ClientHome = () => {
             {dataRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
 
-          <Button onClick={() => navigate('/client/quotes')}>Request Quote</Button>
+          <Button onClick={() => navigate('/client/jobs')}>View All Jobs</Button>
         </div>
-      </div>
-
-      {/* Error message if any */}
+      </div>      {/* Error message if any */}
       {error && (
         <div className="p-4 border border-red-200 rounded-md bg-red-50 text-red-800 flex items-center gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <p>{error}</p>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={handleRefresh}>
             Retry
+          </Button>
+        </div>
+      )}
+
+      {/* Warning for mock data (development only) */}
+      {localStorage.getItem('using_mock_dashboard_data') === 'true' && process.env.NODE_ENV === 'development' && (
+        <div className="p-4 border border-yellow-200 rounded-md bg-yellow-50 text-yellow-800 flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <p>Using mock data for development purposes only.</p>
+          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => {
+            localStorage.removeItem('using_mock_dashboard_data');
+            handleRefresh();
+          }}>
+            Try Real Data
           </Button>
         </div>
       )}
@@ -522,32 +576,6 @@ const ClientHome = () => {
             </Button>
           </CardFooter>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Pending Quotes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-4 w-24" />
-              </>
-            ) : (
-              <>
-                <div className="text-3xl font-bold">
-                  {stats.pendingQuotes || 0}
-                </div>
-              </>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button variant="link" className="p-0" onClick={() => navigate('/client/quotes')}>
-              View all quotes <ArrowRight size={16} className="ml-1" />
-            </Button>
-          </CardFooter>
-        </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Completed Jobs</CardTitle>
@@ -605,13 +633,65 @@ const ClientHome = () => {
             </Button>
           </CardFooter>
         </Card>
-      </div>
-
-      {/* Main Dashboard Content */}
+      </div>      {/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content - 2/3 width */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Service Status Summary */}
+            {/* Job Timeline Charts */}
+          <div className="grid grid-cols-1 gap-6">
+              {/* Job Completion Trend - Now Full Width */}
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle>Job Status Timeline</CardTitle>
+                <CardDescription>Recent job status changes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <Skeleton className="h-[180px] w-full" />
+                ) : (
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-2xl font-bold flex items-center">
+                        <Activity className="h-5 w-5 text-blue-500 mr-1" />
+                        {jobs.filter(job => job.status === 'Completed').length}
+                      </div>
+                      <Badge variant="outline" className="ml-auto">
+                        <CheckCircle className="h-3.5 w-3.5 text-green-500 mr-1" />
+                        {stats.completedJobsLast30Days || 0} last 30 days
+                      </Badge>
+                    </div>                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart
+                        data={recentActivity
+                          .filter(activity => activity.type === 'job_created' || activity.type === 'job_completed')
+                          .map((activity, index) => ({
+                            date: new Date(activity.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}),
+                            value: activity.type === 'job_completed' ? 1 : 0,
+                            type: activity.type === 'job_completed' ? 'Completed' : 'Created'
+                          }))}
+                        margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                        <YAxis hide />
+                        <Tooltip 
+                          formatter={(value, name) => [name === 'Completed' ? 'Completed' : 'Created']}
+                          labelFormatter={(label) => `Date: ${label}`}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="value" 
+                          name="Completed"
+                          stroke="#10b981" 
+                          strokeWidth={2}
+                          dot={{ stroke: '#10b981', strokeWidth: 2, fill: '#10b981', r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>{/* Service Status Charts */}
           <Card>
             <CardHeader>
               <CardTitle>Service Status</CardTitle>
@@ -620,69 +700,144 @@ const ClientHome = () => {
             <CardContent>
               {loading ? (
                 <div className="space-y-4">
-                  {[1, 2, 3, 4].map(index => (
-                    <div key={index}>
-                      <div className="flex items-center justify-between mb-1">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-16" />
-                      </div>
-                      <Skeleton className="h-2 w-full" />
-                    </div>
-                  ))}
+                  <Skeleton className="h-[240px] w-full" />
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Status Distribution - Pie Chart */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-sm font-medium">Quotes</div>
-                      <div className="text-sm text-muted-foreground">
-                        {stats.pendingQuotes || 0}/{jobs.length} ({jobs.length ? Math.round((stats.pendingQuotes || 0) / jobs.length * 100) : 0}%)
-                      </div>
-                    </div>
-                    <Progress value={jobs.length ? (stats.pendingQuotes || 0) / jobs.length * 100 : 0} className="h-2 bg-muted" />
+                    <h4 className="text-sm font-medium mb-4 text-center">Status Distribution</h4>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie                          data={[
+                            { name: 'In Progress', value: jobs.filter(j => j.status === 'In Progress').length, fill: '#8b5cf6' },
+                            { name: 'Scheduled', value: jobs.filter(j => j.status === 'Scheduled').length, fill: '#3b82f6' },
+                            { name: 'Completed', value: jobs.filter(j => j.status === 'Completed').length, fill: '#10b981' }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          nameKey="name"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {[
+                            { name: 'Quotes', color: '#f59e0b' },
+                            { name: 'In Progress', color: '#8b5cf6' },
+                            { name: 'Scheduled', color: '#3b82f6' },
+                            { name: 'Completed', color: '#10b981' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value) => [`${value} job${value !== 1 ? 's' : ''}`]} 
+                          labelFormatter={(label) => label}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
+
+                  {/* Service Status - Bar Chart */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-sm font-medium">In Progress</div>
-                      <div className="text-sm text-muted-foreground">
-                        {jobs.filter(j => j.status === 'In Progress').length}/{jobs.length}
-                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'In Progress').length / jobs.length * 100) : 0}%)
-                      </div>
-                    </div>
-                    <Progress
-                      value={jobs.length ? jobs.filter(j => j.status === 'In Progress').length / jobs.length * 100 : 0}
-                      className="h-2 bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-sm font-medium">Scheduled</div>
-                      <div className="text-sm text-muted-foreground">
-                        {jobs.filter(j => j.status === 'Scheduled').length}/{jobs.length}
-                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'Scheduled').length / jobs.length * 100) : 0}%)
-                      </div>
-                    </div>
-                    <Progress
-                      value={jobs.length ? jobs.filter(j => j.status === 'Scheduled').length / jobs.length * 100 : 0}
-                      className="h-2 bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-sm font-medium">Completed</div>
-                      <div className="text-sm text-muted-foreground">
-                        {jobs.filter(j => j.status === 'Completed').length}/{jobs.length}
-                        ({jobs.length ? Math.round(jobs.filter(j => j.status === 'Completed').length / jobs.length * 100) : 0}%)
-                      </div>
-                    </div>
-                    <Progress
-                      value={jobs.length ? jobs.filter(j => j.status === 'Completed').length / jobs.length * 100 : 0}
-                      className="h-2 bg-muted"
-                    />
+                    <h4 className="text-sm font-medium mb-4 text-center">Service Status</h4>
+                    <ResponsiveContainer width="100%" height={220}>                        <BarChart
+                        data={[
+                          { name: 'In Progress', value: jobs.filter(j => j.status === 'In Progress').length },
+                          { name: 'Scheduled', value: jobs.filter(j => j.status === 'Scheduled').length },
+                          { name: 'Completed', value: jobs.filter(j => j.status === 'Completed').length },
+                        ]}
+                        margin={{ top: 5, right: 0, left: 0, bottom: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip
+                          formatter={(value) => [`${value} job${value !== 1 ? 's' : ''}`]}
+                          labelFormatter={(name) => `${name} Jobs`}
+                        />                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                          {[
+                            { name: 'In Progress', color: '#8b5cf6' },
+                            { name: 'Scheduled', color: '#3b82f6' },
+                            { name: 'Completed', color: '#10b981' }
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               )}
             </CardContent>
+          </Card>          {/* Upcoming Services */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Upcoming Services</CardTitle>
+              <CardDescription>Scheduled services for your locations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map(index => (
+                    <div key={index} className="flex items-center gap-4 pb-4 border-b last:border-0 last:pb-0">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : upcomingServices.length > 0 ? (
+                <div className="space-y-4">
+                  {upcomingServices.map(service => (
+                    <div key={service.id} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
+                      <div className="bg-blue-50 dark:bg-blue-950 rounded-full p-3 flex-shrink-0">
+                        <Calendar className="h-5 w-5 text-blue-500" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium">{service.title}</h4>
+                        <div className="flex items-center gap-4 mt-1">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{service.time}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Building className="h-3.5 w-3.5" />
+                            <span>{service.location}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <User className="h-3.5 w-3.5" />
+                            <span>{service.tech}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap">
+                        {new Date(service.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Calendar className="h-12 w-12 text-muted-foreground opacity-50" />
+                  <h3 className="mt-4 text-lg font-medium">No upcoming services</h3>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    When you have scheduled services, they will appear here.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+            {upcomingServices.length > 3 && (
+              <CardFooter>
+                <Button variant="outline" className="w-full">
+                  View All Scheduled Services
+                </Button>
+              </CardFooter>
+            )}
           </Card>
 
           {/* Recent Job Updates */}
@@ -742,6 +897,99 @@ const ClientHome = () => {
                 </Button>
               </CardFooter>
             )}
+          </Card>        </div>
+
+        {/* Right Sidebar - 1/3 width */}
+        <div className="space-y-6">
+          {/* Client Profile Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Client Profile</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-16 w-16 rounded-full mx-auto" />
+                  <Skeleton className="h-4 w-28 mx-auto" />
+                  <Skeleton className="h-3 w-40 mx-auto" />
+                </div>
+              ) : (
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                    <Building className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-medium text-lg">{clientName}</h3>
+                  <p className="text-sm text-muted-foreground">Client ID: {clientId?.substring(0, 8)}...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Active Jobs Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Jobs</CardTitle>
+              <CardDescription>Your current active jobs</CardDescription>
+            </CardHeader>
+            <CardContent className="px-2">
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(index => (
+                    <div key={index} className="p-3">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : jobs.filter(job => job.status !== 'Completed').length > 0 ? (
+                <div>
+                  {jobs.filter(job => job.status !== 'Completed')
+                    .slice(0, 3)
+                    .map(job => (
+                      <div
+                        key={job.id}
+                        className="p-3 hover:bg-muted/50 rounded-md cursor-pointer"
+                        onClick={() => navigate(`/client/jobs/${job.id}`)}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="font-medium text-sm">{job.title}</h4>
+                          <Badge variant="outline" className={getStatusColor(job.status)}>
+                            {job.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {job.description}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{new Date(job.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            <span>{job.assignedTech}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  {jobs.filter(job => job.status !== 'Completed').length > 3 && (
+                    <div className="px-3 pt-2">
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => navigate('/client/jobs')}>
+                        View All Jobs
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <CheckCircle className="h-12 w-12 text-muted-foreground opacity-50" />
+                  <h3 className="mt-4 text-lg font-medium">No active jobs</h3>
+                  <p className="text-sm text-muted-foreground mt-2 text-center">
+                    All your jobs have been completed.
+                  </p>
+                </div>
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>

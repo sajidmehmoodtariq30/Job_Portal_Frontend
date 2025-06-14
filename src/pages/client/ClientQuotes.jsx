@@ -98,7 +98,7 @@ const ClientQuotes = () => {
   const clientId = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
     // Get permissions
   const { hasPermission } = usePermissions();
-  const { user, hasAssignedClient } = useSession();
+  const { user } = useSession();
     // Load quotes data
   useEffect(() => {
     if (clientId) {
@@ -124,10 +124,10 @@ const ClientQuotes = () => {
       setLoading(false);
       return;
     }
-    
-    console.log('Fetching quotes for client ID:', clientId);
+      console.log('Fetching quotes for client ID:', clientId);
     setLoading(true);
     try {
+      // Updated to use correct API endpoint path (adding /api prefix)
       const response = await axios.get(`${API_URL}/api/quotes?clientId=${clientId}`);
       console.log('Quotes API response:', response.data);
       setQuotes(Array.isArray(response.data) ? response.data : []);
@@ -138,19 +138,35 @@ const ClientQuotes = () => {
       setError(`Failed to load quotes. Please try again later. (${error.response?.status || 'Network Error'})`);
     } finally {
       setLoading(false);
-    }  };
-  // Fetch jobs for quote creation
+    }};  // Fetch jobs for quote creation
   const fetchJobs = async () => {
-    if (!clientId) return;
+    if (!clientId) {
+      console.error('Client ID not found, cannot fetch jobs');
+      setError('Client ID not found. Please log in again.');
+      return;
+    }
     
     setJobsLoading(true);
     try {
-      // Fetch jobs for this specific client
-      const response = await axios.get(`${API_URL}/jobs/client/${clientId}`);
-      setJobs(Array.isArray(response.data) ? response.data : []);
+      console.log('Fetching jobs for client:', clientId);
+      // Fetch jobs for this specific client - using correct /fetch prefix
+      const response = await axios.get(`${API_URL}/fetch/jobs/client/${clientId}`);
+      
+      // Sort jobs by date (most recent first)
+      let jobsData = Array.isArray(response.data) ? response.data : [];
+      jobsData.sort((a, b) => {
+        // Sort by creation date if available, otherwise use job date
+        const dateA = new Date(a.createdAt || a.date || 0);
+        const dateB = new Date(b.createdAt || b.date || 0);
+        return dateB - dateA; // Most recent first
+      });
+      
+      console.log(`Found ${jobsData.length} jobs for quote creation`);
+      setJobs(jobsData);
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      setError('Failed to load jobs for quote creation.');
+      console.error('API URL used:', `${API_URL}/fetch/jobs/client/${clientId}`);
+      setError('Failed to load jobs for quote creation. Please refresh and try again.');
     } finally {
       setJobsLoading(false);
     }
@@ -223,7 +239,7 @@ const ClientQuotes = () => {
         status: 'Pending'
       };
 
-      await axios.post(`${API_URL}/api/quotes`, quoteData);
+      await axios.post(`${API_URL}/quotes`, quoteData);
       
       setSuccess('Quote request submitted successfully!');
       setShowCreateDialog(false);
@@ -363,7 +379,7 @@ const ClientQuotes = () => {
       currency: 'USD'
     }).format(amount);
   };
-    // Handle quote actions with confirmation
+  // Handle quote actions with confirmation
   const handleQuoteAction = (quoteId, action) => {
     setSelectedAction({ id: quoteId, action });
     if (action === 'Reject') {
@@ -377,10 +393,24 @@ const ClientQuotes = () => {
   const confirmQuoteAction = async () => {
     setError(null);
     setSuccess(null);
+    
+    // Validate the selected action has an ID
+    if (!selectedAction?.id) {
+      setError("No quote selected. Please try again.");
+      return;
+    }
+    
+    // Check if the quote still exists in our local state
+    const quoteExists = quotes.some(quote => quote.id === selectedAction.id);
+    if (!quoteExists) {
+      setError("The selected quote no longer exists. Please refresh the page.");
+      setShowDialog(false);
+      return;
+    }
+    
     // Set loading state for this specific quote
-    setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: selectedAction.action }));
-    try {
-      if (selectedAction.action === 'Accept') {
+    setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: selectedAction.action }));    try {      if (selectedAction.action === 'Accept') {
+        // Updated to use correct API endpoint path (adding /api prefix)
         await axios.post(`${API_URL}/api/quotes/${selectedAction.id}/accept`, {
           userId: clientId
         });
@@ -393,18 +423,35 @@ const ClientQuotes = () => {
       await fetchQuotes();
       setShowDialog(false);
       setTimeout(() => setSuccess(null), 5000);
-    } catch (error) {
-      console.error('Error processing quote action:', error);
-      setError(`Failed to ${selectedAction.action.toLowerCase()} quote: ${error.response?.data?.message || error.message}`);
+    } catch (error) {      console.error('Error processing quote action:', error);
+      // Check for specific error types
+      if (error.response?.status === 404) {
+        setError(`The selected quote was not found. It may have been deleted or expired. Please refresh the page.`);
+      } else {
+        setError(`Failed to ${selectedAction.action.toLowerCase()} quote: ${error.response?.data?.message || error.message}`);
+      }
     } finally {
       setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
-    }
-  };
+    }  };
     // Handle rejection confirmation
   const handleConfirmRejection = async () => {
     setError(null);
     setSuccess(null);
-    setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: 'Reject' }));
+    
+    // Validate the selected action has an ID
+    if (!selectedAction?.id) {
+      setError("No quote selected. Please try again.");
+      return;
+    }
+    
+    // Check if the quote still exists in our local state
+    const quoteExists = quotes.some(quote => quote.id === selectedAction.id);
+    if (!quoteExists) {
+      setError("The selected quote no longer exists. Please refresh the page.");
+      setShowDialog(false);
+      return;
+    }
+      setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: 'Reject' }));
     try {
       await axios.post(`${API_URL}/api/quotes/${selectedAction.id}/reject`, {
         userId: clientId,
@@ -416,36 +463,18 @@ const ClientQuotes = () => {
       setTimeout(() => setSuccess(null), 5000);
     } catch (error) {
       console.error('Error rejecting quote:', error);
-      setError(`Failed to reject quote: ${error.response?.data?.message || error.message}`);
-    } finally {
+      setError(`Failed to reject quote: ${error.response?.data?.message || error.message}`);    } finally {
       setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
-    }  };
+    }
+  };
 
   // Handle refresh
   const handleRefresh = async () => {
     setError(null);
     setSuccess(null);
     await fetchQuotes();
-    setSuccess('Quotes refreshed successfully');
-    setTimeout(() => setSuccess(null), 3000);
+    setSuccess('Quotes refreshed successfully');    setTimeout(() => setSuccess(null), 3000);
   };
-  // Don't show quotes data if user is not assigned to a client
-  if (!hasAssignedClient()) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-amber-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
-          <p className="text-gray-600 max-w-md">
-            Your account is not currently linked to any client. Please contact your administrator 
-            to assign you to a client to access quotes data.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <PermissionProtectedClientPage permission={PERMISSIONS.ACCEPT_REJECT_QUOTES} title="Quotes">

@@ -349,12 +349,44 @@ export const SessionProvider = ({ children }) => {
     const remaining = sessionExpiry - Date.now();
     return Math.max(0, remaining);
   };
-
   // Check if user has assigned client
   const hasAssignedClient = () => {
     if (!user) return false;
     return !!(user.assignedClientUuid);
   };
+  // Validate client assignment with backend
+  const validateClientAssignment = useCallback(async () => {
+    if (!user || !user.email) return false;
+    
+    try {
+      const response = await axios.get(
+        API_ENDPOINTS.CLIENT_VALIDATION.VALIDATE_ASSIGNMENT,
+        {
+          headers: {
+            'x-user-email': user.email
+          },
+          params: {
+            email: user.email
+          }
+        }
+      );
+      
+      if (response.data.success) {
+        // Update user data if needed
+        if (response.data.user && response.data.user.assignedClientUuid !== user.assignedClientUuid) {
+          const updatedUser = { ...user, assignedClientUuid: response.data.user.assignedClientUuid };
+          setUser(updatedUser);
+          localStorage.setItem('user_data', JSON.stringify(updatedUser));
+        }
+        return response.data.hasClientAssignment;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error validating client assignment:', error);
+      // Fall back to local check if backend fails
+      return !!(user.assignedClientUuid);
+    }
+  }, [user]);
 
   // Get client data if available
   const getClientData = () => {
@@ -413,8 +445,8 @@ export const SessionProvider = ({ children }) => {
     isAdmin,
     isUser,
     getSessionTimeRemaining,
-    clearAllSessions,
-    hasAssignedClient,
+    clearAllSessions,    hasAssignedClient,
+    validateClientAssignment,
     getClientData,
     updateUserData,
     refreshUserData

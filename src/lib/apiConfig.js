@@ -112,13 +112,15 @@ export const API_ENDPOINTS = {  AUTH: {
     RESEND_SETUP: (userId) => buildApiEndpoint(`api/users/${userId}/resend-setup`),
     GET_CLIENT_SITES: (userId) => buildApiEndpoint(`api/users/${userId}/client-sites`),
     RESET_PASSWORD: (userId) => buildApiEndpoint(`api/users/${userId}/reset-password`)
-  },
-  NOTES: {
+  },  NOTES: {
     GET_BY_JOB: (jobId) => buildApiEndpoint(`api/notes/${jobId}`),
     CREATE: buildApiEndpoint('api/notes'),
     UPDATE: (noteId) => buildApiEndpoint(`api/notes/${noteId}`),
     DELETE: (noteId) => buildApiEndpoint(`api/notes/${noteId}`),
     GET_SINGLE: (noteId) => buildApiEndpoint(`api/notes/single/${noteId}`)
+  },
+  CLIENT_VALIDATION: {
+    VALIDATE_ASSIGNMENT: buildApiEndpoint('api/client/validate-client-assignment')
   }
 };
 

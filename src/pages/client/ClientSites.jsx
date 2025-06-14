@@ -23,7 +23,7 @@ import { useSession } from '@/context/SessionContext';
 const SiteManagement = () => {
   // Toggle between client-specific and global sites view
   const [showAllSites, setShowAllSites] = useState(false);
-  const { hasAssignedClient } = useSession();
+  const { } = useSession();
     // Get client data from localStorage (same method as ClientHome)
   const getClientData = () => {
     const clientData = localStorage.getItem('user_data');
@@ -91,25 +91,7 @@ const SiteManagement = () => {
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
         <h3 className="text-lg font-medium text-red-900 mb-2">Error loading sites</h3>
         <p className="text-red-700 mb-4">{error}</p>
-        <Button onClick={refreshSites} variant="outline">
-          Try Again        </Button>
-      </div>
-    );
-  }
-  // Don't show sites data if user is not assigned to a client
-  if (!hasAssignedClient()) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-8 h-8 text-amber-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
-          <p className="text-gray-600 max-w-md">
-            Your account is not currently linked to any client. Please contact your administrator 
-            to assign you to a client to access sites data.
-          </p>
-        </div>
+        <Button onClick={refreshSites} variant="outline">          Try Again        </Button>
       </div>
     );
   }

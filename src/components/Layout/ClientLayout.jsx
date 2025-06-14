@@ -14,6 +14,8 @@ import {
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
 import ClientLinkingNotification from '../ClientLinkingNotification'
+import ClientAssignmentGuard from '../ClientAssignmentGuard'
+import ClientAssignmentProvider from '@/context/ClientAssignmentContext'
 import { usePermissionsRefresh, useVisibilityRefresh, useFocusRefresh } from '@/hooks/usePermissionsRefresh'
 import { usePermissionsUpdateListener } from '@/utils/realTimeUpdates'
 import setupAuthInterceptor, { addClientUuidHeader, removeClientUuidHeader } from '@/utils/authInterceptor'
@@ -92,11 +94,11 @@ const ClientLayout = () => {
             removeClientUuidHeader();
             handleUserLogout('User initiated logout from client layout');
         }
-    }// If not authenticated or still loading, don't render anything
-    if (isLoading || !clientId) return null;
-
-    return (
-        <div className="flex h-screen overflow-hidden">
+    }    // If not authenticated or still loading, don't render anything
+    if (isLoading || !clientId) return null;    return (
+        <ClientAssignmentProvider>
+            <ClientAssignmentGuard>
+                <div className="flex h-screen overflow-hidden">
             {/* Mobile sidebar overlay */}
             {sidebarOpen && (
                 <div
@@ -146,11 +148,11 @@ const ClientLayout = () => {
                 <main className="flex-1 overflow-auto p-4 lg:p-6">
                     <Outlet />
                 </main>
-            </div>
-            
-            {/* Client linking notification */}
+            </div>              {/* Client linking notification */}
             <ClientLinkingNotification />
         </div>
+        </ClientAssignmentGuard>
+        </ClientAssignmentProvider>
     )
 }
 

@@ -107,11 +107,13 @@ const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select
                     value === job.uuid ? 'bg-blue-50 text-blue-900' : ''
                   }`}
                 >
-                  <div className="flex flex-col gap-1">
-                    <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                      {job.job_description || 'No description'}
-                    </div>                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                      <span>ID: {job.uuid.slice(-8)}</span>
+                  <div className="flex flex-col gap-1">                <div className="text-sm font-medium text-gray-900 line-clamp-2">
+                      {job.job_description || job.title || 'No description'}
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <span>Job ID: {job.uuid ? job.uuid.slice(-8) : job.id?.slice(-8) || 'N/A'}</span>
+                      <span>•</span>
+                      <span>{new Date(job.createdAt || job.date || Date.now()).toLocaleDateString()}</span>
                       {job.status && (
                         <span className={`px-2 py-0.5 rounded text-xs ${
                           job.status === 'Quote' 
@@ -120,7 +122,9 @@ const SearchableJobSelect = ({ jobs, value, onValueChange, placeholder = "Select
                               ? 'bg-yellow-100 text-yellow-800'
                               : job.status === 'In Progress'
                                 ? 'bg-purple-100 text-purple-800'
-                                : 'bg-green-100 text-green-800'
+                                : job.status === 'Completed'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
                         }`}>
                           {job.status}
                         </span>

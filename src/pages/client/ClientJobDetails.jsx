@@ -53,7 +53,7 @@ const ClientJobDetails = () => {
     const { jobId } = useParams();
     const navigate = useNavigate();
     const { hasPermission } = usePermissions();
-    const { hasAssignedClient } = useSession();
+    const { } = useSession();
     const [job, setJob] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -116,27 +116,10 @@ const ClientJobDetails = () => {
             day: 'numeric'
         });
     };    const formatCurrency = (amount) => {
-        if (!amount) return 'N/A';
-        return new Intl.NumberFormat('en-US', {
+        if (!amount) return 'N/A';        return new Intl.NumberFormat('en-US', {
             style: 'currency',            currency: 'USD'
         }).format(amount);
-    };    // Don't show job details if user is not assigned to a client
-    if (!hasAssignedClient()) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
-                <div className="text-center space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
-                        <AlertTriangle className="w-8 h-8 text-amber-600" />
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
-                    <p className="text-gray-600 max-w-md">
-                        Your account is not currently linked to any client. Please contact your administrator 
-                        to assign you to a client to access job details.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    };
     
     if (loading) {
         return (
