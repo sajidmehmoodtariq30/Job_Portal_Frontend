@@ -38,7 +38,8 @@ import {
 import { Label } from "../../components/UI/label";
 import SearchableJobSelect from "@/components/UI/SearchableJobSelect";
 import PermissionProtectedClientPage from "../../components/client/PermissionProtectedClientPage";
-import { PERMISSIONS } from "../../context/PermissionsContext";
+import { PERMISSIONS, usePermissions } from "../../context/PermissionsContext";
+import { useSession } from "../../context/SessionContext";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 
@@ -92,10 +93,12 @@ const ClientQuotes = () => {
     }
     return null;
   };
-
   const clientData = getClientData();
   // Get client ID from localStorage with fallbacks (same as ClientHome)
   const clientId = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+    // Get permissions
+  const { hasPermission } = usePermissions();
+  const { user, hasAssignedClient } = useSession();
     // Load quotes data
   useEffect(() => {
     if (clientId) {
@@ -416,8 +419,8 @@ const ClientQuotes = () => {
       setError(`Failed to reject quote: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoadingQuotes(prev => ({ ...prev, [selectedAction.id]: false }));
-    }
-  };
+    }  };
+
   // Handle refresh
   const handleRefresh = async () => {
     setError(null);
@@ -426,6 +429,24 @@ const ClientQuotes = () => {
     setSuccess('Quotes refreshed successfully');
     setTimeout(() => setSuccess(null), 3000);
   };
+  // Don't show quotes data if user is not assigned to a client
+  if (!hasAssignedClient()) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
+          <p className="text-gray-600 max-w-md">
+            Your account is not currently linked to any client. Please contact your administrator 
+            to assign you to a client to access quotes data.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <PermissionProtectedClientPage permission={PERMISSIONS.ACCEPT_REJECT_QUOTES} title="Quotes">
       <div className="space-y-6">
@@ -461,13 +482,20 @@ const ClientQuotes = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>        <div className="flex gap-2 w-full md:w-auto">
-          <Button 
-            onClick={openCreateDialog}
-            className="flex items-center gap-2"
-          >
-            <FileText size={16} />
-            Create Quote
-          </Button>
+          {hasPermission(PERMISSIONS.CREATE_QUOTES) ? (
+            <Button 
+              onClick={openCreateDialog}
+              className="flex items-center gap-2"
+            >
+              <FileText size={16} />
+              Create Quote
+            </Button>
+          ) : (
+            <div className="px-4 py-2 text-sm text-muted-foreground bg-muted rounded-md flex items-center gap-2">
+              <FileText size={16} />
+              No permission to create quotes
+            </div>
+          )}
           <Button 
             variant="outline" 
             onClick={toggleFilters}
@@ -514,8 +542,7 @@ const ClientQuotes = () => {
             </div>
           ) : filteredQuotes.length > 0 ? (
             <div className="space-y-4">
-              {filteredQuotes.map(quote => (
-                <QuoteCard 
+              {filteredQuotes.map(quote => (                <QuoteCard 
                   key={quote.id} 
                   quote={{
                     id: quote.id,
@@ -533,6 +560,7 @@ const ClientQuotes = () => {
                   onQuoteAction={handleQuoteAction}
                   statusColor={getStatusColor}
                   loadingQuotes={loadingQuotes}
+                  hasAcceptRejectPermission={hasPermission(PERMISSIONS.ACCEPT_REJECT_QUOTES)}
                 />
               ))}
             </div>

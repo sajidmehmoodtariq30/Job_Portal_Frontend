@@ -15,7 +15,8 @@ import {
   FileText,
   Download,
   MessageSquare,
-  StickyNote
+  StickyNote,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
@@ -41,6 +42,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/UI/tabs";
+import { Alert, AlertDescription } from "@/components/UI/alert";
 import {
   Card,
   CardContent, 
@@ -61,6 +63,8 @@ import NotesTab from "@/components/UI/NotesTab";
 import ClientJobFilters from "@/components/UI/client/ClientJobFilters";
 import { useJobContext } from '@/components/JobContext';
 import { useSites } from '@/hooks/useSites';
+import { useSession } from '@/context/SessionContext';
+import { useNotifications } from '@/context/NotificationContext';
 import axios from 'axios';
 import API_ENDPOINTS, { API_URL as API_BASE_URL } from '@/lib/apiConfig';
 
@@ -70,6 +74,8 @@ const PAGE_SIZE = 10;
 const ClientJobs = () => {
   const navigate = useNavigate();  
   const { hasPermission } = usePermissions();
+  const { user, hasAssignedClient } = useSession();
+  const { pausePolling, resumePolling } = useNotifications();
   
   // Use the JobContext to access jobs data and methods
   const {
@@ -669,7 +675,6 @@ const ClientJobs = () => {
       console.error('Error adding note:', error);
     }
   };
-
   // Handle job status update
   const handleStatusUpdate = async () => {
 
@@ -679,6 +684,10 @@ const ClientJobs = () => {
 
     try {      
       setIsUpdatingStatus(true);
+      
+      // Pause polling during status update to prevent interference
+      pausePolling();
+      
       const response = await axios.put(
         `${API_BASE_URL}/fetch/jobs/${selectedJob.uuid}/status`,
         { status: selectedStatus }
@@ -694,11 +703,12 @@ const ClientJobs = () => {
       } else {
         alert('Failed to update job status: ' + (response.data.message || 'Unknown error'));
       }
-    } catch (error) {
-      console.error('Error updating job status:', error);
+    } catch (error) {      console.error('Error updating job status:', error);
       alert('Error updating job status: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsUpdatingStatus(false);
+      // Resume polling after status update completion (success or error)
+      resumePolling();
     }
   };
 
@@ -758,7 +768,7 @@ const ClientJobs = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };    // Handle file upload
+  };  // Handle file upload
   const handleFileUpload = async () => {
     // Check if user has permission to manage attachments
     if (!hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS)) {
@@ -770,6 +780,9 @@ const ClientJobs = () => {
     
     try {
       setFileUploading(true);
+      
+      // Pause polling during file upload to prevent interference
+      pausePolling();
       
       // Get user info for the upload
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -817,12 +830,13 @@ const ClientJobs = () => {
           alert(`Upload failed: ${error.response.statusText}`);
         }
       } else if (error.message && error.message.includes('network')) {
-        alert('Network error. Please check your connection and try again.');
-      } else {
+        alert('Network error. Please check your connection and try again.');      } else {
         alert('Failed to upload file. Please try again.');
       }
     } finally {
       setFileUploading(false);
+      // Resume polling after upload completion (success or error)
+      resumePolling();
     }
   };
   
@@ -1005,9 +1019,26 @@ const ClientJobs = () => {
       work_completion_date_start: '', // Reset new field
       work_completion_date_end: '', // Reset new field
       initial_attachment: null // Reset new field
-    });
-    setSelectedLocationUuid('');
+    });    setSelectedLocationUuid('');
   };
+  // Don't show jobs data if user is not assigned to a client
+  if (!hasAssignedClient()) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
+          <p className="text-gray-600 max-w-md">
+            Your account is not currently linked to any client. Please contact your administrator 
+            to assign you to a client to access job data.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <PermissionProtectedClientPage permission={PERMISSIONS.VIEW_JOBS} title="Jobs">
       <div className="space-y-6">
@@ -1616,19 +1647,29 @@ const ClientJobs = () => {
                           </div>
                         </div>
                       )}                    </div></TabsContent>
-                  
-                  <TabsContent value="notes" className="space-y-4">
-                    <NotesTab jobId={selectedJob.uuid || selectedJob.id} userType="client" />
+                    <TabsContent value="notes" className="space-y-4">
+                    {!hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS) ? (
+                      <Alert>
+                        <AlertDescription>
+                          You don't have permission to view or manage notes for this job.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <NotesTab jobId={selectedJob.uuid || selectedJob.id} userType="client" />
+                    )}
                   </TabsContent>
 
                   <TabsContent value="chat" className="space-y-4">
                     <ChatRoom jobId={selectedJob.uuid || selectedJob.id} />
-                  </TabsContent><TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
+                  </TabsContent>                  <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
                     <Card className="border rounded-lg">
-                      <CardHeader className="p-3 md:p-4">                        <div className="flex justify-between items-center">
+                      <CardHeader className="p-3 md:p-4">
+                        <div className="flex justify-between items-center">
                           <CardTitle className="text-sm md:text-base flex items-center">
                             <FileText className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                            Attachments                          </CardTitle>
+                            Attachments
+                          </CardTitle>
+                          {hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS) && (
                             <Button 
                               size="sm" 
                               className="text-xs md:text-sm h-8 md:h-9"
@@ -1636,110 +1677,127 @@ const ClientJobs = () => {
                             >
                               Upload File
                             </Button>
+                          )}
                         </div>
-                      </CardHeader>                      <CardContent className="p-3 md:p-4">                        
-                          {isUploadingFile && (<div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
-                            <Label htmlFor="fileUpload" className="text-xs md:text-sm font-medium mb-2 block">Upload File</Label>
-                            <Input
-                              id="fileUpload"
-                              type="file"
-                              onChange={handleFileChange}
-                              className="mb-3 text-xs md:text-sm"
-                            />
-                            <div className="text-xs md:text-sm text-amber-600 mb-3 flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                                <line x1="12" y1="9" x2="12" y2="13"></line>
-                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                              </svg>
-                              File size must be less than 9MB to ensure successful upload
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button 
-                                variant="outline" 
-                                className="text-xs md:text-sm h-8 md:h-9"
-                                onClick={() => {
-                                  setIsUploadingFile(false);
-                                  setSelectedFile(null);
-                                }}
-                                disabled={fileUploading}
-                              >
-                                Cancel
-                              </Button>
-                              <Button 
-                                className="text-xs md:text-sm h-8 md:h-9"
-                                onClick={handleFileUpload} 
-                                disabled={!selectedFile || fileUploading}
-                              >
-                                {fileUploading ? 'Uploading...' : 'Upload'}
-                              </Button>
-                            </div>
-                          </div>                        )}
-                          {attachmentsLoading ? (
-                          <div className="py-4 md:py-6 flex justify-center">
-                            <div className="animate-pulse flex space-x-3 md:space-x-4 w-full">
-                              <div className="flex-1 space-y-2 md:space-y-4 py-1">
-                                <div className="h-3 md:h-4 bg-gray-200 rounded w-3/4"></div>
-                                <div className="space-y-1 md:space-y-2">
-                                  <div className="h-3 md:h-4 bg-gray-200 rounded"></div>
-                                  <div className="h-3 md:h-4 bg-gray-200 rounded w-5/6"></div>
-                                </div>
-                              </div>
-                            </div>
+                      </CardHeader>
+                      <CardContent className="p-3 md:p-4">
+                        {!hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS) ? (
+                          <div className="py-8 text-center">
+                            <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                            <p className="text-sm text-muted-foreground">
+                              You don't have permission to view or manage attachments for this job.
+                            </p>
                           </div>
-                        ) : attachments.length > 0 ? (
-                          <div className="space-y-2 md:space-y-4">
-                            {attachments.map((file) => {
-                              // Determine icon color based on file type
-                              const getFileColor = () => {
-                                const ext = file.fileName.split('.').pop().toLowerCase();
-                                if (['pdf'].includes(ext)) return 'text-red-600';
-                                if (['doc', 'docx'].includes(ext)) return 'text-blue-600';
-                                if (['xls', 'xlsx'].includes(ext)) return 'text-green-600';
-                                if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'text-purple-600';
-                                if (['zip', 'rar'].includes(ext)) return 'text-amber-600';
-                                return 'text-gray-600';
-                              };
-                              
-                              return (                                <div 
-                                  key={file.id} 
-                                  className="p-2 md:p-4 border border-gray-200 rounded-md flex flex-col md:flex-row md:justify-between md:items-center gap-2 md:gap-0"
-                                >
-                                  <div className="flex items-center gap-2 md:gap-3">
-                                    <FileText className={`h-6 w-6 md:h-8 md:w-8 ${getFileColor()}`} />
-                                    <div className="overflow-hidden">
-                                      <p className="font-medium text-xs md:text-sm truncate">{file.fileName}</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {formatFileSize(file.fileSize)} • 
-                                        <span className="hidden xs:inline">Uploaded by </span>{file.uploadedBy} • 
-                                        {new Date(file.uploadTimestamp).toLocaleDateString()}
-                                      </p>
-                                    </div>
-                                  </div>
+                        ) : (
+                          <>
+                            {isUploadingFile && (
+                              <div className="mb-4 p-3 md:p-4 border border-gray-200 rounded-md bg-gray-50">
+                                <Label htmlFor="fileUpload" className="text-xs md:text-sm font-medium mb-2 block">Upload File</Label>
+                                <Input
+                                  id="fileUpload"
+                                  type="file"
+                                  onChange={handleFileChange}
+                                  className="mb-3 text-xs md:text-sm"
+                                />
+                                <div className="text-xs md:text-sm text-amber-600 mb-3 flex items-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                  </svg>
+                                  File size must be less than 9MB to ensure successful upload
+                                </div>
+                                <div className="flex justify-end gap-2">
                                   <Button 
-                                    size="sm" 
                                     variant="outline" 
-                                    className="flex items-center gap-1 text-xs md:text-sm h-8 md:h-9 mt-1 md:mt-0"
-                                    onClick={() => handleDownloadFile(file.id, file.fileName)}
+                                    className="text-xs md:text-sm h-8 md:h-9"
+                                    onClick={() => {
+                                      setIsUploadingFile(false);
+                                      setSelectedFile(null);
+                                    }}
+                                    disabled={fileUploading}
                                   >
-                                    <Download className="h-3 w-3 md:h-4 md:w-4" />
-                                    Download
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    className="text-xs md:text-sm h-8 md:h-9"
+                                    onClick={handleFileUpload} 
+                                    disabled={!selectedFile || fileUploading}
+                                  >
+                                    {fileUploading ? 'Uploading...' : 'Upload'}
                                   </Button>
                                 </div>
-                              );
-                            })}
-                          </div>                        ) : (
-                          <div className="py-8 md:py-10 text-center">
-                            <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />                            <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="mt-3 md:mt-4 text-xs md:text-sm h-8 md:h-9"
-                                onClick={() => setIsUploadingFile(true)}
-                              >
-                                Upload First Attachment
-                              </Button>
-                          </div>
+                              </div>                            )}
+                            {attachmentsLoading ? (
+                              <div className="py-4 md:py-6 flex justify-center">
+                                <div className="animate-pulse flex space-x-3 md:space-x-4 w-full">
+                                  <div className="flex-1 space-y-2 md:space-y-4 py-1">
+                                    <div className="h-3 md:h-4 bg-gray-200 rounded w-3/4"></div>
+                                    <div className="space-y-1 md:space-y-2">
+                                      <div className="h-3 md:h-4 bg-gray-200 rounded"></div>
+                                      <div className="h-3 md:h-4 bg-gray-200 rounded w-5/6"></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : attachments.length > 0 ? (
+                              <div className="space-y-2 md:space-y-4">
+                                {attachments.map((file) => {
+                                  // Determine icon color based on file type
+                                  const getFileColor = () => {
+                                    const ext = file.fileName.split('.').pop().toLowerCase();
+                                    if (['pdf'].includes(ext)) return 'text-red-600';
+                                    if (['doc', 'docx'].includes(ext)) return 'text-blue-600';
+                                    if (['xls', 'xlsx'].includes(ext)) return 'text-green-600';
+                                    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'text-purple-600';
+                                    if (['zip', 'rar'].includes(ext)) return 'text-amber-600';
+                                    return 'text-gray-600';
+                                  };
+                                  
+                                  return (
+                                    <div 
+                                      key={file.id} 
+                                      className="p-2 md:p-4 border border-gray-200 rounded-md flex flex-col md:flex-row md:justify-between md:items-center gap-2 md:gap-0"
+                                    >
+                                      <div className="flex items-center gap-2 md:gap-3">
+                                        <FileText className={`h-6 w-6 md:h-8 md:w-8 ${getFileColor()}`} />
+                                        <div className="overflow-hidden">
+                                          <p className="font-medium text-xs md:text-sm truncate">{file.fileName}</p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {formatFileSize(file.fileSize)} • 
+                                            <span className="hidden xs:inline">Uploaded by </span>{file.uploadedBy} • 
+                                            {new Date(file.uploadTimestamp).toLocaleDateString()}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="flex items-center gap-1 text-xs md:text-sm h-8 md:h-9 mt-1 md:mt-0"
+                                        onClick={() => handleDownloadFile(file.id, file.fileName)}
+                                      >
+                                        <Download className="h-3 w-3 md:h-4 md:w-4" />
+                                        Download
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="py-8 md:py-10 text-center">
+                                <FileText className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-400 mb-2 md:mb-3" />
+                                <p className="text-xs md:text-sm text-muted-foreground">No attachments found for this job</p>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="mt-3 md:mt-4 text-xs md:text-sm h-8 md:h-9"
+                                  onClick={() => setIsUploadingFile(true)}
+                                >
+                                  Upload First Attachment
+                                </Button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </CardContent>
                     </Card>

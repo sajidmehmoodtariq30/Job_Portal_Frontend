@@ -42,10 +42,12 @@ import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
 import { useSites } from '@/hooks/useSites';
 import { useAllSites } from '@/hooks/useAllSites';
 import { useNotifications } from '@/context/NotificationContext';
+import { useSession } from '@/context/SessionContext';
 
 const ClientHome = () => {
   const navigate = useNavigate();
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
+  const { hasAssignedClient } = useSession();
 
   // State variables
   const [dashboardData, setDashboardData] = useState({
@@ -272,12 +274,10 @@ const ClientHome = () => {
 
   // Initial data loading
   useEffect(() => {
-    fetchDashboardData(false);
-
-    // Set up interval for real-time updates
+    fetchDashboardData(false);    // Set up interval for real-time updates (reduced frequency)
     const intervalId = setInterval(() => {
       fetchDashboardData(true);
-    }, 60000); // Refresh every minute
+    }, 300000); // Refresh every 5 minutes (reduced from 1 minute)
 
     return () => clearInterval(intervalId);
   }, [fetchDashboardData]);
@@ -334,9 +334,26 @@ const ClientHome = () => {
       default: return <AlertCircle className="text-gray-500" />;
     }
   };
-
   // Extract data from the dashboard data object for easier use
   const { stats, jobs, quotes, upcomingServices, recentActivity } = dashboardData;
+
+  // Don't show dashboard data if user is not assigned to a client
+  if (!hasAssignedClient()) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">No Client Assignment</h2>
+          <p className="text-gray-600 max-w-md">
+            Your account is not currently linked to any client. Please contact your administrator 
+            to assign you to a client to access your dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

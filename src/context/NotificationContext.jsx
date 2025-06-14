@@ -15,7 +15,8 @@ export const useNotifications = () => {
 export const NotificationProvider = ({ children }) => {
   const { toast } = useToast();
   const [notifications, setNotifications] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);  // Get user info from localStorage
+  const [isConnected, setIsConnected] = useState(false);
+  const [isPaused, setIsPaused] = useState(false); // Add pause state// Get user info from localStorage
   const getUserInfo = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -138,10 +139,12 @@ export const NotificationProvider = ({ children }) => {
       } catch (error) {
         console.error('Error polling notifications:', error);
       }
-    };
-
-    // Poll every 5 seconds for better real-time experience
-    const interval = setInterval(pollNotifications, 5000);
+    };    // Poll every 30 seconds for better performance (reduced from 5 seconds)
+    const interval = setInterval(() => {
+      if (!isPaused) {
+        pollNotifications();
+      }
+    }, 30000);
     setIsConnected(true);
 
     // Poll immediately on mount
@@ -168,10 +171,18 @@ export const NotificationProvider = ({ children }) => {
       )
     );
   }, []);
-
   // Clear all notifications
   const clearAll = useCallback(() => {
     setNotifications([]);
+  }, []);
+
+  // Pause/resume notification polling
+  const pausePolling = useCallback(() => {
+    setIsPaused(true);
+  }, []);
+
+  const resumePolling = useCallback(() => {
+    setIsPaused(false);
   }, []);
 
   // Get unread count
@@ -181,10 +192,13 @@ export const NotificationProvider = ({ children }) => {
     notifications,
     unreadCount,
     isConnected,
+    isPaused,
     showNotification,
     triggerNotification,
     markAsRead,
-    clearAll
+    clearAll,
+    pausePolling,
+    resumePolling
   };
 
   return (

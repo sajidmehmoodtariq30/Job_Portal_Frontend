@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   VIEW_JOBS: 'view_jobs',
   CREATE_JOBS: 'create_jobs',
   ADD_NOTES_ATTACHMENTS: 'add_notes_attachments',
+  CREATE_QUOTES: 'create_quotes',
   ACCEPT_REJECT_QUOTES: 'accept_reject_quotes',
   VIEW_SITES: 'view_sites',
   REQUEST_WORK: 'request_work'
@@ -28,6 +29,7 @@ export const PERMISSION_LABELS = {
   [PERMISSIONS.VIEW_JOBS]: 'View Jobs',
   [PERMISSIONS.CREATE_JOBS]: 'Create Jobs', 
   [PERMISSIONS.ADD_NOTES_ATTACHMENTS]: 'Add Notes/Attachments to Jobs',
+  [PERMISSIONS.CREATE_QUOTES]: 'Create Quotes',
   [PERMISSIONS.ACCEPT_REJECT_QUOTES]: 'Accept/Reject Quotes',
   [PERMISSIONS.VIEW_SITES]: 'View Sites',
   [PERMISSIONS.REQUEST_WORK]: 'Request Work per Site'
@@ -38,6 +40,7 @@ export const PERMISSION_DESCRIPTIONS = {
   [PERMISSIONS.VIEW_JOBS]: 'Allow user to view job listings and details',
   [PERMISSIONS.CREATE_JOBS]: 'Allow user to create new job requests',
   [PERMISSIONS.ADD_NOTES_ATTACHMENTS]: 'Allow user to add notes and attachments to existing jobs',
+  [PERMISSIONS.CREATE_QUOTES]: 'Allow user to create new quotes for jobs',
   [PERMISSIONS.ACCEPT_REJECT_QUOTES]: 'Allow user to accept or reject job quotes',
   [PERMISSIONS.VIEW_SITES]: 'Allow user to view site information and details',
   [PERMISSIONS.REQUEST_WORK]: 'Allow user to request work for specific sites'

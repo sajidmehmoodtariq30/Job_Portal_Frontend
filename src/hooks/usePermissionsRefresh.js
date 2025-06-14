@@ -3,7 +3,7 @@ import { usePermissions } from '@/context/PermissionsContext';
 import { useSession } from '@/context/SessionContext';
 
 // Custom hook for auto-refreshing permissions
-export const usePermissionsRefresh = (intervalMs = 30000) => { // Default 30 seconds
+export const usePermissionsRefresh = (intervalMs = 120000) => { // Default 2 minutes (reduced frequency)
   const { refreshPermissions } = usePermissions();
   const { isUser } = useSession();
   const intervalRef = useRef(null);

@@ -43,6 +43,7 @@ import { ToastContainer } from '@/components/UI/toast';
 import { AdminProtectedRoute, ClientProtectedRoute } from './components/ProtectedRoute';
 import TokenHandler from './components/TokenHandler';
 import SessionWarningModal from './components/SessionWarningModal';
+import ClientLinkingNotification from './components/ClientLinkingNotification';
 
 function App() {
   const { toasts, dismiss } = useToast();
@@ -108,7 +109,9 @@ function App() {
               </Route>
 
               {/* Default Redirects */}
-              <Route path="*" element={<Navigate to="/login" replace />} />            </Routes>            <SessionWarningModal />
+              <Route path="*" element={<Navigate to="/login" replace />} />            </Routes>
+            <SessionWarningModal />
+            <ClientLinkingNotification />
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
           </JobProvider>
         </NotificationProvider>

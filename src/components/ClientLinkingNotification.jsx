@@ -8,10 +8,11 @@ const ClientLinkingNotification = () => {
   const { user, hasAssignedClient, refreshUserData } = useSession();
   const [isVisible, setIsVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
   useEffect(() => {
     if (user && !hasAssignedClient()) {
       setIsVisible(true);
+      // Clear any previous dismissal when user becomes unmapped
+      sessionStorage.removeItem('client_linking_dismissed');
     } else {
       setIsVisible(false);
     }
