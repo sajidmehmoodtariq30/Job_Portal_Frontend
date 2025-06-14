@@ -48,6 +48,8 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/UI/card";
+import PermissionProtectedClientPage from '@/components/client/PermissionProtectedClientPage';
+import { PERMISSIONS, usePermissions } from '@/context/PermissionsContext';
 import { Textarea } from "@/components/UI/textarea";
 import { Label } from "@/components/UI/label";
 import { Badge } from "@/components/UI/badge";
@@ -65,6 +67,7 @@ const PAGE_SIZE = 10;
 
 const ClientJobs = () => {
   const navigate = useNavigate();  
+  const { hasPermission } = usePermissions();
   
   // Use the JobContext to access jobs data and methods
   const {
@@ -587,14 +590,11 @@ const ClientJobs = () => {
       case 'Scheduled': return 'bg-purple-600 text-white';
       case 'On Hold': return 'bg-gray-600 text-white';      default: return 'bg-gray-600 text-white';
     }
-  };
-  // Handle view job details - updated to open dialog instead of navigating
+  };  // Handle view job details - updated to open dialog instead of navigating
   const handleViewDetails = async (job) => {
-    // Use our enhanced job permissions helper
-    const jobPermissions = checkJobPermission();
-    
-    if (!jobPermissions.canViewJobs) {
-      console.log('🔐 Permission denied for viewing job details', jobPermissions);
+    // Check if user has permission to view jobs
+    if (!hasPermission(PERMISSIONS.VIEW_JOBS)) {
+      console.log('🔐 Permission denied for viewing job details');
       alert('You don\'t have permission to view job details. Please contact your administrator.');
       return;
     }
@@ -1001,14 +1001,16 @@ const ClientJobs = () => {
     });
     setSelectedLocationUuid('');
   };
-  
   return (
-    <div className="space-y-6">
-      {/* Header */}      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Jobs</h1>
-          <p className="text-lg mt-1">View and manage all your service jobs</p>        </div>
-        <Dialog open={showNewJobDialog} onOpenChange={(open) => {
+    <PermissionProtectedClientPage permission={PERMISSIONS.VIEW_JOBS} title="Jobs">
+      <div className="space-y-6">
+        {/* Header */}      
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Jobs</h1>
+            <p className="text-lg mt-1">View and manage all your service jobs</p>        
+          </div>
+          <Dialog open={showNewJobDialog} onOpenChange={(open) => {
           setShowNewJobDialog(open);
           if (open) {
             // Reset and populate form with client UUID when dialog opens
@@ -1730,10 +1732,10 @@ const ClientJobs = () => {
                   Close
                 </Button>
               </DialogFooter>
-            </>
-          )}        </DialogContent>
+            </>          )}          </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </PermissionProtectedClientPage>
   );
 };
 

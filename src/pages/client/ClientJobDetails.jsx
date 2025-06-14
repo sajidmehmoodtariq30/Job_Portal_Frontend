@@ -42,6 +42,8 @@ import {
 } from 'lucide-react'
 import axios from 'axios'
 import API_ENDPOINTS from '@/lib/apiConfig'
+import PermissionGuard from '@/components/PermissionGuard'
+import { PERMISSIONS } from '@/context/PermissionsContext'
 
 const ClientJobDetails = () => {
     const { jobId } = useParams();
@@ -273,18 +275,17 @@ const ClientJobDetails = () => {
                             </CardContent>
                         </Card>
                     )}
-                </TabsContent>
-
-                <TabsContent value="notes" className="space-y-4">
+                </TabsContent>                <TabsContent value="notes" className="space-y-4">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold">Notes & Updates</h3>
-                        <Dialog open={showAddNoteDialog} onOpenChange={setShowAddNoteDialog}>
-                            <DialogTrigger asChild>
-                                <Button size="sm">
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Add Note
-                                </Button>
-                            </DialogTrigger>
+                        <PermissionGuard permission={PERMISSIONS.ADD_NOTES_ATTACHMENTS}>
+                            <Dialog open={showAddNoteDialog} onOpenChange={setShowAddNoteDialog}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm">
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add Note
+                                    </Button>
+                                </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Add Note</DialogTitle>
@@ -310,10 +311,10 @@ const ClientJobDetails = () => {
                                     </Button>
                                     <Button onClick={handleAddNote}>
                                         Add Note
-                                    </Button>
-                                </DialogFooter>
+                                    </Button>                                </DialogFooter>
                             </DialogContent>
                         </Dialog>
+                        </PermissionGuard>
                     </div>
 
                     <div className="space-y-4">

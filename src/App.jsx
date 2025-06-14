@@ -37,6 +37,7 @@ import AdminQuotes from '@/pages/admin/AdminQuotes';
 import { JobProvider } from './components/JobContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { SessionProvider } from './context/SessionContext';
+import { PermissionsProvider } from './context/PermissionsContext';
 import { useToast } from '@/hooks/use-toast';
 import { ToastContainer } from '@/components/UI/toast';
 import { AdminProtectedRoute, ClientProtectedRoute } from './components/ProtectedRoute';
@@ -47,12 +48,12 @@ function App() {
   const { toasts, dismiss } = useToast();
 
   return (
-    <Router>
-      <SessionProvider>
-        <NotificationProvider>
-          <JobProvider>
-            <TokenHandler />
-            <Routes>
+    <Router>      <SessionProvider>
+        <PermissionsProvider>
+          <NotificationProvider>
+            <JobProvider>
+              <TokenHandler />
+              <Routes>
               {/* Public Routes */}
               <Route element={<AppLayout />}>
                 <Route index element={<Home />} />
@@ -107,12 +108,12 @@ function App() {
               </Route>
 
               {/* Default Redirects */}
-              <Route path="*" element={<Navigate to="/login" replace />} />            </Routes>
-            <SessionWarningModal />
+              <Route path="*" element={<Navigate to="/login" replace />} />            </Routes>            <SessionWarningModal />
             <ToastContainer toasts={toasts} onDismiss={dismiss} />
           </JobProvider>
         </NotificationProvider>
-      </SessionProvider>
+      </PermissionsProvider>
+    </SessionProvider>
     </Router>
   );
 }

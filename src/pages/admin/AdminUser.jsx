@@ -37,18 +37,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/UI/alert-dialog"
-import { Eye, EyeOff, Loader2, Mail, UserPlus, Edit, Trash2, KeyRound, MapPin } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Mail, UserPlus, Edit, Trash2, KeyRound, MapPin, Shield } from 'lucide-react'
 import API_ENDPOINTS from "@/lib/apiConfig"
+import UserPermissionManager from '@/components/admin/UserPermissionManager'
+import { PERMISSIONS, PERMISSION_LABELS } from '@/context/PermissionsContext'
+import { Badge } from '@/components/UI/badge'
+import { Checkbox } from '@/components/UI/checkbox'
+import { triggerRealTimeUpdate, NOTIFICATION_TYPES } from '@/utils/realTimeUpdates'
 
-const AdminUsers = () => {
-  const [users, setUsers] = useState([])
+const AdminUsers = () => {  const [users, setUsers] = useState([])
   const [clients, setClients] = useState([]) // Add clients state
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState('')
   const [newUser, setNewUser] = useState({
     name: '',
-    username: '', email: '',
-    assignedClientUuid: 'none' // Use 'none' instead of empty string
+    username: '', 
+    email: '',
+    assignedClientUuid: 'none', // Use 'none' instead of empty string
+    permissions: []
   })
   const [editUser, setEditUser] = useState(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -65,12 +71,17 @@ const AdminUsers = () => {
   const [isSitesDialogOpen, setIsSitesDialogOpen] = useState(false)
   const [userSites, setUserSites] = useState([])
   const [sitesLoading, setSitesLoading] = useState(false)
-
   // Bulk operations state
   const [selectedUsers, setSelectedUsers] = useState([])
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
   const [bulkClientUuid, setBulkClientUuid] = useState('none')
   const [bulkLoading, setBulkLoading] = useState(false)
+
+  // Permission management state
+  const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false)
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState(null)
+  const [newUserPermissions, setNewUserPermissions] = useState({})
+
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers()
@@ -125,7 +136,7 @@ const AdminUsers = () => {
       if (data.success) {
         alert("User created successfully! Password setup email sent.")
         setUsers([...users, data.data])
-        setNewUser({ name: '', username: '', email: '', assignedClientUuid: 'none' }) // Use 'none' instead of empty string
+        setNewUser({ name: '', username: '', email: '', assignedClientUuid: 'none', permissions: [] }) // Reset with permissions
         setIsCreateDialogOpen(false)
       } else {
         alert(data.message || "Failed to create user")
@@ -142,23 +153,35 @@ const AdminUsers = () => {
     if (!editUser.name || !editUser.username || !editUser.email) {
       alert("All fields are required")
       return
-    }
-
-    try {
-      setActionLoading('edit')
+    }    try {
+      setActionLoading('edit');
       const response = await fetch(API_ENDPOINTS.USERS.UPDATE(editUser.uuid), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(editUser)
-      })
-      const data = await response.json()
+      });
+      const data = await response.json();
+      
       if (data.success) {
         alert("User updated successfully")
         setUsers(users.map(user =>
           user.uuid === editUser.uuid ? data.data : user
         ))
+        
+        // Trigger real-time update if client assignment changed
+        const oldUser = users.find(u => u.uuid === editUser.uuid);
+        if (oldUser && oldUser.assignedClientUuid !== editUser.assignedClientUuid) {
+          triggerRealTimeUpdate(NOTIFICATION_TYPES.CLIENT_MAPPING_UPDATED, {
+            userId: editUser.uuid,
+            oldClientUuid: oldUser.assignedClientUuid,
+            newClientUuid: editUser.assignedClientUuid,
+            updatedBy: 'admin',
+            timestamp: Date.now()
+          });
+        }
+        
         setEditUser(null)
         setIsEditDialogOpen(false)
       } else {
@@ -181,8 +204,7 @@ const AdminUsers = () => {
         },
         body: JSON.stringify({
           isActive: !user.isActive
-        })
-      })
+        })      })
 
       const data = await response.json()
 
@@ -191,6 +213,14 @@ const AdminUsers = () => {
         setUsers(users.map(u =>
           u.uuid === user.uuid ? { ...u, isActive: !user.isActive } : u
         ))
+        
+        // Trigger real-time update for user status change
+        triggerRealTimeUpdate(NOTIFICATION_TYPES.USER_STATUS_UPDATED, {
+          userId: user.uuid,
+          isActive: !user.isActive,
+          updatedBy: 'admin',
+          timestamp: Date.now()
+        });
       } else {
         alert(data.message || "Failed to update user status")
       }
@@ -447,6 +477,62 @@ const AdminUsers = () => {
       setBulkLoading(false)
     }
   }
+
+  // Permission management functions
+  const handlePermissionChange = (permission, checked) => {
+    setNewUserPermissions(prev => ({
+      ...prev,
+      [permission]: checked
+    }))
+  }
+
+  const handleNewUserPermissionChange = (permission, checked) => {
+    setNewUser(prev => ({
+      ...prev,
+      permissions: checked 
+        ? [...prev.permissions, permission]
+        : prev.permissions.filter(p => p !== permission)
+    }))
+  }
+
+  const handleManagePermissions = (user) => {
+    setSelectedUserForPermissions(user)
+    setIsPermissionDialogOpen(true)
+  }
+
+  const handlePermissionsUpdate = (userId, newPermissions) => {
+    setUsers(prev => prev.map(user => 
+      user.uuid === userId 
+        ? { ...user, permissions: newPermissions }
+        : user
+    ))
+  }
+
+  const renderPermissionBadges = (userPermissions = []) => {
+    if (!Array.isArray(userPermissions) || userPermissions.length === 0) {
+      return <Badge variant="outline" className="text-xs">No permissions</Badge>
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {userPermissions.slice(0, 2).map(permission => (
+          <Badge key={permission} variant="secondary" className="text-xs">
+            {PERMISSION_LABELS[permission] || permission}
+          </Badge>
+        ))}
+        {userPermissions.length > 2 && (
+          <Badge variant="outline" className="text-xs">
+            +{userPermissions.length - 2} more
+          </Badge>
+        )}
+      </div>
+    )
+  }
+
+  const handleBulkAction = (action, userUuids) => {
+    // Implement bulk action logic here
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between items-center">
@@ -521,9 +607,32 @@ const AdminUsers = () => {
                         searchKeys={['name', 'uuid']}
                         allowClear={true}
                         noItemsText="No clients available"
-                        noResultsText="No clients found matching your search"
-                        renderSelected={(client) => client.name || client.uuid}
+                        noResultsText="No clients found matching your search"                        renderSelected={(client) => client.name || client.uuid}
                       />
+                    </div>
+                    
+                    {/* Permissions Section */}
+                    <div className="grid gap-2">
+                      <Label>User Permissions</Label>
+                      <div className="space-y-3 max-h-40 overflow-y-auto border rounded-lg p-3">
+                        {Object.values(PERMISSIONS).map((permission) => (
+                          <div key={permission} className="flex items-start space-x-2">
+                            <Checkbox
+                              id={`new-user-${permission}`}
+                              checked={newUser.permissions.includes(permission)}
+                              onCheckedChange={(checked) => handleNewUserPermissionChange(permission, checked)}
+                            />
+                            <div className="grid gap-1 leading-none">
+                              <Label 
+                                htmlFor={`new-user-${permission}`}
+                                className="text-sm font-medium cursor-pointer"
+                              >
+                                {PERMISSION_LABELS[permission]}
+                              </Label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>
@@ -570,9 +679,9 @@ const AdminUsers = () => {
                       </th>
                       <th className="py-3 text-left">S.No</th>
                       <th className="py-3 text-left">Name</th>
-                      <th className="py-3 text-left">Username</th>
-                      <th className="py-3 text-left">Email</th>
+                      <th className="py-3 text-left">Username</th>                      <th className="py-3 text-left">Email</th>
                       <th className="py-3 text-left">Assigned Client</th>
+                      <th className="py-3 text-left">Permissions</th>
                       <th className="py-3 text-left">Status</th>
                       <th className="py-3 text-left">Password Setup</th>
                       <th className="py-3 text-left">Actions</th>
@@ -591,9 +700,11 @@ const AdminUsers = () => {
                         <td className="py-3">{index + 1}</td>
                         <td className="py-3 font-medium">{user.name}</td>
                         <td className="py-3">{user.username}</td>
-                        <td className="py-3">{user.email}</td>
-                        <td className="py-3 text-sm text-gray-600">
+                        <td className="py-3">{user.email}</td>                        <td className="py-3 text-sm text-gray-600">
                           {getClientName(user.assignedClientUuid)}
+                        </td>
+                        <td className="py-3">
+                          {renderPermissionBadges(user.permissions)}
                         </td>
                         <td className="py-3">
                           <div className="flex items-center space-x-2">
@@ -631,7 +742,16 @@ const AdminUsers = () => {
                               onClick={() => handleViewPassword(user)}
                               disabled={actionLoading === `password-${user.uuid}`}
                             >                            <Eye className="w-4 h-4" />
-                            </Button>                          <Button
+                            </Button>                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleManagePermissions(user)}
+                              disabled={actionLoading.includes(user.uuid)}
+                              title="Manage Permissions"
+                            >
+                              <Shield className="w-4 h-4" />
+                            </Button>
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => openChangePasswordDialog(user)}
@@ -1041,6 +1161,60 @@ const AdminUsers = () => {
                   'Assign Client'
                 )}
               </Button>          </DialogFooter>        </DialogContent>      </Dialog>
+
+        {/* Permission Management Dialog */}
+        <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Manage Permissions</DialogTitle>
+              <DialogDescription>
+                Update permissions for {selectedUserForPermissions?.name}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedUserForPermissions && (
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                handlePermissionsUpdate(selectedUserForPermissions.uuid, Object.keys(newUserPermissions).filter(key => newUserPermissions[key]))
+              }}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label>Available Permissions</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {Object.keys(PERMISSIONS).map(permission => (
+                        <div key={permission} className="flex items-center">
+                          <Checkbox
+                            id={`permission-${permission}`}
+                            checked={newUserPermissions[permission]}
+                            onCheckedChange={(checked) => handlePermissionChange(permission, checked)}
+                          />
+                          <Label htmlFor={`permission-${permission}`} className="ml-2">
+                            {PERMISSION_LABELS[permission]}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={actionLoading === 'edit'}>
+                    {actionLoading === 'edit' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Update Permissions
+                  </Button>
+                </DialogFooter>              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* User Permission Manager */}
+        <UserPermissionManager
+          isOpen={isPermissionDialogOpen}
+          onClose={() => setIsPermissionDialogOpen(false)}
+          userId={selectedUserForPermissions?.uuid}
+          userName={selectedUserForPermissions?.name}
+          userEmail={selectedUserForPermissions?.email}
+          currentPermissions={selectedUserForPermissions?.permissions || []}
+          onPermissionsUpdate={handlePermissionsUpdate}
+        />
       </div>
     </div>
   )

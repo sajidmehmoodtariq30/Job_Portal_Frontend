@@ -13,6 +13,9 @@ import {
 } from '@/components/UI/dropdown-menu'
 import { Menu } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
+import ClientLinkingNotification from '../ClientLinkingNotification'
+import { usePermissionsRefresh, useVisibilityRefresh, useFocusRefresh } from '@/hooks/usePermissionsRefresh'
+import { usePermissionsUpdateListener } from '@/utils/realTimeUpdates'
 import setupAuthInterceptor, { addClientUuidHeader, removeClientUuidHeader } from '@/utils/authInterceptor'
 import logo from '../../assets/logo.jpg'
 
@@ -20,10 +23,14 @@ const ClientLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const location = useLocation()
     const navigate = useNavigate()
-    const { handleUserLogout } = useSession()
+    const { handleUserLogout, hasAssignedClient } = useSession()
     const [clientId, setClientId] = useState(null)
     const [clientName, setClientName] = useState('Loading...')
-    const [isLoading, setIsLoading] = useState(true)// Check for stored client data or user data on component mount and set client info
+    const [isLoading, setIsLoading] = useState(true)    // Use refresh hooks for real-time updates
+    usePermissionsRefresh(30000); // Refresh every 30 seconds
+    useVisibilityRefresh(); // Refresh when tab becomes visible
+    useFocusRefresh(); // Refresh when window gains focus
+    usePermissionsUpdateListener(); // Listen for real-time permission updates// Check for stored client data or user data on component mount and set client info
     useEffect(() => {
         const storedClientData = localStorage.getItem('client_data');
         const storedUserData = localStorage.getItem('user_data');
@@ -140,6 +147,9 @@ const ClientLayout = () => {
                     <Outlet />
                 </main>
             </div>
+            
+            {/* Client linking notification */}
+            <ClientLinkingNotification />
         </div>
     )
 }

@@ -344,13 +344,58 @@ export const SessionProvider = ({ children }) => {
   const isUser = () => {
     return !!user;
   };
-
   const getSessionTimeRemaining = () => {
     if (!sessionExpiry) return 0;
     const remaining = sessionExpiry - Date.now();
     return Math.max(0, remaining);
   };
 
+  // Check if user has assigned client
+  const hasAssignedClient = () => {
+    if (!user) return false;
+    return !!(user.assignedClientUuid);
+  };
+
+  // Get client data if available
+  const getClientData = () => {
+    try {
+      const clientData = localStorage.getItem('client_data');
+      return clientData ? JSON.parse(clientData) : null;
+    } catch (error) {
+      console.error('Error parsing client data:', error);
+      return null;
+    }
+  };
+
+  // Update user data in session (for real-time updates)
+  const updateUserData = (newUserData) => {
+    if (user) {
+      const updatedUser = { ...user, ...newUserData };
+      setUser(updatedUser);
+      
+      // Update localStorage
+      localStorage.setItem('user_data', JSON.stringify(updatedUser));
+    }
+  };
+
+  // Refresh user data from server
+  const refreshUserData = async () => {
+    if (!user) return;
+    
+    try {
+      // You can implement this endpoint to fetch latest user data
+      const response = await axios.get(API_ENDPOINTS.USERS.FETCH_ALL);
+      if (response.data?.success) {
+        const users = response.data.data;
+        const currentUser = users.find(u => u.uuid === user.uuid);
+        if (currentUser) {
+          updateUserData(currentUser);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
   const value = {
     // State
     user,
@@ -368,7 +413,11 @@ export const SessionProvider = ({ children }) => {
     isAdmin,
     isUser,
     getSessionTimeRemaining,
-    clearAllSessions
+    clearAllSessions,
+    hasAssignedClient,
+    getClientData,
+    updateUserData,
+    refreshUserData
   };
 
   return (

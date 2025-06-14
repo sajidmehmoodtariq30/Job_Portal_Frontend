@@ -37,6 +37,8 @@ import {
 } from "../../components/UI/dialog";
 import { Label } from "../../components/UI/label";
 import SearchableJobSelect from "@/components/UI/SearchableJobSelect";
+import PermissionProtectedClientPage from "../../components/client/PermissionProtectedClientPage";
+import { PERMISSIONS } from "../../context/PermissionsContext";
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 
@@ -424,14 +426,14 @@ const ClientQuotes = () => {
     setSuccess('Quotes refreshed successfully');
     setTimeout(() => setSuccess(null), 3000);
   };
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Quotes</h1>
-        <p className="text-lg mt-1">View and manage quotes for your services</p>
-      </div>
+    <PermissionProtectedClientPage permission={PERMISSIONS.ACCEPT_REJECT_QUOTES} title="Quotes">
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold">Quotes</h1>
+          <p className="text-lg mt-1">View and manage quotes for your services</p>
+        </div>
       
       {/* Status messages */}
       {error && (
@@ -774,11 +776,11 @@ const ClientQuotes = () => {
               ) : (
                 'Reject Quote'
               )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+            </AlertDialogAction>          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </PermissionProtectedClientPage>
   );
 };
 

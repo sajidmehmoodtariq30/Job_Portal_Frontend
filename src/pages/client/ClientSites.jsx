@@ -4,7 +4,8 @@ import {
   MapPin, 
   Star, 
   AlertCircle,
-  Loader2
+  Loader2,
+  Plus
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
@@ -13,6 +14,9 @@ import { Switch } from "@/components/UI/switch";
 import { Label } from "@/components/UI/label";
 import { useSites } from '@/hooks/useSites';
 import { useAllSites } from '@/hooks/useAllSites';
+import PermissionProtectedClientPage from '@/components/client/PermissionProtectedClientPage';
+import PermissionGuard from '@/components/PermissionGuard';
+import { PERMISSIONS } from '@/context/PermissionsContext';
 
 const SiteManagement = () => {
   // Toggle between client-specific and global sites view
@@ -30,10 +34,22 @@ const SiteManagement = () => {
     }
     return null;
   };
-
   const clientData = getClientData();
   // Get client ID from localStorage with fallbacks (same as ClientHome)
   const clientId = clientData?.assignedClientUuid || clientData?.uuid || clientData?.clientUuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
+
+  // Handle request work functionality
+  const handleRequestWork = (site) => {
+    // For now, show a simple alert. In a real implementation, this would open a dialog
+    // or navigate to a work request form
+    alert(`Request work functionality for site: ${site.name}\n\nThis would typically open a form to:\n- Describe the work needed\n- Set priority\n- Attach files\n- Submit the request to administrators`);
+    
+    // TODO: Implement actual work request functionality
+    // This could include:
+    // - Opening a modal dialog with a work request form
+    // - Navigating to a dedicated work request page
+    // - Making an API call to create a work request
+  };
     // Client-specific sites hook (read-only)
   const { 
     sites: clientSites, 
@@ -78,18 +94,19 @@ const SiteManagement = () => {
       </div>
     );
   }
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">        <div>
-          <h1 className="text-3xl font-bold">Site Management</h1>
-          <p className="text-muted-foreground mt-1">
-            {showAllSites 
-              ? `Viewing all sites from all clients (${totalSites} total)` 
-              : 'View your business locations and sites'
-            }
-          </p>
-        </div>
+    <PermissionProtectedClientPage permission={PERMISSIONS.VIEW_SITES} title="Sites">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">        
+          <div>
+            <h1 className="text-3xl font-bold">Site Management</h1>
+            <p className="text-muted-foreground mt-1">
+              {showAllSites 
+                ? `Viewing all sites from all clients (${totalSites} total)` 
+                : 'View your business locations and sites'
+              }
+            </p>
+          </div>
         
         <div className="flex items-center gap-4">
           {/* Toggle between client sites and all sites - Read only */}
@@ -137,14 +154,26 @@ const SiteManagement = () => {
                   <p className="text-sm text-muted-foreground">{site.address}</p>
                 </div>
               )}
-              
-              {site.description && (
+                {site.description && (
                 <p className="text-sm text-muted-foreground">{site.description}</p>
               )}
-                <div className="flex flex-wrap gap-2 pt-2">
-                {/* Read-only view - no action buttons */}
+              
+              <div className="flex flex-wrap gap-2 pt-2">
+                <PermissionGuard permission={PERMISSIONS.REQUEST_WORK}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    onClick={() => handleRequestWork(site)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Request Work
+                  </Button>
+                </PermissionGuard>
+                
+                {/* Read-only indicator */}
                 <Badge variant="secondary" className="text-xs">
-                  Read Only
+                  View Only
                 </Badge>
               </div>
             </CardContent>
@@ -163,11 +192,11 @@ const SiteManagement = () => {
                 ? 'There are no sites created by any clients yet.' 
                 : 'No sites are available to view.'
               }
-            </p>
-          </CardContent>
+            </p>          </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </PermissionProtectedClientPage>
   );
 };
 
