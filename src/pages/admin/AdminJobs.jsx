@@ -152,7 +152,6 @@ const AdminJobs = () => {
       setCategories([]);
     }
   };
-
   // Fetch all sites for administrators
   const fetchSites = async () => {
     try {
@@ -162,6 +161,7 @@ const AdminJobs = () => {
       
       // Handle the API response structure: { success: true, sites: [...] }
       if (response.data && response.data.success && Array.isArray(response.data.sites)) {
+        console.log(`Loaded ${response.data.sites.length} sites for filtering`);
         setSites(response.data.sites);
       } else {
         console.warn('Unexpected sites API response structure:', response.data);
@@ -169,6 +169,7 @@ const AdminJobs = () => {
       }
     } catch (error) {
       console.error('Error fetching sites:', error);
+      console.error('Sites API error details:', error.response?.data);
       setSites([]);
     } finally {
       setLoadingSites(false);
@@ -348,11 +349,49 @@ const AdminJobs = () => {
     }    // Type filter (if you have a type field)
     if (activeFilters.type && activeFilters.type !== '' && job.type !== activeFilters.type) {
       return false;
-    }
-
-    // Site filter
-    if (activeFilters.site && activeFilters.site !== '' && activeFilters.site !== 'all' && job.location_uuid !== activeFilters.site) {
-      return false;
+    }    // Site filter - since jobs don't have location_uuid, we'll filter by matching location data
+    if (activeFilters.site && activeFilters.site !== '' && activeFilters.site !== 'all') {
+      // Find the selected site from sites array
+      const selectedSite = sites.find(site => site.uuid === activeFilters.site);
+      console.log('Filtering by site:', activeFilters.site, 'Selected site:', selectedSite);
+      
+      if (selectedSite) {
+        // Try to match job location with site location using various fields
+        let locationMatch = false;
+        
+        // Check if job_address contains site name
+        if (job.job_address && selectedSite.name) {
+          locationMatch = job.job_address.toLowerCase().includes(selectedSite.name.toLowerCase());
+          if (locationMatch) console.log('Match found in job_address:', job.job_address, 'contains', selectedSite.name);
+        }
+        
+        // Check if geo fields match site address
+        if (!locationMatch && selectedSite.city && job.geo_city) {
+          locationMatch = job.geo_city.toLowerCase() === selectedSite.city.toLowerCase();
+          if (locationMatch) console.log('Match found in geo_city:', job.geo_city, '===', selectedSite.city);
+        }
+        
+        // Check if geo street matches site street
+        if (!locationMatch && selectedSite.street && job.geo_street) {
+          locationMatch = job.geo_street.toLowerCase().includes(selectedSite.street.toLowerCase());
+          if (locationMatch) console.log('Match found in geo_street:', job.geo_street, 'contains', selectedSite.street);
+        }
+        
+        // Check if billing address contains site name
+        if (!locationMatch && job.billing_address && selectedSite.name) {
+          locationMatch = job.billing_address.toLowerCase().includes(selectedSite.name.toLowerCase());
+          if (locationMatch) console.log('Match found in billing_address:', job.billing_address, 'contains', selectedSite.name);
+        }
+        
+        if (!locationMatch) {
+          console.log('No location match found for job:', job.uuid, 'with site:', selectedSite.name);
+          return false;
+        }
+      } else {
+        console.log('Site not found in sites array for UUID:', activeFilters.site);
+        // If site not found, don't show any jobs for this filter
+        return false;
+      }
     }
 
     return true;
@@ -1032,23 +1071,28 @@ const AdminJobs = () => {
                 placeholder="Search jobs by job number, description, or address..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-              />
-              <div className="min-w-[200px]">
+              />              <div className="min-w-[200px]">
                 <Select 
                   value={activeFilters.site} 
                   onValueChange={(value) => setActiveFilters(prev => ({ ...prev, site: value }))}
                   disabled={loadingSites}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={loadingSites ? "Loading..." : "All sites"} />
+                    <SelectValue placeholder={loadingSites ? "Loading..." : "All locations"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All sites</SelectItem>
-                    {Array.isArray(sites) && sites.map(site => (
-                      <SelectItem key={site.uuid} value={site.uuid}>
-                        {site.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">All locations</SelectItem>
+                    {loadingSites ? (
+                      <SelectItem value="loading" disabled>Loading sites...</SelectItem>
+                    ) : sites.length === 0 ? (
+                      <SelectItem value="none" disabled>No sites available</SelectItem>
+                    ) : (
+                      Array.isArray(sites) && sites.map(site => (
+                        <SelectItem key={site.uuid} value={site.uuid}>
+                          {site.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
