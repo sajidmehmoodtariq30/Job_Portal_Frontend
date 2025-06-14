@@ -232,41 +232,58 @@ const AdminJobs = () => {
     const numericDigits = job.uuid.replace(/[^0-9]/g, '');
     const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
     return jobNumber;
-  };
-  // Helper function to format job address
+  };  // Helper function to format job address
   const formatJobAddress = (job) => {
     if (!job) return 'No location specified';
 
-    // Try location fields first (new structure)
+    console.log('formatJobAddress called with job:', job);
+
+    // Try site name first (if available from our enrichment)
+    if (job.site_name || job.location_name) {
+      const siteName = job.site_name || job.location_name;
+      if (job.location_address) {
+        return `${siteName} - ${job.location_address}`;
+      }
+      return siteName;
+    }
+
+    // Try job_address field first (this is what ServiceM8 uses)
+    if (job.job_address) {
+      return job.job_address.replace(/\n/g, ', ').trim();
+    }
+
+    // Try location_address field
     if (job.location_address) {
       return job.location_address;
     }
 
-    // Try ServiceM8 location fields
-    if (job.location_name) {
-      const parts = [job.location_name];
-      if (job.location_address) parts.push(job.location_address);
-      return parts.join(' - ');
-    }
-
-    // Try geo fields
+    // Build address from geo fields
     const geoParts = [];
+    if (job.geo_number) geoParts.push(job.geo_number);
     if (job.geo_street) geoParts.push(job.geo_street);
     if (job.geo_city) geoParts.push(job.geo_city);
     if (job.geo_state) geoParts.push(job.geo_state);
+    if (job.geo_postcode) geoParts.push(job.geo_postcode);
     
     if (geoParts.length > 0) {
       return geoParts.join(', ');
     }
 
-    // Fallback to job_address
-    if (job.job_address) {
-      return job.job_address;
+    // Check for other possible location fields
+    const possibleLocationFields = [
+      'address', 'street_address', 'service_address', 
+      'site_address', 'work_address', 'job_location', 'billing_address'
+    ];
+    
+    for (const field of possibleLocationFields) {
+      if (job[field]) {
+        return job[field].replace(/\n/g, ', ').trim();
+      }
     }
 
-    // If we have location_uuid but no address, show that
+    // If we have location_uuid but no address, show that with note
     if (job.location_uuid) {
-      return `Location: ${job.location_uuid}`;
+      return `Location UUID: ${job.location_uuid} (Address not loaded)`;
     }
 
     return 'No location specified';
@@ -519,7 +536,9 @@ const AdminJobs = () => {
           console.error("Error fetching client name:", error);
           setJobClientName("Unknown Client");
         }
-      }
+      }      // The job already contains all the location information we need
+      // No need to fetch additional site data since location info is in geo fields and job_address
+      console.log('Job data in handleViewDetails:', job);
 
       // Fetch attachments for the selected job
       const jobId = job.uuid || job.id;
@@ -1234,7 +1253,48 @@ const AdminJobs = () => {
                   {selectedJob.location_uuid && (
                     <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
                   )}
-                </div>
+                </div>                {/* Site/Location Information Section */}
+                {(selectedJob.site_name || selectedJob.location_name || selectedJob.job_address || selectedJob.geo_street || selectedJob.billing_address) && (
+                  <div className="space-y-1 md:space-y-2 border border-blue-100 rounded-lg p-3 md:p-4 bg-blue-50">
+                    <Label className="font-bold text-xs md:text-sm text-blue-800">Location Information</Label>
+                    <div className="bg-white p-2 rounded border">
+                      <div className="grid grid-cols-1 gap-2 text-xs md:text-sm">
+                        {(selectedJob.site_name || selectedJob.location_name) && (
+                          <p>
+                            <span className="font-semibold">Site Name:</span>{' '}
+                            {selectedJob.site_name || selectedJob.location_name}
+                          </p>
+                        )}
+                        {selectedJob.job_address && (
+                          <p>
+                            <span className="font-semibold">Job Address:</span>{' '}
+                            {selectedJob.job_address.replace(/\n/g, ', ').trim()}
+                          </p>
+                        )}
+                        {selectedJob.billing_address && selectedJob.billing_address !== selectedJob.job_address && (
+                          <p>
+                            <span className="font-semibold">Billing Address:</span>{' '}
+                            {selectedJob.billing_address.replace(/\n/g, ', ').trim()}
+                          </p>
+                        )}
+                        {(selectedJob.geo_street || selectedJob.geo_city) && (
+                          <p>
+                            <span className="font-semibold">Street Address:</span>{' '}
+                            {[selectedJob.geo_number, selectedJob.geo_street, selectedJob.geo_city, selectedJob.geo_state, selectedJob.geo_postcode].filter(Boolean).join(', ')}
+                          </p>
+                        )}
+                        {selectedJob.location_uuid && (
+                          <p>
+                            <span className="font-semibold">Location UUID:</span>{' '}
+                            <span className="font-mono text-xs bg-gray-100 px-1 rounded">
+                              {selectedJob.location_uuid}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3 md:gap-5">
                   <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
@@ -1245,13 +1305,11 @@ const AdminJobs = () => {
                     <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
                     <p className="text-xs md:text-sm">{selectedJob.edit_date || 'N/A'}</p>
                   </div>
-                </div>
-
-                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                </div>                <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
                   <Label className="font-bold text-xs md:text-sm">Location Details</Label>
                   <div className="bg-gray-50 p-2 rounded">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
-                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number || ''} {selectedJob.geo_street || 'N/A'}</p>
+                      <p><span className="font-semibold">Street:</span> {selectedJob.geo_number && selectedJob.geo_street ? `${selectedJob.geo_number} ${selectedJob.geo_street}` : selectedJob.geo_street || 'N/A'}</p>
                       <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
                       <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
                       <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
