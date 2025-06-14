@@ -49,6 +49,7 @@ import {
   CardTitle 
 } from "@/components/UI/card";
 import PermissionProtectedClientPage from '@/components/client/PermissionProtectedClientPage';
+import PermissionGuard from '@/components/PermissionGuard';
 import { PERMISSIONS, usePermissions } from '@/context/PermissionsContext';
 import { Textarea } from "@/components/UI/textarea";
 import { Label } from "@/components/UI/label";
@@ -757,10 +758,15 @@ const ClientJobs = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-    // Handle file upload
+  };    // Handle file upload
   const handleFileUpload = async () => {
-    // Check if user has permission to manage attachments    if (!selectedFile || !selectedJob) return;
+    // Check if user has permission to manage attachments
+    if (!hasPermission(PERMISSIONS.ADD_NOTES_ATTACHMENTS)) {
+      alert('You don\'t have permission to upload attachments. Please contact your administrator.');
+      return;
+    }
+    
+    if (!selectedFile || !selectedJob) return;
     
     try {
       setFileUploading(true);
@@ -1022,14 +1028,15 @@ const ClientJobs = () => {
             if (clientUuid) {
               fetchSites();
             }
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus size={16} />
-              New Request
-            </Button>
-          </DialogTrigger>
+          }        }}>
+          <PermissionGuard permission={PERMISSIONS.CREATE_JOBS}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus size={16} />
+                New Request
+              </Button>
+            </DialogTrigger>
+          </PermissionGuard>
             <DialogContent className="max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Service Request</DialogTitle>
@@ -1219,25 +1226,30 @@ const ClientJobs = () => {
                     value={newJob.work_done_description}
                     onChange={handleInputChange}
                   />
-                </div>                <div className="grid gap-2">
-                  <Label htmlFor="initial_attachment">Initial Attachment</Label>
-                  <Input
-                    id="initial_attachment"
-                    name="initial_attachment"
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                    onChange={handleInitialFileChange}
-                    className="cursor-pointer"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Optional: Upload a file related to this job (Max 10MB). Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
-                  </p>
-                  {newJob.initial_attachment && (
-                    <p className="text-sm text-green-600">
-                      Selected: {newJob.initial_attachment.name}
+                </div>                <PermissionGuard 
+                  permission={PERMISSIONS.ADD_NOTES_ATTACHMENTS}
+                  customMessage="You don't have permission to upload attachments. Contact your administrator if you need this access."
+                >
+                  <div className="grid gap-2">
+                    <Label htmlFor="initial_attachment">Initial Attachment</Label>
+                    <Input
+                      id="initial_attachment"
+                      name="initial_attachment"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                      onChange={handleInitialFileChange}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Optional: Upload a file related to this job (Max 10MB). Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
                     </p>
-                  )}
-                </div>              </div>
+                    {newJob.initial_attachment && (
+                      <p className="text-sm text-green-600">
+                        Selected: {newJob.initial_attachment.name}
+                      </p>
+                    )}
+                  </div>
+                </PermissionGuard></div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowNewJobDialog(false)}>Cancel</Button>
                 <Button type="submit">Submit Request</Button>
