@@ -16,14 +16,30 @@ export const JobProvider = ({ children }) => {
     
     setLoading(true);
     try {
-      console.log(`Fetching jobs with status: ${status}`);
-      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_ALL, {
+      console.log(`Fetching jobs with status: ${status}`);      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_ALL, {
         params: { 
           timestamp: new Date().getTime() // Add timestamp to prevent caching
         }
       });
       
-      const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs;
+      console.log('Full API response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response data type:', typeof response.data);
+      console.log('Is response.data an array?', Array.isArray(response.data));
+      
+      // Handle different response structures
+      let jobsData;
+      if (Array.isArray(response.data)) {
+        jobsData = response.data;
+      } else if (response.data && Array.isArray(response.data.jobs)) {
+        jobsData = response.data.jobs;
+      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        jobsData = response.data.data;
+      } else {
+        console.error('Unexpected response structure:', response.data);
+        jobsData = [];
+      }
+      
       console.log(`Fetched ${jobsData.length} total jobs from API`);
 
       // Filter jobs by status if not 'all'
@@ -64,15 +80,30 @@ export const JobProvider = ({ children }) => {
     }
     
     setLoading(true);
-    try {
-      console.log(`Fetching jobs for client ${clientUuid} with status: ${status}`);
+    try {      console.log(`Fetching jobs for client ${clientUuid} with status: ${status}`);
       const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_BY_CLIENT(clientUuid), {
         params: { 
           timestamp: new Date().getTime() // Add timestamp to prevent caching
         }
       });
       
-      const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs;
+      console.log('Client data response:', response.data);
+      console.log('Client response data type:', typeof response.data);
+      console.log('Is client response.data an array?', Array.isArray(response.data));
+      
+      // Handle different response structures for client jobs
+      let jobsData;
+      if (Array.isArray(response.data)) {
+        jobsData = response.data;
+      } else if (response.data && Array.isArray(response.data.jobs)) {
+        jobsData = response.data.jobs;
+      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        jobsData = response.data.data;
+      } else {
+        console.error('Unexpected client response structure:', response.data);
+        jobsData = [];
+      }
+      
       console.log(`Fetched ${jobsData.length} client-specific jobs from API`);
 
       // Filter jobs by status if not 'all'
@@ -115,10 +146,24 @@ export const JobProvider = ({ children }) => {
         timestamp: new Date().getTime(),
         ...filters // Include search, status, category_uuid, type filters
       };
+        const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_BY_ROLE(userRole), { params });
       
-      const response = await axios.get(API_ENDPOINTS.JOBS.FETCH_BY_ROLE(userRole), { params });
+      console.log('Role-based response:', response.data);
+      console.log('Role response data type:', typeof response.data);
       
-      const jobsData = Array.isArray(response.data) ? response.data : response.data.jobs || [];
+      // Handle different response structures for role-based jobs
+      let jobsData;
+      if (Array.isArray(response.data)) {
+        jobsData = response.data;
+      } else if (response.data && Array.isArray(response.data.jobs)) {
+        jobsData = response.data.jobs;
+      } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        jobsData = response.data.data;
+      } else {
+        console.error('Unexpected role-based response structure:', response.data);
+        jobsData = [];
+      }
+      
       console.log(`Fetched ${jobsData.length} role-filtered jobs from API`);
       
       setJobs(jobsData);

@@ -48,7 +48,7 @@ import {
 import { Skeleton } from "@/components/UI/skeleton"
 import { API_ENDPOINTS } from '@/lib/apiConfig'
 import { format, subDays } from 'date-fns'
-import NotificationTester from '@/components/NotificationTester'
+import { useNotifications } from '@/context/NotificationContext'
 
 // Default color scheme for charts
 const COLORS = {
@@ -60,6 +60,7 @@ const COLORS = {
 
 const AdminHome = () => {
   const navigate = useNavigate()
+  const { notifications, unreadCount, markAsRead, clearAll, isConnected } = useNotifications()
   const [activeTab, setActiveTab] = useState("overview")
     // State management for real data
   const [loading, setLoading] = useState(true)
@@ -100,20 +101,37 @@ const AdminHome = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
-
   // Fetch all dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true)
       try {
+        console.log('AdminHome: Fetching dashboard data...')
         // Fetch all jobs data
         const jobsResponse = await axios.get(API_ENDPOINTS.JOBS.FETCH_ALL, {
           params: { timestamp: new Date().getTime() } // Prevent caching
         })
         
-        const jobsData = Array.isArray(jobsResponse.data) ? 
-          jobsResponse.data : 
-          (jobsResponse.data.jobs || [])
+        console.log('AdminHome: Jobs response received:', jobsResponse)
+        console.log('AdminHome: Jobs response data:', jobsResponse.data)
+        console.log('AdminHome: Jobs response data type:', typeof jobsResponse.data)
+        console.log('AdminHome: Is jobs response data an array?', Array.isArray(jobsResponse.data))
+        
+        // Handle different response structures
+        let jobsData;
+        if (Array.isArray(jobsResponse.data)) {
+          jobsData = jobsResponse.data;
+        } else if (jobsResponse.data && Array.isArray(jobsResponse.data.jobs)) {
+          jobsData = jobsResponse.data.jobs;
+        } else if (jobsResponse.data && jobsResponse.data.data && Array.isArray(jobsResponse.data.data)) {
+          jobsData = jobsResponse.data.data;
+        } else {
+          console.error('AdminHome: Unexpected response structure:', jobsResponse.data);
+          jobsData = [];
+        }
+        
+        console.log('AdminHome: Processed jobs data:', jobsData)
+        console.log('AdminHome: Jobs count:', jobsData.length)
 
         // Process job status data for pie chart
         const statusCounts = {
@@ -176,10 +194,11 @@ const AdminHome = () => {
             completed: dayJobs.filter(job => job.status === 'Completed').length
           })
         }
-        
-        setRecentActivityData(activityData)
+          setRecentActivityData(activityData)
       } catch (error) {
-        console.error('Error fetching dashboard data:', error)
+        console.error('AdminHome: Error fetching dashboard data:', error)
+        console.error('AdminHome: Error details:', error.response?.data || error.message)
+        console.error('AdminHome: Error status:', error.response?.status)
         // Set empty defaults if fetch fails
         setJobStatusData([])
         setRecentJobs([])
@@ -355,11 +374,12 @@ const AdminHome = () => {
         </Button>
       </div>
       
-      <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>        <TabsList>
+      <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>
+        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications {unreadCount > 0 && `(${unreadCount})`}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4">
@@ -441,8 +461,9 @@ const AdminHome = () => {
             <CardContent>
               {loading ? (
                 renderSkeletonTable()
-              ) : (
-                <div className="overflow-x-auto">                  <table className="w-full text-sm">                    <thead>
+              ) : (                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
                       <tr className="border-b">
                         <th className="py-3 text-left">Job Number</th>
                         <th className="py-3 text-left">Client</th>
@@ -451,14 +472,18 @@ const AdminHome = () => {
                         <th className="py-3 text-left">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>                      {recentJobs.length > 0 ? (                        recentJobs.map((job, index) => (
-                          <tr key={job.uuid} className="border-b">                            <td className="py-3">
+                    <tbody>
+                      {recentJobs.length > 0 ? (
+                        recentJobs.map((job, index) => (
+                          <tr key={job.uuid} className="border-b">
+                            <td className="py-3">
                               <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                                 {getJobNumber(job) || `JOB-${index + 1}`}
                               </span>
                             </td>
                             <td className="py-3">{job.client}</td>
-                            <td className="py-3">                              <span className={`px-2 py-1 rounded text-xs ${
+                            <td className="py-3">
+                              <span className={`px-2 py-1 rounded text-xs ${
                                 job.status === 'Quote' 
                                   ? 'bg-orange-100 text-orange-800' 
                                   : job.status === 'Work Order' 
@@ -470,7 +495,8 @@ const AdminHome = () => {
                                 {job.status}
                               </span>
                             </td>
-                            <td className="py-3">{job.date.split(" ")[0]}</td>                            <td className="py-3">
+                            <td className="py-3">{job.date.split(" ")[0]}</td>
+                            <td className="py-3">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
@@ -516,22 +542,95 @@ const AdminHome = () => {
             <CardHeader>
               <CardTitle>User Management</CardTitle>
               <CardDescription>Invite and manage client access</CardDescription>
-            </CardHeader>            <CardContent>
+            </CardHeader>
+            <CardContent>
               <div className="flex justify-between items-center">
                 <p className="text-lg">Manage your clients and their access</p>
                 <Button onClick={() => navigate('/admin/clients')}>View Clients</Button>
               </div>
             </CardContent>
-          </Card>        </TabsContent>
-        
-        <TabsContent value="notifications" className="space-y-4">
+          </Card>
+        </TabsContent>
+          <TabsContent value="notifications" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Notification Testing</CardTitle>
-              <CardDescription>Test the business notification system for different workflows</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Real-time notifications from the system
+                  {isConnected && (
+                    <span className="ml-2 text-green-600">● Connected</span>
+                  )}
+                </CardDescription>
+              </div>
+              {notifications.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAll}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Clear All
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
-              <NotificationTester />
+              {notifications.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="mb-4">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 1 0-15 0v5h5l-5 5-5-5h5V7a9.5 9.5 0 1 1 19 0v10z" />
+                    </svg>
+                  </div>
+                  <p className="text-lg font-medium">No notifications yet</p>
+                  <p className="text-sm">You'll see notifications here when system events occur</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 rounded-lg border transition-colors ${
+                        notification.read 
+                          ? 'bg-gray-50 border-gray-200' 
+                          : 'bg-blue-50 border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-sm">{notification.title}</h4>
+                            {!notification.read && (
+                              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(notification.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => markAsRead(notification.id)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Mark as read
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -540,7 +639,8 @@ const AdminHome = () => {
       {/* Job Details Dialog */}
       {selectedJob && (
         <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
-          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">              <DialogHeader className="border-b pb-3 md:pb-4">
+          <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
+              <DialogHeader className="border-b pb-3 md:pb-4">
               <DialogTitle className="text-lg md:text-2xl font-bold flex items-center gap-2">
                 <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                   {getJobNumber(selectedJob)}
@@ -582,7 +682,8 @@ const AdminHome = () => {
                 <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
               </TabsList>
                 <TabsContent value="details" className="p-0 mt-3 md:mt-4">
-                <div className="grid gap-3 md:gap-5">                  <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="grid gap-3 md:gap-5">
+                  <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <Label className="font-bold text-sm md:text-base text-blue-800">Client Information</Label>
                     <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>
                     <div className="mt-1">

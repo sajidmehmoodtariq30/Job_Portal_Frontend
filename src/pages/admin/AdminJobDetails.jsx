@@ -1,4 +1,3 @@
-// src/pages/admin/AdminJobDetails.jsx
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from "@/components/UI/button"
@@ -35,93 +34,8 @@ import {
 } from "@/components/UI/select"
 import { MessageSquare } from 'lucide-react'
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom"
-
-// Mock job data - in production would fetch from ServiceM8 API
-const mockJobDetails = {
-    'JOB-2025-042': {
-        id: 'JOB-2025-042',
-        client: 'Acme Corp',
-        clientId: 'CL001',
-        status: 'Quote',
-        createdAt: '2025-04-09',
-        description: 'Network installation and setup',
-        amount: 2500.00,
-        address: '123 Business Ave, Suite 101, New York, NY 10001',
-        contactName: 'John Smith',
-        contactEmail: 'john@acmecorp.com',
-        contactPhone: '(212) 555-1234',
-        notes: [
-            { id: 1, text: 'Initial consultation completed', createdAt: '2025-04-09', author: 'Admin' },
-            { id: 2, text: 'Client requested additional information on network security', createdAt: '2025-04-10', author: 'John Smith' }
-        ],
-        attachments: [
-            { id: 1, name: 'site-plan.pdf', size: '2.4 MB', uploadedAt: '2025-04-09', uploadedBy: 'Admin' },
-            { id: 2, name: 'quote-details.docx', size: '1.1 MB', uploadedAt: '2025-04-10', uploadedBy: 'Admin' }
-        ]
-    },
-    'JOB-2025-041': {
-        id: 'JOB-2025-041',
-        client: 'TechSolutions Inc',
-        clientId: 'CL002',
-        status: 'Work Order',
-        createdAt: '2025-04-08',
-        description: 'Server maintenance and updates',
-        amount: 1200.00,
-        address: '456 Tech Road, San Francisco, CA 94107',
-        contactName: 'Sara Johnson',
-        contactEmail: 'sara@techsolutions.com',
-        contactPhone: '(415) 555-6789',
-        notes: [
-            { id: 1, text: 'Quote approved by client', createdAt: '2025-04-08', author: 'Admin' },
-            { id: 2, text: 'Scheduled for April 15', createdAt: '2025-04-09', author: 'Admin' }
-        ],
-        attachments: [
-            { id: 1, name: 'server-specs.pdf', size: '3.2 MB', uploadedAt: '2025-04-08', uploadedBy: 'Sara Johnson' }
-        ]
-    },
-    'JOB-2025-040': {
-        id: 'JOB-2025-040',
-        client: 'Global Enterprises',
-        clientId: 'CL003',
-        status: 'In Progress',
-        createdAt: '2025-04-07',
-        description: 'Security camera installation',
-        amount: 3750.00,
-        address: '789 Corporate Drive, Chicago, IL 60611',
-        contactName: 'Mike Wilson',
-        contactEmail: 'mike@globalent.com',
-        contactPhone: '(312) 555-9876',
-        notes: [
-            { id: 1, text: 'Work started on April 10', createdAt: '2025-04-10', author: 'Admin' },
-            { id: 2, text: 'Initial cameras installed on first floor', createdAt: '2025-04-11', author: 'Admin' }
-        ],
-        attachments: [
-            { id: 1, name: 'camera-locations.pdf', size: '4.7 MB', uploadedAt: '2025-04-07', uploadedBy: 'Admin' }
-        ]
-    },
-    'JOB-2025-039': {
-        id: 'JOB-2025-039',
-        client: 'Data Systems Ltd',
-        clientId: 'CL004',
-        status: 'Completed',
-        createdAt: '2025-04-06',
-        description: 'Data recovery and backup setup',
-        amount: 950.00,
-        address: '321 Data Lane, Austin, TX 78701',
-        contactName: 'Lisa Brown',
-        contactEmail: 'lisa@datasystems.com',
-        contactPhone: '(512) 555-4321',
-        notes: [
-            { id: 1, text: 'Recovery completed successfully', createdAt: '2025-04-06', author: 'Admin' },
-            { id: 2, text: 'Backup system configured and tested', createdAt: '2025-04-06', author: 'Admin' },
-            { id: 3, text: 'Client confirmed data integrity', createdAt: '2025-04-07', author: 'Lisa Brown' }
-        ],
-        attachments: [
-            { id: 1, name: 'recovery-report.pdf', size: '1.8 MB', uploadedAt: '2025-04-06', uploadedBy: 'Admin' },
-            { id: 2, name: 'backup-config.pdf', size: '0.9 MB', uploadedAt: '2025-04-06', uploadedBy: 'Admin' }
-        ]
-    }
-}
+import axios from 'axios'
+import { API_ENDPOINTS } from '@/lib/apiConfig'
 
 const statusOptions = ['Quote', 'Work Order', 'In Progress', 'Completed']
 
@@ -137,30 +51,39 @@ const AdminJobDetails = () => {
     const [selectedStatus, setSelectedStatus] = useState('')
     const [selectedFile, setSelectedFile] = useState(null)
 
-    // src/pages/admin/AdminJobDetails.jsx (continued)
-
-    useEffect(() => {
-        // In production, this would fetch from ServiceM8 API
-        const fetchJobDetails = () => {
+    useEffect(() => {        const fetchJobDetails = async () => {
             setLoading(true)
-
-            // Simulate API call
-            setTimeout(() => {
-                if (mockJobDetails[jobId]) {
-                    setJob(mockJobDetails[jobId])
-                    setSelectedStatus(mockJobDetails[jobId].status)
+            
+            try {
+                const response = await axios.get(`${API_ENDPOINTS.JOBS.FETCH_BY_ID}/${jobId}`)
+                
+                if (response.data && response.data.data) {
+                    const jobData = response.data.data
+                    // Ensure notes and attachments arrays exist
+                    jobData.notes = jobData.notes || []
+                    jobData.attachments = jobData.attachments || []
+                    setJob(jobData)
+                    setSelectedStatus(jobData.status)
+                } else {
+                    console.error('No job data found')
+                    setJob(null)
                 }
+            } catch (error) {
+                console.error('Error fetching job details:', error)
+                setJob(null)
+            } finally {
                 setLoading(false)
-            }, 500)
+            }
         }
 
-        fetchJobDetails()
+        if (jobId) {
+            fetchJobDetails()
+        }
     }, [jobId])
 
     const handleAddNote = () => {
         if (!newNote.trim()) return
 
-        // In production, this would call the ServiceM8 API
         const note = {
             id: Date.now(),
             text: newNote,
@@ -187,7 +110,6 @@ const AdminJobDetails = () => {
     const handleFileUpload = () => {
         if (!selectedFile) return
 
-        // In production, this would call the ServiceM8 API to upload the file
         const attachment = {
             id: Date.now(),
             name: selectedFile.name,
@@ -206,7 +128,6 @@ const AdminJobDetails = () => {
     }
 
     const handleUpdateStatus = () => {
-        // In production, this would call the ServiceM8 API
         setJob(prev => ({
             ...prev,
             status: selectedStatus
@@ -239,8 +160,10 @@ const AdminJobDetails = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold">{job.id}</h1>
-                    <p className="text-muted-foreground">{job.description}</p>
+                    <h1 className="text-3xl font-bold">
+                        {job.generated_job_id || `Job ${job.uuid?.slice(0, 8)}`}
+                    </h1>
+                    <p className="text-muted-foreground">{job.job_description || job.description}</p>
                 </div>
                 <div className="flex gap-2">
                     <Dialog open={isUpdateStatusOpen} onOpenChange={setIsUpdateStatusOpen}>
@@ -288,10 +211,11 @@ const AdminJobDetails = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Client</h3>
-                                <p>{job.client}</p>
+                                <p>{job.client || 'Unknown Client'}</p>
                             </div>
                             <div>
-                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Status</h3>                                <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
+                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Status</h3>
+                                <span className={`px-2 py-1 rounded text-xs ${job.status === 'Quote'
                                         ? 'bg-orange-100 text-orange-800'
                                         : job.status === 'Work Order'
                                             ? 'bg-blue-100 text-blue-800'
@@ -304,27 +228,96 @@ const AdminJobDetails = () => {
                             </div>
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Created Date</h3>
-                                <p>{job.createdAt}</p>
+                                <p>{job.date || job.createdAt || 'N/A'}</p>
                             </div>
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Amount</h3>
-                                <p>{job.amount}</p>
+                                <p>${job.quote_amount || job.amount || '0.00'}</p>
                             </div>
                             <div className="col-span-2">
-                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Address</h3>
-                                <p>{job.address}</p>
+                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Description</h3>
+                                <p>{job.job_description || job.description || 'No description'}</p>
                             </div>
                             <div>
+                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Job Number</h3>
+                                <p>{job.generated_job_id || job.uuid?.slice(0, 8) || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Category</h3>
+                                <p>{job.category_name || 'Uncategorized'}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Location Details Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Location Details</CardTitle>
+                        <CardDescription>Service location information</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            <div>
+                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Street</h3>
+                                <p>{job.location_street || job.geo_street || 'N/A'}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <h3 className="font-medium text-sm text-muted-foreground mb-1">City</h3>
+                                    <p>{job.location_city || job.geo_city || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <h3 className="font-medium text-sm text-muted-foreground mb-1">State</h3>
+                                    <p>{job.location_state || job.geo_state || 'N/A'}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <h3 className="font-medium text-sm text-muted-foreground mb-1">Postcode</h3>
+                                    <p>{job.location_postcode || job.geo_postcode || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <h3 className="font-medium text-sm text-muted-foreground mb-1">Country</h3>
+                                    <p>{job.location_country || job.geo_country || 'N/A'}</p>
+                                </div>
+                            </div>
+                            {job.location_address && (
+                                <div>
+                                    <h3 className="font-medium text-sm text-muted-foreground mb-1">Full Address</h3>
+                                    <p className="text-sm">{job.location_address}</p>
+                                </div>
+                            )}
+                            {job.location_uuid && (
+                                <div>
+                                    <h3 className="font-medium text-sm text-muted-foreground mb-1">Location ID</h3>
+                                    <p className="text-xs text-muted-foreground">{job.location_uuid}</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Contact Information</CardTitle>
+                        <CardDescription>Client contact details</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Contact Name</h3>
-                                <p>{job.contactName}</p>
+                                <p>{job.contactName || job.contact_name || 'N/A'}</p>
                             </div>
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Contact Phone</h3>
-                                <p>{job.contactPhone}</p>
+                                <p>{job.contactPhone || job.contact_phone || 'N/A'}</p>
                             </div>
-                            <div className="col-span-2">
+                            <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Contact Email</h3>
-                                <p>{job.contactEmail}</p>
+                                <p>{job.contactEmail || job.contact_email || 'N/A'}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -359,13 +352,15 @@ const AdminJobDetails = () => {
                         )}
                     </CardContent>
                 </Card>
-            </div>            <Tabs defaultValue="notes">
+            </div>
+
+            <Tabs defaultValue="notes">
                 <TabsList>
                     <TabsTrigger value="notes">Notes</TabsTrigger>
-                    <TabsTrigger value="attachments">Attachments</TabsTrigger>                    <TabsTrigger value="chat" className="relative">
+                    <TabsTrigger value="attachments">Attachments</TabsTrigger>
+                    <TabsTrigger value="chat" className="relative">
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Chat
-                        {/* Badge for unread messages would be added here in production */}
                     </TabsTrigger>
                 </TabsList>
 
@@ -395,11 +390,11 @@ const AdminJobDetails = () => {
                                 </div>
                             )}
 
-                            {job.notes.length === 0 ? (
+                            {job.notes && job.notes.length === 0 ? (
                                 <p className="text-muted-foreground text-center py-6">No notes added yet</p>
                             ) : (
                                 <div className="space-y-4">
-                                    {job.notes.map(note => (
+                                    {job.notes && job.notes.map(note => (
                                         <div key={note.id} className="p-4 border rounded-md">
                                             <div className="flex justify-between items-start mb-2">
                                                 <span className="font-medium">{note.author}</span>
@@ -439,11 +434,11 @@ const AdminJobDetails = () => {
                                 </div>
                             )}
 
-                            {job.attachments.length === 0 ? (
+                            {job.attachments && job.attachments.length === 0 ? (
                                 <p className="text-muted-foreground text-center py-6">No attachments added yet</p>
                             ) : (
                                 <div className="space-y-2">
-                                    {job.attachments.map(file => (
+                                    {job.attachments && job.attachments.map(file => (
                                         <div key={file.id} className="flex justify-between items-center p-3 border rounded-md">
                                             <div className="flex items-center">
                                                 <svg
@@ -479,8 +474,10 @@ const AdminJobDetails = () => {
                                 </div>
                             )}
                         </CardContent>
-                    </Card>                </TabsContent>
-                  <TabsContent value="chat" className="p-0 mt-6">
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="chat" className="p-0 mt-6">
                     <AdminChatRoom jobId={job.id || job.uuid} />
                 </TabsContent>
             </Tabs>

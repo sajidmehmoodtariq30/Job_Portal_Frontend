@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
 import { Label } from "@/components/UI/label";
@@ -8,6 +8,7 @@ import Illustration from "@/assets/illustration.jpg";
 import { MoveRight, Mail, ArrowLeft } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { useSession } from "@/context/SessionContext";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -18,38 +19,100 @@ const LoginPage = () => {
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
+  const [oauthProcessed, setOauthProcessed] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => {
-    // Check if user is already logged in
-    const userData = localStorage.getItem('user_data');
-    if (userData) {
-      navigate('/client'); // Navigate to client dashboard
+  const [searchParams] = useSearchParams();
+  const { handleAdminLogin, handleUserLogin, isAuthenticated, isAdmin, isUser, admin, user } = useSession();  useEffect(() => {
+    console.log('🔄 Login useEffect triggered');
+    console.log('📊 Current state:', { 
+      isAuthenticated: isAuthenticated(), 
+      isAdmin: isAdmin(), 
+      isUser: isUser(),
+      isProcessingOAuth,
+      oauthProcessed
+    });
+
+    // Skip processing if we've already processed OAuth or are currently processing
+    if (oauthProcessed || isProcessingOAuth) {
+      console.log('⏭️ Skipping - OAuth already processed or in progress');
       return;
     }
 
-    // Check for admin token in URL parameters
-    const params = new URLSearchParams(window.location.search);
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-    const expires_in = params.get('expires_in');
-    const token_type = params.get('token_type');
-    const scope = params.get('scope');
+    // Check for admin OAuth callback tokens in URL parameters first
+    const access_token = searchParams.get('access_token');
+    const refresh_token = searchParams.get('refresh_token');
+    const expires_in = searchParams.get('expires_in');
+    const token_type = searchParams.get('token_type');
+    const scope = searchParams.get('scope');
     
+    console.log('🔍 OAuth parameters:', { 
+      access_token: !!access_token, 
+      refresh_token: !!refresh_token, 
+      expires_in, 
+      token_type, 
+      scope: !!scope
+    });
+
     if (access_token && refresh_token && expires_in && token_type && scope) {
+      console.log('✅ Processing OAuth callback...');
+      
+      // Mark as processed immediately to prevent re-processing
+      setOauthProcessed(true);
+      setIsProcessingOAuth(true);
+      
       const tokenData = {
         access_token,
         refresh_token,
-        expires_in,
+        expires_in: parseInt(expires_in),
         token_type,
         scope: decodeURIComponent(scope)
       };
-      localStorage.setItem('admin_token', JSON.stringify(tokenData));
-      // Remove tokens from URL for cleanliness
-      window.history.replaceState({}, document.title, window.location.pathname);
-      // Redirect to admin dashboard
-      navigate('/admin');
+      
+      console.log('🔑 Processing token data');
+      
+      // Clean up URL immediately
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      console.log('🧹 URL cleaned to:', cleanUrl);
+      
+      // Handle admin login
+      handleAdminLogin(tokenData, () => {
+        console.log('✅ Admin login successful, navigating...');
+        setIsProcessingOAuth(false);
+        navigate('/admin', { replace: true });
+      });
+      
+      return;
     }
-  }, [navigate]);
+
+    // Check if user is already authenticated (only if no OAuth processing)
+    if (isAuthenticated()) {
+      console.log('👤 User already authenticated, redirecting...');
+      const returnTo = searchParams.get('returnTo');
+      if (returnTo) {
+        console.log('↩️ Redirecting to return path:', returnTo);
+        navigate(returnTo, { replace: true });
+      } else if (isAdmin()) {
+        console.log('🏢 Redirecting admin to dashboard');
+        navigate('/admin', { replace: true });
+      } else if (isUser()) {
+        console.log('👥 Redirecting user to dashboard');
+        navigate('/client', { replace: true });
+      }
+    } else {
+      console.log('🔐 No authentication found, staying on login page');
+    }
+  }, [navigate, searchParams, handleAdminLogin, isAuthenticated, isAdmin, isUser, isProcessingOAuth, oauthProcessed]);
+
+  // Cleanup effect to reset OAuth processing state
+  useEffect(() => {
+    return () => {
+      // Reset OAuth processing state when component unmounts
+      setOauthProcessed(false);
+      setIsProcessingOAuth(false);
+    };
+  }, []);
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
@@ -96,27 +159,34 @@ const LoginPage = () => {
       setForgotPasswordLoading(false);
     }
   };
-
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (email === "" || password === "") {
-      alert("Please fill in all fields.");
+      setError("Please fill in all fields.");
       return;
     }
     setIsLoading(true);
+    setError("");
+    
     try {
       const response = await axios.post(API_ENDPOINTS.AUTH.USER_LOGIN, {
         email,
         password
       });
-        if (response.status === 200 && response.data.success) {
-        // Store user data in localStorage for persistent login
-        localStorage.setItem('user_data', JSON.stringify(response.data.user));
-        localStorage.setItem('user_email', email);
-        navigate("/client"); // Navigate to client dashboard
+
+      if (response.status === 200 && response.data.success) {
+        // Use session management to handle user login
+        handleUserLogin(response.data.user, email);
+        
+        // Check for return path
+        const returnTo = searchParams.get('returnTo');
+        if (returnTo && returnTo.startsWith('/client')) {
+          navigate(returnTo);
+        }
       } else {
-        alert("Login failed. Please check your credentials and try again.");
-      }    } catch (error) {
+        setError("Login failed. Please check your credentials and try again.");
+      }
+    } catch (error) {
       console.error("Error during login:", error);
       
       // Handle specific error codes for deactivated accounts
@@ -131,6 +201,18 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
+  // Show processing screen if handling OAuth callback
+  if (isProcessingOAuth) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold mb-2">Processing Login...</h2>
+          <p className="text-gray-600">Please wait while we complete your authentication.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen flex items-center justify-center p-4">

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Create axios interceptor to handle authentication and access control
-const setupAuthInterceptor = (navigate) => {
+const setupAuthInterceptor = (navigate, sessionContext) => {
   // Response interceptor to handle global error conditions
   axios.interceptors.response.use(
     (response) => {
@@ -16,19 +16,40 @@ const setupAuthInterceptor = (navigate) => {
         // Account has been deactivated
         console.log('Account deactivated, logging out user');
         
-        // Clear all stored client data
-        localStorage.removeItem('client_data');
-        localStorage.removeItem('client_email');
+        // Use session context to handle logout
+        if (sessionContext) {
+          if (sessionContext.isAdmin()) {
+            sessionContext.handleAdminLogout('Account deactivated');
+          } else if (sessionContext.isUser()) {
+            sessionContext.handleUserLogout('Account deactivated');
+          }
+        } else {
+          // Fallback for backward compatibility
+          localStorage.clear();
+          if (navigate) {
+            navigate('/login');
+          } else {
+            window.location.href = '/login';
+          }
+        }
         
         // Show user notification
         alert('Your account has been deactivated. You will be redirected to the login page.');
         
-        // Redirect to login page
-        if (navigate) {
-          navigate('/login');
-        } else {
-          // Fallback if navigate is not available
-          window.location.href = '/login';
+        return Promise.reject(error);
+      }
+      
+      // Handle unauthorized access
+      if (error.response?.status === 401) {
+        console.log('Unauthorized access, session may be expired');
+        
+        // Use session context to handle logout
+        if (sessionContext) {
+          if (sessionContext.isAdmin()) {
+            sessionContext.handleAdminLogout('Session expired or unauthorized');
+          } else if (sessionContext.isUser()) {
+            sessionContext.handleUserLogout('Session expired or unauthorized');
+          }
         }
         
         return Promise.reject(error);
@@ -50,16 +71,42 @@ const setupAuthInterceptor = (navigate) => {
   );
 };
 
-// Function to check if client is logged in and account is potentially active
+// Function to check if client is logged in (backward compatibility)
 export const isClientLoggedIn = () => {
-  const clientData = localStorage.getItem('client_data');
-  return !!clientData;
+  const clientData = localStorage.getItem('client_data') || localStorage.getItem('user_data');
+  const sessionData = localStorage.getItem('user_session');
+  
+  if (!clientData || !sessionData) return false;
+  
+  try {
+    const session = JSON.parse(sessionData);
+    return Date.now() < session.expiresAt;
+  } catch (error) {
+    console.error('Error checking client login status:', error);
+    return false;
+  }
 };
 
-// Function to get client UUID from stored data
+// Function to check if admin is logged in (backward compatibility)
+export const isAdminLoggedIn = () => {
+  const adminToken = localStorage.getItem('admin_token');
+  const sessionData = localStorage.getItem('admin_session');
+  
+  if (!adminToken || !sessionData) return false;
+  
+  try {
+    const session = JSON.parse(sessionData);
+    return Date.now() < session.expiresAt;
+  } catch (error) {
+    console.error('Error checking admin login status:', error);
+    return false;
+  }
+};
+
+// Function to get client UUID from stored data (backward compatibility)
 export const getClientUuid = () => {
   try {
-    const clientData = localStorage.getItem('client_data');
+    const clientData = localStorage.getItem('client_data') || localStorage.getItem('user_data');
     if (clientData) {
       const parsed = JSON.parse(clientData);
       return parsed.uuid;
@@ -70,7 +117,7 @@ export const getClientUuid = () => {
   return null;
 };
 
-// Function to add client UUID header to requests
+// Function to add client UUID header to requests (backward compatibility)
 export const addClientUuidHeader = () => {
   const clientUuid = getClientUuid();
   if (clientUuid) {
@@ -78,9 +125,27 @@ export const addClientUuidHeader = () => {
   }
 };
 
-// Function to remove client UUID header
+// Function to remove client UUID header (backward compatibility)
 export const removeClientUuidHeader = () => {
   delete axios.defaults.headers.common['x-client-uuid'];
+};
+
+// Function to add admin token header to requests (backward compatibility)
+export const addAdminTokenHeader = () => {
+  try {
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken) {
+      const tokenData = JSON.parse(adminToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${tokenData.access_token}`;
+    }
+  } catch (error) {
+    console.error('Error adding admin token header:', error);
+  }
+};
+
+// Function to remove admin token header (backward compatibility)
+export const removeAdminTokenHeader = () => {
+  delete axios.defaults.headers.common['Authorization'];
 };
 
 export default setupAuthInterceptor;

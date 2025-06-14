@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useSession } from '@/context/SessionContext'
 import { Button } from '@/components/UI/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/UI/avatar'
 import {
@@ -19,53 +20,27 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-    const expires_in = params.get('expires_in');
-    const token_type = params.get('token_type');
-    const scope = params.get('scope');
-    if (access_token && refresh_token && expires_in && token_type && scope) {
-      const tokenData = {
-        access_token,
-        refresh_token,
-        expires_in,
-        token_type,
-        scope: decodeURIComponent(scope)
-      };
-      localStorage.setItem('admin_token', JSON.stringify(tokenData));
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+  const { handleAdminLogout } = useSession()
 
   // Mock user data - would come from authentication context
   const user = {
     name: 'Admin User',
     email: 'admin@company.com',
     avatar: null
-  }
-    // Navigation data needed for mobile page title
-  const navigation = [    { name: 'Dashboard', href: '/admin' },
+  }    // Navigation data needed for mobile page title
+  const navigation = [
+    { name: 'Dashboard', href: '/admin' },
     { name: 'Jobs', href: '/admin/jobs' },
     { name: 'Clients', href: '/admin/clients' },
     { name: 'Schedule', href: '/admin/schedule' },
     { name: 'Team', href: '/admin/team' },
     { name: 'Settings', href: '/admin/settings' }
-  ]
+  ];
+
   const handleLogout = () => {
-    // Clear authentication tokens and admin-related data
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('userInfo')
-    localStorage.removeItem('user_data')
-    
-    // Clear any cached admin data
-    sessionStorage.clear()
-    
-    // Navigate to login page and replace current history entry
-    // This prevents using browser back button to return to admin area
-    navigate('/login', { replace: true })
+    if (window.confirm('Are you sure you want to logout?')) {
+      handleAdminLogout('User initiated logout from admin layout');
+    }
   }
   
   return (

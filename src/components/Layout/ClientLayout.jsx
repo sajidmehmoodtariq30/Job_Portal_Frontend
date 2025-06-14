@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useSession } from '@/context/SessionContext'
 import { Button } from '@/components/UI/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/UI/avatar'
 import {
@@ -19,6 +20,7 @@ const ClientLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const location = useLocation()
     const navigate = useNavigate()
+    const { handleUserLogout } = useSession()
     const [clientId, setClientId] = useState(null)
     const [clientName, setClientName] = useState('Loading...')
     const [isLoading, setIsLoading] = useState(true)// Check for stored client data or user data on component mount and set client info
@@ -78,18 +80,12 @@ const ClientLayout = () => {
         { name: 'Support', href: '/client/support' },
         { name: 'Settings', href: '/client/settings' }
     ];    const handleLogout = () => {
-        // Remove client UUID header before logout
-        removeClientUuidHeader();
-        
-        // Clear both client and user data from localStorage
-        localStorage.removeItem('client_data');
-        localStorage.removeItem('client_email');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user_email');
-        
-        // Navigate to login page
-        navigate('/login');
-    }    // If not authenticated or still loading, don't render anything
+        if (window.confirm('Are you sure you want to logout?')) {
+            // Remove client UUID header before logout
+            removeClientUuidHeader();
+            handleUserLogout('User initiated logout from client layout');
+        }
+    }// If not authenticated or still loading, don't render anything
     if (isLoading || !clientId) return null;
 
     return (

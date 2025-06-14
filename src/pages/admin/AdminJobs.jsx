@@ -36,6 +36,7 @@ import {
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
 import LocationSelector from "@/components/UI/LocationSelector"
+import SearchableSelect from "@/components/UI/SearchableSelect"
 import axios from 'axios'
 import { useJobContext } from '@/components/JobContext';
 import { API_ENDPOINTS, API_URL } from '@/lib/apiConfig';
@@ -193,6 +194,23 @@ const AdminJobs = () => {
       setSelectedStatus(selectedJob.status);
     }
   }, [selectedJob]);
+  // Fetch client names for jobs to display in the table
+  const fetchClientNamesForJobs = async (jobsList) => {
+    try {
+      if (!jobsList || jobsList.length === 0) return;
+      
+      const clientUuids = jobsList
+        .map(job => job.company_uuid)
+        .filter(uuid => uuid && !jobClientNames[uuid]); // Only fetch names we don't already have
+      
+      if (clientUuids.length === 0) return;
+      
+      const clientNames = await getClientNamesByUuids(clientUuids);
+      setJobClientNames(prev => ({ ...prev, ...clientNames }));
+    } catch (error) {
+      console.error('Error fetching client names for jobs:', error);
+    }
+  };
 
   // Fetch client names when jobs change
   useEffect(() => {
@@ -214,14 +232,20 @@ const AdminJobs = () => {
     const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
     return jobNumber;
   };
-
   // Helper function to format job address
   const formatJobAddress = (job) => {
-    if (!job) return 'No address';
+    if (!job) return 'No location specified';
 
     // Try location fields first (new structure)
     if (job.location_address) {
       return job.location_address;
+    }
+
+    // Try ServiceM8 location fields
+    if (job.location_name) {
+      const parts = [job.location_name];
+      if (job.location_address) parts.push(job.location_address);
+      return parts.join(' - ');
     }
 
     // Try geo fields
@@ -232,8 +256,19 @@ const AdminJobs = () => {
     
     if (geoParts.length > 0) {
       return geoParts.join(', ');
-    }    // Fallback to job_address
-    return job.job_address || 'No address';
+    }
+
+    // Fallback to job_address
+    if (job.job_address) {
+      return job.job_address;
+    }
+
+    // If we have location_uuid but no address, show that
+    if (job.location_uuid) {
+      return `Location: ${job.location_uuid}`;
+    }
+
+    return 'No location specified';
   };
 
   // Reset jobs when tab changes
@@ -366,7 +401,9 @@ const AdminJobs = () => {
     const handleLocationSelect = (locationUuid) => {
       setSelectedLocationUuid(locationUuid);
       setNewJob(prev => ({ ...prev, location_uuid: locationUuid }));
-    };// When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
+    };
+
+    // When a client is selected, use their UUID as both company UUID and created_by_staff_uuid
     const handleClientChange = (value) => {
       setNewJob({
         ...newJob,
@@ -374,13 +411,15 @@ const AdminJobs = () => {
         created_by_staff_uuid: value // Using client UUID for staff UUID as requested
       });
       
-      // Clear any previously selected location when client changes
-      setSelectedLocationUuid('');
-      setNewJob(prev => ({
+      // Note: We clear location selection when client changes for consistency
+      // Even though locations are now global, this ensures proper job-client-location association
+      setSelectedLocationUuid('');      setNewJob(prev => ({
         ...prev,
         location_uuid: ''
       }));
-    };    const handleCreateJob = async (e) => {
+    };
+
+    const handleCreateJob = async (e) => {
       e.preventDefault();
 
       // Validate required fields - check both selectedLocationUuid and newJob.location_uuid
@@ -726,30 +765,36 @@ const AdminJobs = () => {
                       onChange={handleInputChange}
                       required
                     />
-                  </div>
-
-                  <div className="grid gap-2">
+                  </div>                  <div className="grid gap-2">
                     <Label htmlFor="company_uuid">Client</Label>
-                    <Select
+                    <SearchableSelect
+                      items={clients}
                       value={newJob.company_uuid}
                       onValueChange={handleClientChange}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map(client => (
-                          <SelectItem key={client.uuid} value={client.uuid}>
-                            {client.name} ({client.uuid.slice(-4)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select client"
+                      searchPlaceholder="Search by client name..."
+                      displayKey="name"
+                      valueKey="uuid"
+                      searchKeys={['name', 'uuid']}
+                      allowClear={false}
+                      noItemsText="No clients available"
+                      noResultsText="No clients found matching your search"
+                      renderSelected={(client) => `${client.name} (${client.uuid.slice(-4)})`}
+                      renderItem={(client) => (
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {client.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            ID: {client.uuid.slice(-4)}
+                          </div>
+                        </div>
+                      )}
+                    />
                     <p className="text-xs text-muted-foreground">
                       Client UUID will also be used as staff UUID for ServiceM8
                     </p>
-                  </div>                  <div className="grid gap-2">
+                  </div><div className="grid gap-2">
                     <Label htmlFor="location_uuid">Service Location</Label>
                     <LocationSelector
                       clientUuid={newJob.company_uuid}
@@ -1177,9 +1222,12 @@ const AdminJobs = () => {
                       Status will be updated from <strong>{selectedJob.status}</strong> to <strong>{selectedStatus}</strong>
                     </p>
                   )}
-                </div><div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                  <Label className="font-bold text-xs md:text-sm">Service Address</Label>
-                  <p className="text-xs md:text-sm break-words">{selectedJob.job_address || 'N/A'}</p>
+                </div>                <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                  <Label className="font-bold text-xs md:text-sm">Service Location</Label>
+                  <p className="text-xs md:text-sm break-words">{formatJobAddress(selectedJob)}</p>
+                  {selectedJob.location_uuid && (
+                    <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 md:gap-5">

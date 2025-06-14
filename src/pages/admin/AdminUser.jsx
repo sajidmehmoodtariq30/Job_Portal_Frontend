@@ -3,6 +3,7 @@ import { Button } from "@/components/UI/button"
 import { Input } from "@/components/UI/input"
 import { Label } from "@/components/UI/label"
 import { Switch } from "@/components/UI/switch"
+import SearchableSelect from "@/components/UI/SearchableSelect"
 import {
   Card,
   CardContent,
@@ -334,9 +335,8 @@ const AdminUsers = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          password: newPassword
+        },        body: JSON.stringify({
+          newPassword: newPassword
         })
       })
 
@@ -505,27 +505,25 @@ const AdminUsers = () => {
                         onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                         required
                       />
-                    </div>                <div className="grid gap-2">
+                    </div>                    <div className="grid gap-2">
                       <Label htmlFor="client">Assign to Client (Optional)</Label>
-                      <Select
-                        value={newUser.assignedClientUuid || 'none'}
+                      <SearchableSelect
+                        items={clients}
+                        value={newUser.assignedClientUuid === 'none' ? '' : newUser.assignedClientUuid}
                         onValueChange={(value) => setNewUser({
                           ...newUser,
-                          assignedClientUuid: value === 'none' ? '' : value
+                          assignedClientUuid: value || 'none'
                         })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a client..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No Client Assigned</SelectItem>
-                          {clients.map((client) => (
-                            <SelectItem key={client.uuid} value={client.uuid}>
-                              {client.name || client.uuid}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select a client..."
+                        searchPlaceholder="Search by client name..."
+                        displayKey="name"
+                        valueKey="uuid"
+                        searchKeys={['name', 'uuid']}
+                        allowClear={true}
+                        noItemsText="No clients available"
+                        noResultsText="No clients found matching your search"
+                        renderSelected={(client) => client.name || client.uuid}
+                      />
                     </div>
                   </div>
                   <DialogFooter>
@@ -725,27 +723,25 @@ const AdminUsers = () => {
                       onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
                       required
                     />
-                  </div>                <div className="grid gap-2">
+                  </div>                  <div className="grid gap-2">
                     <Label htmlFor="edit-client">Assign to Client (Optional)</Label>
-                    <Select
-                      value={editUser.assignedClientUuid || 'none'}
+                    <SearchableSelect
+                      items={clients}
+                      value={editUser.assignedClientUuid === 'none' ? '' : editUser.assignedClientUuid}
                       onValueChange={(value) => setEditUser({
                         ...editUser,
-                        assignedClientUuid: value === 'none' ? '' : value
+                        assignedClientUuid: value || 'none'
                       })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No Client Assigned</SelectItem>
-                        {clients.map((client) => (
-                          <SelectItem key={client.uuid} value={client.uuid}>
-                            {client.name || client.uuid}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select a client..."
+                      searchPlaceholder="Search by client name..."
+                      displayKey="name"
+                      valueKey="uuid"
+                      searchKeys={['name', 'uuid']}
+                      allowClear={true}
+                      noItemsText="No clients available"
+                      noResultsText="No clients found matching your search"
+                      renderSelected={(client) => client.name || client.uuid}
+                    />
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch

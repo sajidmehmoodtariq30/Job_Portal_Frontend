@@ -18,8 +18,7 @@ export const API_ENDPOINTS = {  AUTH: {
     VALIDATE_SETUP_TOKEN: (token) => buildApiEndpoint(`fetch/validate-setup-token/${token}`),
     VALIDATE_USER_SETUP_TOKEN: (token) => buildApiEndpoint(`api/users/validate-setup-token/${token}`)
   },
-  
-  JOBS: {
+    JOBS: {
     BASE: buildApiEndpoint('api/jobs'),
     FETCH_ALL: buildApiEndpoint('fetch/jobs'),
     FETCH_BY_CLIENT: (clientUuid) => buildApiEndpoint(`fetch/jobs/client/${clientUuid}`),
