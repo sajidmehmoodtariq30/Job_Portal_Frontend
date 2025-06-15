@@ -116,18 +116,17 @@ const AdminClients = () => {
   const displayedClients = filteredClients.slice(0, visibleClients);  const handleViewClient = (clientId) => {
     navigate(`/admin/clients/${clientId}`);
   };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 admin-content">
       <div className='flex flex-col gap-4'>        <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Client Management</h1>
         </div>
-          <Card>
+          <Card className="admin-card">
           <CardHeader>
             <CardTitle>Clients</CardTitle>
-            <CardDescription>View and manage existing clients in the system</CardDescription><div className="flex items-center gap-4 mt-4">
-              <div className="relative flex-1">
+            <CardDescription>View and manage existing clients in the system</CardDescription><div className="flex items-center gap-4 mt-4">              <div className="relative flex-1">
                 <Input
+                  className="admin-input admin-focus"
                   placeholder="Search clients..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

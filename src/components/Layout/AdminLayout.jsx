@@ -110,9 +110,8 @@ const AdminLayout = () => {
             </DropdownMenu>
           </div>
         </header>
-        
-        {/* Main content area */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+          {/* Main content area */}
+        <main className="flex-1 overflow-auto p-4 lg:p-6 admin-content">
           <Outlet />
         </main>
       </div>

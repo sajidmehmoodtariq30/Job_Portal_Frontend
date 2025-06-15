@@ -343,12 +343,11 @@ const AdminQuotes = () => {
       setError(`Error updating quote status: ${error.response?.data?.message || error.message}`);
     }
   };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 admin-content">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Quote Management</h1>
-        <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2">
+        <Button onClick={() => setIsDialogOpen(true)} className="admin-btn-primary admin-focus flex items-center gap-2">
           <PlusCircle size={16} /> Create New Quote
         </Button>
       </div>
@@ -365,9 +364,8 @@ const AdminQuotes = () => {
           <CheckCircle size={18} className="mt-0.5" />
           <p>{success}</p>
         </div>
-      )}
-      
-      <Card>
+      )}      
+      <Card className="admin-card">
         <CardHeader className="space-y-5">
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div>

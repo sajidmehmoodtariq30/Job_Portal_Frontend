@@ -440,8 +440,7 @@ const AdminHome = () => {
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={handleRefresh} disabled={loading}>
+          </DropdownMenu>          <Button onClick={handleRefresh} disabled={loading} className="admin-btn-primary admin-focus">
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </Button>
         </div>
@@ -453,10 +452,9 @@ const AdminHome = () => {
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-4 admin-content">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
+            <Card className="admin-card">
               <CardHeader>
                 <CardTitle>Job Status Overview</CardTitle>
                 <CardDescription>Current status of all jobs in the system</CardDescription>
@@ -491,9 +489,8 @@ const AdminHome = () => {
                   </div>
                 )}
               </CardContent>
-            </Card>
-            
-            <Card>
+            </Card>            
+            <Card className="admin-card">
               <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>
                 <CardDescription>Job activity over the past 5 days</CardDescription>
@@ -594,7 +591,7 @@ const AdminHome = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="jobs" className="space-y-4">
+        <TabsContent value="jobs" className="space-y-4 admin-content">
           <Card>
             <CardHeader>
               <CardTitle>Job Management</CardTitle>
@@ -609,7 +606,7 @@ const AdminHome = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="users" className="space-y-4">
+        <TabsContent value="users" className="space-y-4 admin-content">
           <Card>
             <CardHeader>
               <CardTitle>User Management</CardTitle>
@@ -887,7 +884,7 @@ const AdminHome = () => {
               </TabsContent>
               
               <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
-                <Card className="border rounded-lg shadow-sm">
+                <Card className="admin-card">
                   <CardHeader className="py-3 px-3 md:px-4 md:py-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
                       <CardTitle className="flex items-center text-base md:text-lg">

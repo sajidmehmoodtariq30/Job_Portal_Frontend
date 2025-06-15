@@ -788,10 +788,8 @@ const AdminJobs = () => {
         console.error('Error deleting attachment:', error);
         alert('Failed to delete attachment. Please try again.');
       }
-    };
-
-    return (
-      <div className="space-y-6">
+    };    return (
+      <div className="space-y-6 admin-content">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Job Management</h1>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -802,9 +800,8 @@ const AdminJobs = () => {
               // Clear any previously selected location
               setSelectedLocationUuid('');
             }
-          }}>
-            <DialogTrigger asChild>
-              <Button>Create New Job</Button>
+          }}>            <DialogTrigger asChild>
+              <Button className="admin-btn-primary admin-focus">Create New Job</Button>
             </DialogTrigger>
             <DialogContent className="max-h-[80vh] overflow-y-auto">
               <DialogHeader>
@@ -1390,7 +1387,7 @@ const AdminJobs = () => {
                 <AdminChatRoom jobId={selectedJob.uuid || selectedJob.id} />
               </TabsContent>
               <TabsContent value="attachments" className="p-0 mt-3 md:mt-4">
-                <Card className="border rounded-lg shadow-sm">
+                <Card className="admin-card">
                   <CardHeader className="py-3 px-3 md:px-4 md:py-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
                       <CardTitle className="flex items-center text-base md:text-lg">

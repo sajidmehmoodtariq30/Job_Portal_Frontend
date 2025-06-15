@@ -137,10 +137,8 @@ const AdminCategories = () => {
                 </Card>
             </div>
         )
-    }
-
-    return (
-        <div className="space-y-8 p-6">
+    }    return (
+        <div className="space-y-8 p-6 admin-content">
             {/* Header Section */}
             <div className="space-y-1">
                 <h1 className="text-3xl font-bold tracking-tight">Category Management</h1>
@@ -150,7 +148,7 @@ const AdminCategories = () => {
             </div>
 
             {/* Search Section */}
-            <Card className="shadow-sm">
+            <Card className="admin-card shadow-sm">
                 <CardHeader className="pb-4">
                     <div className="flex items-center gap-2">
                         <Search className="h-5 w-5" />

@@ -31,10 +31,9 @@ const AdminSidebar = ({ sidebarOpen }) => {
     { name: 'Notifications Settings', href: '/admin/settings/notifications', icon: <Bell className="h-5 w-5" /> }
   ];
 
-  return (
-    <aside 
+  return (    <aside 
       className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 transform bg-white shadow-lg transition-transform lg:translate-x-0 lg:static lg:z-0",
+        "fixed inset-y-0 left-0 z-40 w-64 transform admin-sidebar transition-transform lg:translate-x-0 lg:static lg:z-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}
     >
@@ -52,15 +51,14 @@ const AdminSidebar = ({ sidebarOpen }) => {
           const isActive = location.pathname === item.href || 
                           (item.href !== '/admin' && location.pathname.startsWith(item.href));
                           
-          return (
-            <NavLink
+          return (            <NavLink
               key={item.name}
               to={item.href}
               className={cn(
-                "flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                "admin-nav-item flex items-center px-4 py-2 rounded-md text-sm font-medium",
                 isActive 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "active bg-primary text-primary-foreground" 
+                  : "text-gray-700"
               )}
             >
               {item.icon}
@@ -97,15 +95,14 @@ const AdminSidebar = ({ sidebarOpen }) => {
             <div className="pl-4 mt-1 space-y-1">
               {settingsNavigation.map((item) => {
                 const isActive = location.pathname === item.href;
-                return (
-                  <NavLink
+                return (                  <NavLink
                     key={item.name}
                     to={item.href}
                     className={cn(
-                      "flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                      "admin-nav-item flex items-center px-4 py-2 rounded-md text-sm font-medium",
                       isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "active bg-primary text-primary-foreground"
+                        : "text-gray-700"
                     )}
                   >
                     {item.icon}
