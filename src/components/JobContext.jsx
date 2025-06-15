@@ -10,6 +10,7 @@ export const JobProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [lastFetchedPage, setLastFetchedPage] = useState(0);
   const [activeTab, setActiveTab] = useState('all');
+  const [isInitialized, setIsInitialized] = useState(false); // Track initialization
   // Fetch jobs with lazy loading
   const fetchJobs = async (page, status = 'all', forceRefresh = false) => {
     if (loading && !forceRefresh) return; // Prevent multiple simultaneous fetches unless forced
@@ -70,12 +71,17 @@ export const JobProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
-  // Fetch jobs for a specific client using server-side filtering (optimized for client portal)
+  };  // Fetch jobs for a specific client using server-side filtering (optimized for client portal)
   const fetchJobsByClient = async (clientUuid, status = 'all', forceRefresh = false) => {
     if (loading && !forceRefresh) return; // Prevent multiple simultaneous fetches unless forced
     if (!clientUuid) {
       console.error('Client UUID is required for fetchJobsByClient');
+      return;
+    }
+    
+    // Prevent unnecessary refetches for the same data
+    if (isInitialized && !forceRefresh && activeTab === status) {
+      console.log('Skipping duplicate fetch request');
       return;
     }
     
@@ -123,6 +129,7 @@ export const JobProvider = ({ children }) => {
       setJobs(filteredJobs);
       setTotalJobs(filteredJobs.length);
       setLastFetchedPage(1); // Always page 1 for client-specific fetches
+      setIsInitialized(true); // Mark as initialized
       // Only set activeTab if it's different to avoid unnecessary re-renders
       if (activeTab !== status) {
         setActiveTab(status);
@@ -133,7 +140,8 @@ export const JobProvider = ({ children }) => {
       setTotalJobs(0);
     } finally {
       setLoading(false);
-    }  };
+    }
+  };
   // Fetch jobs with role-based filtering
   const fetchJobsByRole = async (userRole, filters = {}, forceRefresh = false) => {
     if (loading && !forceRefresh) return;
@@ -197,7 +205,6 @@ export const JobProvider = ({ children }) => {
     setJobs([]);
     setLastFetchedPage(0);
   };
-
   return (
     <JobContext.Provider value={{ 
       jobs, 
@@ -210,7 +217,8 @@ export const JobProvider = ({ children }) => {
       resetJobs, 
       lastFetchedPage, 
       activeTab, 
-      setActiveTab 
+      setActiveTab,
+      isInitialized
     }}>
       {children}
     </JobContext.Provider>

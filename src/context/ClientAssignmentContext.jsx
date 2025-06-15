@@ -5,6 +5,8 @@ import { API_ENDPOINTS } from '@/lib/apiConfig';
 
 const ClientAssignmentContext = createContext({});
 
+export { ClientAssignmentContext };
+
 export const useClientAssignment = () => {
   const context = useContext(ClientAssignmentContext);
   if (!context) {
@@ -127,8 +129,7 @@ export const ClientAssignmentProvider = ({ children }) => {
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [user?.email, lastValidationTime]); // Added lastValidationTime dependency
-  // Force refresh function for manual validation
+  }, [user?.email, lastValidationTime]); // Added lastValidationTime dependency  // Force refresh function for manual validation
   const forceRefresh = useCallback(() => {
     console.log('🔄 VALIDATION: Manual refresh requested by user');
     // For manual refreshes, we'll always update the timestamp even before the request
@@ -137,12 +138,18 @@ export const ClientAssignmentProvider = ({ children }) => {
     return validateAssignment(true);
   }, [validateAssignment]);
 
+  // Function to get client ID
+  const getClientId = useCallback(() => {
+    return user?.assignedClientUuid || null;
+  }, [user?.assignedClientUuid]);
+
   const value = {
     hasValidAssignment,
     isValidating,
     validateAssignment,
     forceRefresh,
-    lastValidated: lastValidationTime
+    lastValidated: lastValidationTime,
+    getClientId
   };
 
   return (

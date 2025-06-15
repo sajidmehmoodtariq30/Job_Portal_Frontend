@@ -17,7 +17,7 @@ import {
 import axios from 'axios';
 import API_ENDPOINTS from '@/lib/apiConfig';
 
-const NotesTab = ({ jobId, userType = 'admin' }) => {
+const NotesTab = ({ jobId, userType = 'admin', refreshTrigger }) => {
   // State management
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -154,13 +154,19 @@ const NotesTab = ({ jobId, userType = 'admin' }) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
   // Initial fetch
   useEffect(() => {
     if (jobId) {
       fetchNotes();
     }
   }, [jobId]);
+
+  // Refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger && jobId) {
+      fetchNotes();
+    }
+  }, [refreshTrigger, jobId]);
 
   return (
     <>
@@ -254,7 +260,7 @@ const NotesTab = ({ jobId, userType = 'admin' }) => {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">                      <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm">
-                          Admin
+                          {userType === 'admin' ? 'Admin' : 'Client'}
                         </span>
                         <Badge variant="outline" className="text-xs">
                           {userType === 'admin' ? 'Admin' : 'Client'}
