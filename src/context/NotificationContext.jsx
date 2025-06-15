@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { API_URL } from '@/lib/apiConfig';
 
 const NotificationContext = createContext({});
@@ -12,9 +11,7 @@ export const useNotifications = () => {
   return context;
 };
 
-export const NotificationProvider = ({ children }) => {
-  const { toast } = useToast();
-  const [notifications, setNotifications] = useState([]);
+export const NotificationProvider = ({ children }) => {  const [notifications, setNotifications] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isPaused, setIsPaused] = useState(false); // Add pause state// Get user info from localStorage
   const getUserInfo = () => {
@@ -23,123 +20,136 @@ export const NotificationProvider = ({ children }) => {
       const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
       const adminToken = localStorage.getItem('admin_token');
       
-      return {
+      console.log('🔍 getUserInfo - userInfo:', userInfo);
+      console.log('🔍 getUserInfo - userData:', userData);  
+      console.log('🔍 getUserInfo - adminToken:', !!adminToken);
+      
+      const result = {
         ...userInfo,
         ...userData,
         isAdmin: userInfo.role === 'Administrator' || userInfo.role === 'admin' || !!adminToken,
         isClient: !!userData.uuid && !adminToken,
         clientId: userData.assignedClientUuid || userData.clientUuid || userData.uuid
       };
+      
+      console.log('🔍 getUserInfo - final result:', result);
+      return result;
     } catch (error) {
       console.error('Error parsing user info:', error);
       return {};
     }
-  };
-
-  // Show notification toast
+  };  // Show notification toast
   const showNotification = useCallback((notification) => {
-    const { type, title, message, data } = notification;
+    console.log('🔔 showNotification called with:', notification);
     
-    // Map business workflow types to toast variants
-    const getToastVariant = (type) => {
-      switch (type) {
-        case 'job_created':
-        case 'quote_accepted':
-          return 'success';
-        case 'job_status_update':
-          return 'default';
-        case 'quote_declined':
-          return 'destructive';
-        case 'note_added':
-        case 'attachment_added':
-          return 'default';
-        default:
-          return 'default';
-      }
-    };
+    try {
+      const { type, title, message, data } = notification;
+      console.log('🔔 Processing notification, type:', type, 'title:', title, 'message:', message);
+      
+      // Add to notifications list
+      const newNotification = {
+        id: notification.id || Date.now(),
+        type,
+        title: title || 'Notification',
+        message: message || 'You have a new notification',
+        data,
+        timestamp: notification.timestamp || new Date(),
+        read: false
+      };
 
-    // Format title based on type
-    const getTitle = (type, data) => {
-      switch (type) {
-        case 'job_created':
-          return '🔧 New Job Created';
-        case 'job_status_update':
-          return '📋 Job Status Updated';
-        case 'quote_accepted':
-          return '✅ Quote Accepted';
-        case 'quote_declined':
-          return '❌ Quote Declined';
-        case 'note_added':
-          return '📝 Note Added';
-        case 'attachment_added':
-          return '📎 Attachment Added';
-        default:
-          return title || 'Notification';
-      }
-    };
-
-    // Format description based on type
-    const getDescription = (type, message, data) => {
-      switch (type) {
-        case 'job_created':
-          return `Job "${data?.jobDescription || 'New Job'}" has been created${data?.client ? ` for ${data.client}` : ''}`;
-        case 'job_status_update':
-          return `Job status changed from "${data?.oldStatus || 'Unknown'}" to "${data?.newStatus || 'Unknown'}"`;
-        case 'quote_accepted':
-          return `Quote for "${data?.jobDescription || 'job'}" has been accepted${data?.amount ? ` ($${data.amount})` : ''}`;
-        case 'quote_declined':
-          return `Quote for "${data?.jobDescription || 'job'}" has been declined`;
-        case 'note_added':
-          return `New note added to job "${data?.jobDescription || 'job'}"`;
-        case 'attachment_added':
-          return `New attachment added to job "${data?.jobDescription || 'job'}"`;
-        default:
-          return message || 'You have a new notification';
-      }
-    };
-
-    toast({
-      title: getTitle(type, data),
-      description: getDescription(type, message, data),
-      variant: getToastVariant(type),
-      duration: 5000
-    });
-
-    // Add to notifications list
-    const newNotification = {
-      id: Date.now(),
-      type,
-      title: getTitle(type, data),
-      message: getDescription(type, message, data),
-      data,
-      timestamp: new Date(),
-      read: false
-    };
-
-    setNotifications(prev => [newNotification, ...prev.slice(0, 49)]); // Keep last 50 notifications
-  }, [toast]);  // Listen for real-time notifications via WebSocket or EventSource  useEffect(() => {  // Listen for real-time notifications via WebSocket or EventSource
+      console.log('📝 Adding notification to list:', newNotification);
+      setNotifications(prev => {
+        // Check if this notification already exists to prevent duplicates
+        const exists = prev.some(n => n.id === newNotification.id);
+        if (exists) {
+          console.log('� Notification already exists, skipping:', newNotification.id);
+          return prev;
+        }
+        
+        const updated = [newNotification, ...prev.slice(0, 49)];
+        console.log('📝 Updated notifications list length:', updated.length);
+        console.log('📝 Updated notifications list:', updated);
+        console.log('🔔 Bell icon should now show:', updated.length, 'notifications');
+        return updated;
+      });
+    } catch (error) {
+      console.error('🚨 Error in showNotification:', error);
+    }
+  }, []);  // Listen for real-time notifications via WebSocket or EventSource
   useEffect(() => {
     const userInfo = getUserInfo();
-    if (!userInfo.clientId && !userInfo.uuid && !userInfo.id && !userInfo.isAdmin) return;    // For now, we'll use polling. In production, you'd use WebSocket or Server-Sent Events
+    if (!userInfo.clientId && !userInfo.uuid && !userInfo.id && !userInfo.isAdmin) return;
+
+    // For now, we'll use polling. In production, you'd use WebSocket or Server-Sent Events
     const pollNotifications = async () => {
       try {
         const userId = userInfo.isAdmin ? 'admin' : (userInfo.clientId || userInfo.uuid || 'default');
         const userType = userInfo.isAdmin ? 'admin' : 'client';
-        const response = await fetch(`${API_URL}/api/notifications/poll?userId=${userId}&userType=${userType}`);
+        
+        console.log('🔄 Polling notifications:', { userId, userType, isAdmin: userInfo.isAdmin });
+        const url = `${API_URL}/api/notifications/poll?userId=${userId}&userType=${userType}`;
+        console.log('📡 Polling URL:', url);
+        
+        const response = await fetch(url);
+        console.log('📡 Poll response status:', response.status);
+        console.log('📡 Poll response headers:', response.headers);
+        
         if (response.ok) {
-          const newNotifications = await response.json();
+          const responseText = await response.text();
+          console.log('📬 Raw response text:', responseText);
+          
+          let newNotifications;
+          try {
+            newNotifications = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('📬 Error parsing response:', parseError);
+            return;
+          }
+          
+          console.log('📬 Parsed notifications:', newNotifications);
           if (Array.isArray(newNotifications)) {
-            newNotifications.forEach(notification => {
-              showNotification(notification);
+            console.log(`📬 Processing ${newNotifications.length} notifications`);
+            
+            // Show all notifications from backend - they should persist until manually cleared
+            // Only filter out notifications that are already in our local state
+            setNotifications(prevNotifications => {
+              const unseenNotifications = newNotifications.filter(newNotif => {
+                const notifId = newNotif.id || `${newNotif.type}_${newNotif.timestamp}`;
+                return !prevNotifications.some(existingNotif => existingNotif.id === notifId);
+              });
+              
+              console.log(`📬 Found ${unseenNotifications.length} new unseen notifications`);
+              
+              if (unseenNotifications.length > 0) {
+                const notificationsToAdd = unseenNotifications.map(notification => ({
+                  id: notification.id || `${notification.type}_${notification.timestamp}`,
+                  type: notification.type,
+                  title: notification.title || 'Notification',
+                  message: notification.message || 'You have a new notification',
+                  data: notification.data,
+                  timestamp: notification.timestamp || new Date(),
+                  read: false
+                }));
+                
+                console.log('📬 Adding notifications to state:', notificationsToAdd);
+                return [...notificationsToAdd, ...prevNotifications.slice(0, 50 - notificationsToAdd.length)];
+              }
+              
+              return prevNotifications;
             });
+          } else {
+            console.warn('📬 Received non-array response:', newNotifications);
           }
         } else {
-          console.warn('Notification polling failed:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.warn('Notification polling failed:', response.status, response.statusText, errorText);
         }
       } catch (error) {
         console.error('Error polling notifications:', error);
       }
-    };    // Poll every 30 seconds for better performance (reduced from 5 seconds)
+    };
+
+    // Poll every 30 seconds instead of 5 for debugging
     const interval = setInterval(() => {
       if (!isPaused) {
         pollNotifications();
@@ -154,7 +164,7 @@ export const NotificationProvider = ({ children }) => {
       clearInterval(interval);
       setIsConnected(false);
     };
-  }, [showNotification]);
+  }, []);
 
   // Manual notification trigger (for testing or manual events)
   const triggerNotification = useCallback((type, message, data = {}) => {
@@ -170,9 +180,26 @@ export const NotificationProvider = ({ children }) => {
           : notification
       )
     );
-  }, []);
-  // Clear all notifications
-  const clearAll = useCallback(() => {
+  }, []);  // Clear all notifications
+  const clearAll = useCallback(async () => {
+    try {
+      const userInfo = getUserInfo();
+      const userId = userInfo.isAdmin ? 'admin' : (userInfo.clientId || userInfo.uuid || 'default');
+      const userType = userInfo.isAdmin ? 'admin' : 'client';
+      
+      // Clear backend notifications
+      const response = await fetch(`${API_URL}/api/notifications/clear?userId=${userId}&userType=${userType}`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        console.log('✅ Backend notifications cleared');
+      } else {
+        console.warn('⚠️ Failed to clear backend notifications');
+      }
+    } catch (error) {
+      console.error('Error clearing backend notifications:', error);
+    }    // Clear frontend notifications
     setNotifications([]);
   }, []);
 
@@ -183,9 +210,7 @@ export const NotificationProvider = ({ children }) => {
 
   const resumePolling = useCallback(() => {
     setIsPaused(false);
-  }, []);
-
-  // Get unread count
+  }, []);  // Get unread count
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const value = {

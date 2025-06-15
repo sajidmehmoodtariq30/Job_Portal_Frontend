@@ -31,9 +31,19 @@ import {
   SelectValue,
 } from "@/components/UI/select"
 import { Label } from "@/components/UI/label"
-import { FileText, MessageSquare, StickyNote } from 'lucide-react'
+import { FileText, MessageSquare, StickyNote, Bell, CheckCircle, Calendar } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/UI/dropdown-menu"
 import AdminChatRoom from "@/components/UI/admin/AdminChatRoom"
 import NotesTab from "@/components/UI/NotesTab"
+import NotificationDebugger from "@/components/NotificationDebugger"
+import { useNotifications } from '@/context/NotificationContext'
 import { 
   PieChart, 
   Pie, 
@@ -49,7 +59,6 @@ import {
 import { Skeleton } from "@/components/UI/skeleton"
 import { API_ENDPOINTS } from '@/lib/apiConfig'
 import { format, subDays } from 'date-fns'
-import { useNotifications } from '@/context/NotificationContext'
 
 // Default color scheme for charts
 const COLORS = {
@@ -61,7 +70,7 @@ const COLORS = {
 
 const AdminHome = () => {
   const navigate = useNavigate()
-  const { notifications, unreadCount, markAsRead, clearAll, isConnected } = useNotifications()
+  const { notifications, unreadCount, markAsRead, clearAll, isConnected, triggerNotification } = useNotifications()
   const [activeTab, setActiveTab] = useState("overview")
     // State management for real data
   const [loading, setLoading] = useState(true)
@@ -366,13 +375,76 @@ const AdminHome = () => {
     }
   };
 
-  return (
-    <div className="space-y-6">
+  return (    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Button onClick={handleRefresh} disabled={loading}>
-          {loading ? 'Refreshing...' : 'Refresh Data'}
-        </Button>
+        <h1 className="text-3xl font-bold">Dashboard</h1>        <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="relative">
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel className="flex justify-between items-center">
+                <span>Notifications</span>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => notifications.forEach(n => !n.read && markAsRead(n.id))}>
+                    Mark all read
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={clearAll}>
+                    Clear all
+                  </Button>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifications.length > 0 ? (
+                notifications.slice(0, 5).map(notification => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className={`p-3 ${!notification.read ? 'bg-muted/50' : ''}`}
+                    onClick={() => !notification.read && markAsRead(notification.id)}
+                  >
+                    <div className="flex gap-3 items-start">
+                      {notification.type?.includes('job') && <CheckCircle className="text-green-500" size={20} />}
+                      {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
+                      {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
+                      {notification.type?.includes('chat') && <MessageSquare className="text-blue-500" size={20} />}
+                      {notification.type?.includes('quote') && <FileText className="text-orange-500" size={20} />}
+                      <div>
+                        <p className="font-medium text-sm">{notification.title || notification.message}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(notification.timestamp).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                ))
+              ) : (
+                <DropdownMenuItem disabled>
+                  <div className="text-center py-4 text-muted-foreground">
+                    No notifications yet
+                  </div>
+                </DropdownMenuItem>
+              )}
+              {notifications.length > 5 && (
+                <DropdownMenuSeparator />
+              )}
+              {notifications.length > 5 && (
+                <DropdownMenuItem className="text-center text-blue-600 hover:text-blue-700">
+                  View all notifications
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={handleRefresh} disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+        </div>
       </div>
       
       <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>
@@ -380,7 +452,6 @@ const AdminHome = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications {unreadCount > 0 && `(${unreadCount})`}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4">
@@ -548,92 +619,11 @@ const AdminHome = () => {
               <div className="flex justify-between items-center">
                 <p className="text-lg">Manage your clients and their access</p>
                 <Button onClick={() => navigate('/admin/clients')}>View Clients</Button>
-              </div>
-            </CardContent>
+              </div>            </CardContent>
           </Card>
-        </TabsContent>
-          <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  Notifications
-                  {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                      {unreadCount}
-                    </span>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  Real-time notifications from the system
-                  {isConnected && (
-                    <span className="ml-2 text-green-600">● Connected</span>
-                  )}
-                </CardDescription>
-              </div>
-              {notifications.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearAll}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  Clear All
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              {notifications.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="mb-4">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 1 0-15 0v5h5l-5 5-5-5h5V7a9.5 9.5 0 1 1 19 0v10z" />
-                    </svg>
-                  </div>
-                  <p className="text-lg font-medium">No notifications yet</p>
-                  <p className="text-sm">You'll see notifications here when system events occur</p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-4 rounded-lg border transition-colors ${
-                        notification.read 
-                          ? 'bg-gray-50 border-gray-200' 
-                          : 'bg-blue-50 border-blue-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-sm">{notification.title}</h4>
-                            {!notification.read && (
-                              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
-                          <p className="text-xs text-gray-400">
-                            {new Date(notification.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                        {!notification.read && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => markAsRead(notification.id)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            Mark as read
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          
+          {/* Debug Tools */}
+          <NotificationDebugger />
         </TabsContent>
       </Tabs>
 

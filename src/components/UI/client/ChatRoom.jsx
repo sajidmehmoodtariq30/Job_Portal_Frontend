@@ -215,9 +215,8 @@ const ChatRoom = ({ jobId }) => {
                   
                   {/* Client messages on right, admin messages on left */}
                   <div className={`flex ${isClient ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`flex max-w-[80%] ${isClient ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
-                      <Avatar className={`h-8 w-8 ${isClient ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}`}>
-                        <span className="text-xs">
+                    <div className={`flex max-w-[80%] ${isClient ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>                      <Avatar className={`h-8 w-8 flex items-center justify-center ${isClient ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}`}>
+                        <span className="text-xs font-semibold">
                           {isClient ? 'C' : 'A'}
                         </span>
                       </Avatar>

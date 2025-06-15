@@ -215,9 +215,8 @@ const AdminChatRoom = ({ jobId }) => {
                   
                   {/* Admin messages on left, client messages on right */}
                   <div className={`flex ${isClient ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`flex max-w-[80%] ${isClient ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
-                      <Avatar className={`h-8 w-8 ${isAdmin ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'}`}>
-                        <span className="text-xs">
+                    <div className={`flex max-w-[80%] ${isClient ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>                      <Avatar className={`h-8 w-8 flex items-center justify-center ${isAdmin ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'}`}>
+                        <span className="text-xs font-semibold">
                           {isAdmin ? 'A' : 'C'}
                         </span>
                       </Avatar>

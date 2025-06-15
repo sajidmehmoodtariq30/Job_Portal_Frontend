@@ -47,13 +47,24 @@ const NotificationTester = () => {
         jobDescription: 'Network Setup',
         clientUuid: 'client-124'
       }
-    },
-    {
+    },    {
       type: 'note_added',
       message: 'New note added to job',
       data: {
         jobId: 'test-job-123',
         jobDescription: 'Security System Installation',
+        clientUuid: 'client-123'
+      }
+    },
+    {
+      type: 'chat_message',
+      message: 'New chat message received',
+      data: {
+        jobId: 'test-job-123',
+        jobDescription: 'Security System Installation',
+        sender: 'John Doe',
+        senderType: 'client',
+        messagePreview: 'When will the technician arrive?',
         clientUuid: 'client-123'
       }
     },

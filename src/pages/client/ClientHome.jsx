@@ -67,7 +67,7 @@ import { useClientAssignment } from '@/context/ClientAssignmentContext';
 
 const ClientHome = () => {
   const navigate = useNavigate();
-  const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
+  const { notifications: contextNotifications, unreadCount, clearAll, markAsRead, triggerNotification } = useNotifications();
   const { } = useSession();
   const { hasValidAssignment } = useClientAssignment();
 
@@ -450,8 +450,7 @@ const ClientHome = () => {
               ) : (
                 <SelectItem value="empty" disabled>No sites available</SelectItem>
               )}
-            </SelectContent>
-          </Select>
+            </SelectContent>          </Select>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -487,6 +486,8 @@ const ClientHome = () => {
                       {notification.type?.includes('job') && <CheckCircle className="text-green-500" size={20} />}
                       {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
                       {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
+                      {notification.type?.includes('chat') && <MessageSquare className="text-blue-500" size={20} />}
+                      {notification.type?.includes('quote') && <FileText className="text-orange-500" size={20} />}
                       {notification.type?.includes('service') && <Calendar className="text-purple-500" size={20} />}
                       <div>
                         <p className="font-medium text-sm">{notification.title || notification.message}</p>

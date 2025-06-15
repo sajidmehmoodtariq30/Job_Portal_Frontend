@@ -45,7 +45,8 @@ const ClientJobs = () => {
   const [newJobFile, setNewJobFile] = useState(null);  const [detailsJobFile, setDetailsJobFile] = useState(null);
   const [uploadError, setUploadError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);const { toast } = useToast();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);const { toast } = useToast();
   const { getClientId, hasValidAssignment } = useClientAssignment();
 
   const [newJob, setNewJob] = useState({
@@ -223,10 +224,11 @@ const ClientJobs = () => {
         job.uuid === selectedJob.uuid 
           ? { ...job, attachments: [...(job.attachments || []), data.data] }
           : job
-      ));
-
-      // Trigger refresh
+      ));      // Trigger refresh
       setRefreshTrigger(prev => prev + 1);
+
+      // Refresh attachments to ensure we have the latest data
+      await fetchAttachments(selectedJob.uuid);
 
       toast({ title: 'Success', description: 'File uploaded successfully' });
       
@@ -255,22 +257,21 @@ const ClientJobs = () => {
         }
       );
 
-      if (!response.ok) throw new Error('Failed to delete attachment');
-
-      // Update selected job
+      if (!response.ok) throw new Error('Failed to delete attachment');      // Update selected job
       setSelectedJob(prev => ({
         ...prev,
-        attachments: prev.attachments.filter(att => att._id !== attachmentId)      }));
+        attachments: prev.attachments.filter(att => (att.id || att._id) !== attachmentId)      }));
 
       // Update jobs list
       setJobs(prev => prev.map(job => 
         job.uuid === selectedJob.uuid 
-          ? { ...job, attachments: job.attachments.filter(att => att._id !== attachmentId) }
+          ? { ...job, attachments: job.attachments.filter(att => (att.id || att._id) !== attachmentId) }
           : job
-      ));
-
-      // Trigger refresh
+      ));// Trigger refresh
       setRefreshTrigger(prev => prev + 1);
+
+      // Refresh attachments to ensure we have the latest data
+      await fetchAttachments(selectedJob.uuid);
 
       toast({ title: 'Success', description: 'Attachment deleted successfully' });
     } catch (error) {
@@ -303,18 +304,52 @@ const ClientJobs = () => {
             job.uuid === jobId ? refreshedJob : job
           ));
         }
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Error refreshing job data:', error);
     }
   };
+
+  // Fetch attachments for selected job
+  const fetchAttachments = async (jobId) => {
+    if (!jobId) return;
+
+    try {
+      setAttachmentsLoading(true);
+      const clientId = getClientId();
+      const response = await fetch(`${API_URL}/api/attachments/job/${jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'x-client-uuid': clientId
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          // Update the selected job with attachments
+          setSelectedJob(prev => prev ? { ...prev, attachments: result.data } : null);
+          
+          // Also update the job in the jobs list
+          setJobs(prev => prev.map(job => 
+            job.uuid === jobId ? { ...job, attachments: result.data } : job
+          ));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+    } finally {
+      setAttachmentsLoading(false);
+    }  };
+
   // Function to handle opening job details dialog
   const handleViewJobDetails = async (job) => {
     setSelectedJob(job);
     setIsJobDetailsDialogOpen(true);
     // Trigger refresh for notes and attachments
     setRefreshTrigger(prev => prev + 1);
-    // Refresh job data to ensure attachments and notes are current
+    // Fetch attachments for this specific job
+    await fetchAttachments(job.uuid);
+    // Refresh job data to ensure other data is current
     await refreshJobData(job.uuid);
   };
 
@@ -765,33 +800,37 @@ const ClientJobs = () => {
                     <div className="text-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
                       <p className="text-sm text-gray-600">Uploading...</p>
+                    </div>                  )}
+
+                  {attachmentsLoading && (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-600">Loading attachments...</p>
                     </div>
                   )}
 
-                  {selectedJob.attachments?.length > 0 && (
+                  {!attachmentsLoading && selectedJob.attachments?.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium text-gray-900">Uploaded Files</h4>
                       <ScrollArea className="max-h-60">
-                        <div className="space-y-2">
-                          {selectedJob.attachments.map((attachment) => (
+                        <div className="space-y-2">                          {selectedJob.attachments.map((attachment) => (
                             <div
-                              key={attachment._id}
+                              key={attachment.id || attachment._id}
                               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                             >
                               <div className="flex items-center gap-3">
                                 <FileIcon className="h-5 w-5 text-gray-500" />                                <div>
                                   <p className="text-sm font-medium text-gray-900">
-                                    {attachment.originalName || attachment.filename || 'Unknown file'}
+                                    {attachment.fileName || attachment.originalName || attachment.filename || 'Unknown file'}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    {attachment.size ? `${Math.round(attachment.size / 1024)}KB` : 'File size unknown'}
+                                    {attachment.fileSize ? `${Math.round(attachment.fileSize / 1024)}KB` : attachment.size ? `${Math.round(attachment.size / 1024)}KB` : 'File size unknown'}
                                   </p>
                                 </div>
-                              </div>
-                              <Button
+                              </div>                              <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDeleteAttachment(attachment._id)}
+                                onClick={() => handleDeleteAttachment(attachment.id || attachment._id)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
                                 <Trash2Icon className="h-4 w-4" />
@@ -799,7 +838,14 @@ const ClientJobs = () => {
                             </div>
                           ))}
                         </div>
-                      </ScrollArea>
+                      </ScrollArea>                    </div>
+                  )}
+
+                  {!attachmentsLoading && (!selectedJob.attachments || selectedJob.attachments.length === 0) && (
+                    <div className="text-center py-8">
+                      <FileIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No attachments uploaded yet</p>
+                      <p className="text-sm text-gray-400 mt-2">Upload files using the form above</p>
                     </div>
                   )}
                 </TabsContent>
