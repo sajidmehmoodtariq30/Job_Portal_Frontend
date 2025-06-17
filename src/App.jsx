@@ -32,7 +32,6 @@ import ClientProfile from '@/pages/client/ClientProfile';
 import AdminSettings from '@/pages/admin/AdminSettings';
 import NotificationsSettings from '@/pages/admin/settings/NotificationsSettings';
 import ApiPlugin from '@/pages/admin/ApiPlugin';
-import AdminQuotes from '@/pages/admin/AdminQuotes';
 import { JobProvider } from './components/JobContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { SessionProvider } from './context/SessionContext';
@@ -69,13 +68,11 @@ function App() {
                 <AdminProtectedRoute>
                   <AdminLayout />
                 </AdminProtectedRoute>
-              }>
-                <Route index element={<AdminHome />} />
+              }>                <Route index element={<AdminHome />} />
                 <Route path="users" element={<AdminUser />} />
                 <Route path="jobs" element={<AdminJobs />} />
                 <Route path="jobs/:jobId" element={<AdminJobDetails />} />
                 <Route path="categories" element={<AdminCategories />} />
-                <Route path="quotes" element={<AdminQuotes />} />
                 <Route path="clients" element={<AdminClients />} />
                 <Route path="clients/:clientId" element={<AdminClientDetails />} />
                 <Route path="api-plugin" element={<ApiPlugin />} />
