@@ -59,11 +59,11 @@ export const API_ENDPOINTS = {  AUTH: {
     RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`),
     GET_CLIENT_NAME: (uuid) => buildApiEndpoint(`api/users/client-name/${uuid}`), // Add client name endpoint
     GET_CLIENT_SITES: (id) => buildApiEndpoint(`api/users/${id}/client-sites`) // Add client sites endpoint
-  },
-  SITES: {
+  },  SITES: {
     // READ-ONLY ENDPOINTS (ServiceM8 site data)
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // Admin view - all sites
+    GET_FROM_JOBS: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/from-jobs`), // Extract sites from jobs
     GET_DEFAULT: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/default`),
     SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`), // Keep for dropdown functionality
     

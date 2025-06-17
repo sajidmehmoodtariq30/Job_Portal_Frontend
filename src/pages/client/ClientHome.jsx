@@ -30,13 +30,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/UI/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/UI/select";
 import { Badge } from "@/components/UI/badge";
 import { Progress } from "@/components/UI/progress";
 import { Skeleton } from "@/components/UI/skeleton";
@@ -57,10 +50,9 @@ import {
   Area
 } from 'recharts';
 import axios from 'axios';
-import { API_URL } from '@/lib/apiConfig';
+import { API_URL, API_ENDPOINTS } from '@/lib/apiConfig';
 import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
 import { useSites } from '@/hooks/useSites';
-import { useAllSites } from '@/hooks/useAllSites';
 import { useNotifications } from '@/context/NotificationContext';
 import { useSession } from '@/context/SessionContext';
 import { useClientAssignment } from '@/context/ClientAssignmentContext';
@@ -69,8 +61,7 @@ const ClientHome = () => {
   const navigate = useNavigate();
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead, triggerNotification } = useNotifications();
   const { } = useSession();
-  const { hasValidAssignment } = useClientAssignment();
-  // State variables
+  const { hasValidAssignment } = useClientAssignment();  // State variables
   const [dashboardData, setDashboardData] = useState({
     stats: {},
     jobs: [],
@@ -83,7 +74,8 @@ const ClientHome = () => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
-  const [clientName, setClientName] = useState('');
+  const [clientName, setClientName] = useState('');  
+  // Sites dropdown removed - not needed for dashboard
 
   // Get client data from localStorage
   const getClientData = () => {
@@ -124,27 +116,10 @@ const ClientHome = () => {
           </Button>
         </div>
       </div>
-    );
-  }
-
-  // Use the global sites hook to show all sites in dropdown
-  const {
-    sites: allSites,
-    loading: sitesLoading,
-    error: sitesError,
-    fetchAllSites
-  } = useAllSites();
-
-  // Keep track of current site selection
-  const [currentSite, setCurrentSite] = useState(null);
-
-  // Change site function
-  const changeSite = (site) => {
-    setCurrentSite(site);
-  };
-
-  // Use all sites for the dropdown
-  const sites = allSites;
+    );  }
+  
+  // Site dropdown and related functions removed - not needed for dashboard
+  
   // Debugging - check what client ID we have
   useEffect(() => {
     console.log('🏠 DASHBOARD: Current clientData:', clientData);
@@ -320,8 +295,7 @@ const ClientHome = () => {
       setLoading(false);
       setDataRefreshing(false);
     }
-  }, [clientId, hasValidAssignment]);
-  // Initial data loading
+  }, [clientId, hasValidAssignment]);  // Initial data loading
   useEffect(() => {
     // Only fetch data if we have a valid client assignment
     if (hasValidAssignment && clientId) {
@@ -337,32 +311,24 @@ const ClientHome = () => {
       
       return () => clearInterval(intervalId);
     }
-  }, [fetchDashboardData, hasValidAssignment, clientId]);
-
-  // Add visibility change listener to refresh sites when user navigates back to dashboard
+  }, [fetchDashboardData, hasValidAssignment, clientId]);  // Add visibility change listener to refresh data when user navigates back to dashboard
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // Page is now visible, refresh sites data
-        fetchAllSites();
+        // Page is now visible, refresh dashboard data
+        fetchDashboardData(true);
       }
     };
 
     const handleFocus = () => {
-      // Window regained focus, refresh sites data
-      fetchAllSites();
-    };
-
-    // Add event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
+      // Window regained focus, refresh dashboard data
+      fetchDashboardData(true);
+    };return () => {
       // Cleanup event listeners
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [fetchAllSites]);
+  }, []);
 
   // Handle manual refresh
   const handleRefresh = () => {
@@ -405,45 +371,7 @@ const ClientHome = () => {
               </span>
             )}
           </p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Select
-            value={currentSite?.id || ''}
-            onValueChange={(siteId) => {
-              const selectedSite = sites.find(site => site.id === siteId);
-              if (selectedSite) changeSite(selectedSite);
-            }}
-            disabled={sitesLoading}
-          >
-            <SelectTrigger className="w-[180px]">
-              <Building size={16} className="mr-2" />
-              <SelectValue placeholder={sitesLoading ? "Loading sites..." : "Select site"} />
-            </SelectTrigger>
-            <SelectContent>
-              {sitesLoading ? (
-                <SelectItem value="loading" disabled>Loading sites...</SelectItem>
-              ) : sites.length > 0 ? (
-                sites.map(site => (
-                  <SelectItem key={site.id} value={site.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{site.name}</span>
-                      {site.clientId && site.clientId !== clientId && (
-                        <Badge variant="outline" className="text-xs">
-                          Other Client
-                        </Badge>
-                      )}
-                      {site.isDefault && (
-                        <Badge variant="secondary" className="text-xs">Default</Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value="empty" disabled>No sites available</SelectItem>
-              )}
-            </SelectContent>          </Select>
-
+        </div>        <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="relative">

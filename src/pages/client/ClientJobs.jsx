@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from '../../components/UI/alert';
 import { useToast } from '../../hooks/use-toast';
 import { useClientAssignment } from '../../context/ClientAssignmentContext';
 import ClientAssignmentGuard from '../../components/ClientAssignmentGuard';
-import { API_URL } from '../../lib/apiConfig';
+import { API_URL, API_ENDPOINTS } from '../../lib/apiConfig';
 import ChatRoom from '../../components/UI/client/ChatRoom';
 import NotesTab from '../../components/UI/NotesTab';
 import { 
@@ -88,18 +88,28 @@ const { toast } = useToast();
     location_uuid: '',
     category_uuid: '',
     status: 'Quote' // Default status
-  });
-  useEffect(() => {
+  });  useEffect(() => {
     console.log('🔄 ClientJobs useEffect - hasValidAssignment:', hasValidAssignment);
-    if (hasValidAssignment) {      console.log('✅ Client assignment is valid, fetching data...');
+    if (hasValidAssignment) {
+      console.log('✅ Client assignment is valid, fetching data...');
       fetchJobs();
       fetchCategories();
       fetchLocations();
-      fetchSites();
+      fetchSites(); // Now using backend endpoint, so we can fetch immediately
     } else {
       console.log('⏳ Waiting for valid client assignment...');
     }
-  }, [hasValidAssignment]);  // Filter jobs based on search term and status filter
+  }, [hasValidAssignment]);
+
+  // Debug sites state changes
+  useEffect(() => {
+    console.log('🏢 Sites state changed:', sites.length, 'sites available');
+    if (sites.length > 0) {
+      console.log('📍 First site:', sites[0]);
+    }
+  }, [sites]);
+
+  // Filter jobs based on search term and status filter
   useEffect(() => {
     if (!Array.isArray(jobs)) {
       setFilteredJobs([]);
@@ -212,25 +222,28 @@ const { toast } = useToast();
   };  const fetchSites = async () => {
     try {
       const clientId = getClientId();
-      console.log('🔍 Fetching sites - Client ID:', clientId);
+      console.log('🔍 Fetching sites from jobs - Client ID:', clientId);
       
       if (!clientId) {
         console.error('No client ID available for fetching sites');
         return;
       }
       
-      const response = await fetch(`${API_URL}/api/clients/${clientId}/sites`, {
+      const response = await fetch(API_ENDPOINTS.SITES.GET_FROM_JOBS(clientId), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'x-client-uuid': clientId
         }
       });
-
-      if (!response.ok) throw new Error('Failed to fetch sites');
+      
+      if (!response.ok) throw new Error('Failed to fetch sites from jobs');
       const data = await response.json();
-      setSites(data || []);
+      console.log('🏢 Sites extracted from jobs:', data);
+      
+      setSites(data.sites || []);
+      console.log('🏢 Sites state updated:', data.sites || []);
     } catch (error) {
-      console.error('Failed to fetch sites:', error);
+      console.error('Failed to fetch sites from jobs:', error);
       setSites([]); // Ensure sites is always an array
     }
   };
@@ -296,7 +309,6 @@ const { toast } = useToast();
       type: type
     });
   };
-
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
     
@@ -304,20 +316,45 @@ const { toast } = useToast();
       const clientId = getClientId();
       const formData = new FormData();
       
+      // Find the selected site to get its address
+      let selectedSite = null;
+      if (newRequest.site_uuid) {
+        selectedSite = sites.find(site => site.uuid === newRequest.site_uuid || site.id === newRequest.site_uuid);
+      }
+      
       // Add request data based on type
       if (requestType === 'order') {
         formData.append('type', 'order');
         formData.append('description', newRequest.basic_description);
+        // Add site address if available
+        if (selectedSite?.address) {
+          formData.append('job_address', selectedSite.address);
+          formData.append('location_address', selectedSite.address);
+        }
       } else {
-        // For quote and job
+        // For quote and job - send all data but convert site_uuid to address
         Object.keys(newRequest).forEach(key => {
-          if (newRequest[key]) {
+          if (newRequest[key] && key !== 'site_uuid') { // Skip site_uuid
             formData.append(key, newRequest[key]);
           }
-        });      }
-      
-      formData.append('clientId', clientId);
+        });
+        
+        // Add site address information instead of site_uuid
+        if (selectedSite) {
+          formData.append('job_address', selectedSite.address || selectedSite.name);
+          formData.append('location_address', selectedSite.address || selectedSite.name);
+          // Also add site name for reference
+          formData.append('site_name', selectedSite.name);
+        }
+      }
+        formData.append('clientId', clientId);
       formData.append('userId', clientId); // Add userId for backend compatibility
+      
+      // Debug: Log site information being sent
+      if (selectedSite) {
+        console.log('🏢 Selected site for job request:', selectedSite);
+        console.log('📍 Site address being sent:', selectedSite.address || selectedSite.name);
+      }
       
       // Add file if selected
       if (newJobFile) {
@@ -381,12 +418,15 @@ const { toast } = useToast();
     });
     setNewJobFile(null);
     setSiteSearchTerm('');
-  };
-  // Filter sites based on search term
+  };  // Filter sites based on search term
   const filteredSites = (Array.isArray(sites) ? sites : []).filter(site => 
     site.name?.toLowerCase().includes(siteSearchTerm.toLowerCase()) ||
     site.address?.toLowerCase().includes(siteSearchTerm.toLowerCase())
   );
+  
+  // Debug logging for sites
+  console.log('🏢 Sites state:', sites);
+  console.log('🔍 Filtered sites:', filteredSites);
 
   const handleNewJobFileChange = (e) => {
     const file = e.target.files[0];
@@ -792,11 +832,13 @@ const { toast } = useToast();
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select site" />
-                          </SelectTrigger>
-                          <SelectContent>
+                          </SelectTrigger>                          <SelectContent>
                             {filteredSites.map((site, index) => (
-                              <SelectItem key={site._id || site.uuid || `site-${index}`} value={site.uuid || site._id}>
-                                {site.name} - {site.address}
+                              <SelectItem key={site.uuid || site._id || `site-${index}`} value={site.uuid || site._id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{site.name}</span>
+                                  {site.address && <span className="text-sm text-gray-500">{site.address}</span>}
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
