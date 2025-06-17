@@ -216,8 +216,7 @@ const { toast } = useToast();
         return;
       }
       
-      // Use ServiceM8 API endpoint to fetch customer locations/sites
-      const response = await fetch(`${API_URL}/fetch/customer/${clientId}/locations.json`, {
+      const response = await fetch(`${API_URL}/api/clients/${clientId}/sites`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'x-client-uuid': clientId
@@ -226,9 +225,7 @@ const { toast } = useToast();
 
       if (!response.ok) throw new Error('Failed to fetch sites');
       const data = await response.json();
-      
-      // ServiceM8 locations response structure
-      setSites(data.data || data || []);
+      setSites(data.sites || []);
     } catch (error) {
       console.error('Failed to fetch sites:', error);
       setSites([]); // Ensure sites is always an array
