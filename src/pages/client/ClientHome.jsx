@@ -913,13 +913,11 @@ const ClientHome = () => {
                   <Skeleton className="h-4 w-28 mx-auto" />
                   <Skeleton className="h-3 w-40 mx-auto" />
                 </div>
-              ) : (
-                <div className="text-center">
+              ) : (                <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                     <Building className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="font-medium text-lg">{clientName}</h3>
-                  <p className="text-sm text-muted-foreground">Client ID: {clientId?.substring(0, 8)}...</p>
                 </div>
               )}
             </CardContent>

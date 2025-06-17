@@ -106,15 +106,9 @@ const SiteManagement = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">        
           <div>
-            <h1 className="text-3xl font-bold">Site Management</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-3xl font-bold">Site Management</h1>            <p className="text-muted-foreground mt-1">
               View your business locations and sites ({totalSites} total)
             </p>
-            {clientUuid && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Showing sites for client: {clientUuid}
-              </p>
-            )}
           </div>
         
           <div className="flex items-center gap-4">
@@ -201,11 +195,10 @@ const SiteManagement = () => {
                 No site contacts are associated with your client account.
               </p>
               {!clientUuid && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-4">
-                  <div className="flex items-center">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-4">                  <div className="flex items-center">
                     <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2" />
                     <p className="text-sm text-yellow-800">
-                      Client UUID not found. Please ensure you are properly logged in.
+                      Client information not found. Please ensure you are properly logged in.
                     </p>
                   </div>
                 </div>
