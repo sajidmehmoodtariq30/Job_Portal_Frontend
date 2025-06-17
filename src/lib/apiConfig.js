@@ -121,10 +121,9 @@ export const API_ENDPOINTS = {  AUTH: {
   },  CLIENT_VALIDATION: {
     VALIDATE_ASSIGNMENT: buildApiEndpoint('api/client/validate-client-assignment')
   },
-
   CONTACTS: {
     GET_ALL: buildApiEndpoint('api/contacts'),
-    GET_CLIENT_SITES: (clientUuid) => buildApiEndpoint(`api/contacts/client-sites/${clientUuid}`)
+    GET_CLIENT_SITES: (clientUuid) => buildApiEndpoint(`api/clients/${clientUuid}/sites`)
   }
 };
 

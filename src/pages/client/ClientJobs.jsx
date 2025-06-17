@@ -225,7 +225,7 @@ const { toast } = useToast();
 
       if (!response.ok) throw new Error('Failed to fetch sites');
       const data = await response.json();
-      setSites(data.sites || []);
+      setSites(data || []);
     } catch (error) {
       console.error('Failed to fetch sites:', error);
       setSites([]); // Ensure sites is always an array

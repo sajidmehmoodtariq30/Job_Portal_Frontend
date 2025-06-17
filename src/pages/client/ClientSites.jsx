@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building, 
   MapPin, 
-  Star, 
   AlertCircle,
   Loader2,
-  Plus,
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
-import { Badge } from "@/components/UI/badge";
-import { useClientSites } from '@/hooks/useClientSites';
 import PermissionProtectedClientPage from '@/components/client/PermissionProtectedClientPage';
-import PermissionGuard from '@/components/PermissionGuard';
 import { PERMISSIONS } from '@/context/PermissionsContext';
 import { useSession } from '@/context/SessionContext';
+import { API_URL } from '@/lib/apiConfig';
 
 const SiteManagement = () => {
   const { user } = useSession();
+  const [sites, setSites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalSites, setTotalSites] = useState(0);
   
   // Get client data from session/localStorage
   const getClientData = () => {
@@ -53,30 +53,115 @@ const SiteManagement = () => {
 
   console.log('🏢 ClientSites - Using client UUID:', clientUuid);
 
-  // Use the new contact-based sites hook
-  const { 
-    sites, 
-    loading, 
-    error, 
-    fetchClientSites,
-    totalSites
-  } = useClientSites(clientUuid);
-  // Handle request work functionality
-  const handleRequestWork = (site) => {
-    // For now, show a simple alert. In a real implementation, this would open a dialog
-    // or navigate to a work request form
-    alert(`Request work functionality for site: ${site.name}\n\nThis would typically open a form to:\n- Describe the work needed\n- Set priority\n- Attach files\n- Submit the request to administrators`);
-    
-    // TODO: Implement actual work request functionality
-    // This could include:
-    // - Opening a modal dialog with a work request form
-    // - Navigating to a dedicated work request page
-    // - Making an API call to create a work request
+  // Fetch sites based on job addresses
+  const fetchSitesFromJobs = async () => {
+    if (!clientUuid) {
+      console.error('No client UUID available for fetching sites');
+      setError('No client data available');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch jobs for this client
+      const response = await fetch(`${API_URL}/fetch/jobs/client/${clientUuid}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'x-client-uuid': clientUuid
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }      const jobsData = await response.json();
+      const jobs = jobsData.data || jobsData || [];
+      
+      console.log('🔍 Fetched jobs for sites:', jobs.length);
+
+      // Filter jobs to only include those for the current client
+      const clientJobs = jobs.filter(job => {
+        // Check if job belongs to current client using company_uuid
+        const belongsToClient = job.company_uuid === clientUuid || 
+                               job.created_by_staff_uuid === clientUuid ||
+                               job.client_uuid === clientUuid;
+        
+        if (belongsToClient) {
+          console.log('✅ Job belongs to client:', job.generated_job_id || job.uuid);
+        }
+        
+        return belongsToClient;
+      });
+      
+      console.log(`🏢 Filtered jobs for client ${clientUuid}: ${clientJobs.length} out of ${jobs.length} total jobs`);
+
+      // Extract unique addresses from client jobs only
+      const addressMap = new Map();
+      
+      clientJobs.forEach((job, index) => {
+        // Get address from various possible fields
+        const jobAddress = job.job_address || job.billing_address;
+        const geoAddress = job.geo_street && job.geo_city ? 
+          `${job.geo_number ? job.geo_number + ' ' : ''}${job.geo_street}, ${job.geo_city}, ${job.geo_state || ''} ${job.geo_postcode || ''}`.trim() : 
+          null;
+        
+        const primaryAddress = jobAddress || geoAddress;
+        
+        if (primaryAddress) {
+          const addressKey = primaryAddress.toLowerCase().trim();
+          
+          if (!addressMap.has(addressKey)) {
+            // Create a site object from the job address
+            const site = {
+              id: `site-${index}`,
+              uuid: `site-${Date.now()}-${index}`,
+              name: primaryAddress.split(',')[0] || primaryAddress, // Use first part as name
+              address: primaryAddress,
+              // Parse geo components if available
+              suburb: job.geo_city,
+              city: job.geo_city,
+              state: job.geo_state,
+              postcode: job.geo_postcode,
+              // Additional info
+              jobCount: 1,
+              coordinates: job.lat && job.lng ? { lat: job.lat, lng: job.lng } : null
+            };
+            
+            addressMap.set(addressKey, site);
+          } else {
+            // Increment job count for existing address
+            const existingSite = addressMap.get(addressKey);
+            existingSite.jobCount += 1;
+          }
+        }
+      });
+
+      const uniqueSites = Array.from(addressMap.values());
+      
+      console.log('🏢 Generated sites from job addresses:', uniqueSites.length);
+      
+      setSites(uniqueSites);
+      setTotalSites(uniqueSites.length);
+      
+    } catch (error) {
+      console.error('Error fetching sites from jobs:', error);
+      setError('Failed to load sites. Please try again.');
+      setSites([]);
+      setTotalSites(0);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Handle manual refresh
+  // Initial load
+  useEffect(() => {
+    fetchSitesFromJobs();
+  }, [clientUuid]);
+  // Refresh handler
   const handleRefresh = () => {
-    fetchClientSites();
+    fetchSitesFromJobs();
   };
 
   if (loading) {
@@ -117,69 +202,42 @@ const SiteManagement = () => {
               Refresh
             </Button>
           </div>
-        </div>
-
-        {/* Sites Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </div>        {/* Sites Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sites.map((site) => (
-            <Card key={site.uuid || site.id} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">{site.name}</CardTitle>
-                  </div>
-                  <div className="flex gap-1">
-                    {site.isDefault && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Star className="h-3 w-3 mr-1" />
-                        Default
-                      </Badge>
+            <Card key={site.uuid || site.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="space-y-3">                  {/* Site Name */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-5 w-5 text-primary flex-shrink-0" />
+                      <h3 className="font-semibold text-lg text-gray-900 truncate">
+                        {site.name || 'Unnamed Site'}
+                      </h3>
+                    </div>
+                    {site.jobCount && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        {site.jobCount} job{site.jobCount !== 1 ? 's' : ''}
+                      </span>
                     )}
-                    <Badge variant="outline" className="text-xs">
-                      Site
-                    </Badge>
                   </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {(site.address || site.suburb || site.city) && (
+                    {/* Site Address */}
                   <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-muted-foreground">
-                      <p>{site.address}</p>
-                      {(site.suburb || site.city) && (
-                        <p>{[site.suburb, site.city, site.state, site.postcode].filter(Boolean).join(', ')}</p>
+                    <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
+                    <div className="text-sm text-gray-600 leading-relaxed">
+                      {site.address && <div>{site.address}</div>}
+                      {(site.suburb || site.city || site.state || site.postcode) && (
+                        <div>
+                          {[site.suburb, site.city, site.state, site.postcode]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </div>
+                      )}
+                      {!site.address && !site.suburb && !site.city && (
+                        <span className="text-gray-400 italic">No address provided</span>
                       )}
                     </div>
                   </div>
-                )}
-                
-                {(site.email || site.phone) && (
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    {site.email && <p>📧 {site.email}</p>}
-                    {site.phone && <p>📞 {site.phone}</p>}
-                  </div>
-                )}
-                
-                <div className="flex flex-wrap gap-2 pt-2">
-                  <PermissionGuard permission={PERMISSIONS.REQUEST_WORK}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex items-center gap-2"
-                      onClick={() => handleRequestWork(site)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Request Work
-                    </Button>
-                  </PermissionGuard>
-                  
-                  {/* Contact-based site indicator */}
-                  <Badge variant="secondary" className="text-xs">
-                    Contact Site
-                  </Badge>
                 </div>
               </CardContent>
             </Card>
