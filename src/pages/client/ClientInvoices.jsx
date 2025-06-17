@@ -78,10 +78,8 @@ const ClientInvoices = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50">
+                <thead>                  <tr className="border-b bg-gray-50">
                     <th className="py-3 px-4 text-left">Invoice ID</th>
-                    <th className="py-3 px-4 text-left">Job ID</th>
                     <th className="py-3 px-4 text-left">Amount</th>
                     <th className="py-3 px-4 text-left">Status</th>
                     <th className="py-3 px-4 text-left">Due/Paid</th>
@@ -89,10 +87,8 @@ const ClientInvoices = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(inv => (
-                    <tr key={inv.id} className="border-b hover:bg-gray-50">
+                  {filtered.map(inv => (                    <tr key={inv.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium">{inv.id}</td>
-                      <td className="py-3 px-4">{inv.jobId}</td>
                       <td className="py-3 px-4">${inv.amount.toLocaleString()}</td>
                       <td className="py-3 px-4">{statusBadge(inv.status)}</td>
                       <td className="py-3 px-4">
