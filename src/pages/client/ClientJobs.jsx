@@ -99,11 +99,14 @@ const { toast } = useToast();
     } else {
       console.log('⏳ Waiting for valid client assignment...');
     }
-  }, [hasValidAssignment]);
-
-  // Filter jobs based on search term and status filter
+  }, [hasValidAssignment]);  // Filter jobs based on search term and status filter
   useEffect(() => {
-    let filtered = jobs;
+    if (!Array.isArray(jobs)) {
+      setFilteredJobs([]);
+      return;
+    }
+    
+    let filtered = jobs.filter(job => job && job.uuid); // Filter out null/undefined jobs
 
     // Apply search filter
     if (searchTerm.trim()) {
@@ -538,8 +541,7 @@ const { toast } = useToast();
         if (result.success && result.data) {
           // Update the selected job with attachments
           setSelectedJob(prev => prev ? { ...prev, attachments: result.data } : null);
-          
-          // Also update the job in the jobs list
+            // Also update the job in the jobs list
           setJobs(prev => prev.map(job => 
             job.uuid === jobId ? { ...job, attachments: result.data } : job
           ));
@@ -576,14 +578,70 @@ const { toast } = useToast();
     if (!salary) return 'Not specified';
     return `$${parseInt(salary).toLocaleString()}`;
   };
-
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
+      case 'quote': return 'bg-yellow-100 text-yellow-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'in progress': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'on hold': return 'bg-orange-100 text-orange-800';
       case 'active': return 'bg-green-100 text-green-800';
       case 'inactive': return 'bg-gray-100 text-gray-800';
       case 'closed': return 'bg-red-100 text-red-800';
       default: return 'bg-blue-100 text-blue-800';
     }
+  };
+  // Helper function to get site name for a job
+  const getSiteName = (job) => {
+    // Check if job exists
+    if (!job) {
+      return 'Site';
+    }
+    
+    // First, check if the job already has a site name
+    if (job.location_name || job.site_name) {
+      return job.location_name || job.site_name;
+    }
+    
+    // Try to find matching site by UUID
+    if (job.location_uuid && sites.length > 0) {
+      const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
+      if (matchingSite) {
+        return matchingSite.name;
+      }
+    }
+      // Try to find matching site by address
+    if (job.location_address && sites.length > 0) {
+      const matchingSite = sites.find(site => 
+        site.address === job.location_address || 
+        site.name?.toLowerCase().includes(job.location_address?.toLowerCase())
+      );
+      if (matchingSite) {
+        return matchingSite.name;
+      }
+    }
+    
+    // For ServiceM8 data, extract location from job_address
+    if (job.job_address) {
+      // Try to extract a meaningful site name from the address
+      const addressParts = job.job_address.split(',');
+      if (addressParts.length > 0) {
+        // Use the first part as site name (usually building/location name)
+        const siteName = addressParts[0].trim();
+        if (siteName && siteName.length > 2) {
+          return siteName;
+        }
+      }
+    }
+    
+    // Try geo components for site name
+    if (job.geo_city) {
+      return job.geo_city;
+    }
+
+    // Fallback to job address or generic site name
+    return job.location_address || job.job_address || 'Site';
   };
 
   if (loading) {
@@ -962,13 +1020,19 @@ const { toast } = useToast();
                 </>
               )}
             </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredJobs.map((job) => (
-              <Card key={job.uuid} className="hover:shadow-lg transition-shadow">                <CardHeader>
+          </Card>        ) : (          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">            {filteredJobs.filter(job => job && job.uuid).map((job) => {
+              // Debug log to check job data
+              console.log('Job data:', job);
+              console.log('PO Number:', job.purchase_order_number);
+              
+              return (
+              <Card key={job.uuid} className="hover:shadow-lg transition-shadow"><CardHeader className="pb-3">
+                  {/* Site Name prominently at top */}
+                  <div className="text-sm text-blue-600 font-medium mb-1">
+                    {getSiteName(job)}
+                  </div>
                   <div className="flex justify-between items-start">                    <CardTitle className="text-lg font-semibold line-clamp-2">
-                      {job.job_name || job.name || job.description?.substring(0, 30) + '...' || `Job #${job.job_number}` || 'New Job Posting'}
+                      {job.customfield_job_name || job.job_name || job.name || job.job_description?.substring(0, 40) + '...' || `Job #${job.generated_job_id || job.job_number}` || 'New Job'}
                     </CardTitle>
                     <Badge className={getStatusColor(job.status)}>
                       {job.status || 'Active'}
@@ -976,32 +1040,39 @@ const { toast } = useToast();
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-gray-600 line-clamp-3">{job.job_description || job.description || 'No description available'}</p>
-                    <div className="space-y-2 text-sm">
+                  {/* Job Description */}
+                  <p className="text-gray-600 line-clamp-3 text-sm">
+                    {job.job_description || job.description || 'No description available'}
+                  </p>
+                  
+                  <div className="space-y-2 text-sm">
+                    {/* Site Location */}
                     <div className="flex items-center gap-2 text-gray-600">
-                      <MapPinIcon className="h-4 w-4" />
-                      <span>{job.location_address || job.job_address || 'Location not specified'}</span>
+                      <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                      <span className="line-clamp-1">{job.location_address || job.job_address || 'Location not specified'}</span>
+                    </div>                    {/* PO Number (always show for debugging) */}
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <FileIcon className="h-4 w-4 flex-shrink-0" />
+                      <span>PO: {job.purchase_order_number || job.po_number || 'Not specified'}</span>
                     </div>
+                    
+                    {/* Job Number */}
                     <div className="flex items-center gap-2 text-gray-600">
-                      <DollarSignIcon className="h-4 w-4" />
-                      <span>{formatSalary(job.total_amount || job.salary)}</span>
+                      <BriefcaseIcon className="h-4 w-4 flex-shrink-0" />
+                      <span>Job: {job.generated_job_id || job.job_number || job.uuid?.substring(0, 8) || 'N/A'}</span>
                     </div>
+                    
+                    {/* Created Date */}
                     <div className="flex items-center gap-2 text-gray-600">
-                      <ClockIcon className="h-4 w-4" />
-                      <span className="capitalize">{job.employmentType?.replace('-', ' ') || 'Full Time'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <CalendarIcon className="h-4 w-4" />
-                      <span>Posted {formatDate(job.created_date || job.createdAt || job.date)}</span>
+                      <CalendarIcon className="h-4 w-4 flex-shrink-0" />
+                      <span>Created {formatDate(job.date || job.created_date || job.createdAt)}</span>
                     </div>
                   </div>
 
                   <Separator />
 
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium">{job.applicationsCount || 0}</span> applications
-                    </div>                    <Button
+                  <div className="flex justify-end">
+                    <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleViewJobDetails(job)}
@@ -1009,19 +1080,25 @@ const { toast } = useToast();
                       <EyeIcon className="h-4 w-4 mr-2" />
                       View Details
                     </Button>
-                  </div>
-                </CardContent>
+                  </div>                </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
 
         {/* Job Details Dialog */}
         <Dialog open={isJobDetailsDialogOpen} onOpenChange={setIsJobDetailsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">            <DialogHeader>
               <DialogTitle className="text-xl font-bold">
-                {selectedJob?.title}
+                <div className="space-y-1">
+                  <div className="text-sm text-blue-600 font-medium">
+                    {getSiteName(selectedJob)}
+                  </div>
+                  <div>
+                    {selectedJob?.job_name || selectedJob?.title || selectedJob?.name || 'Job Details'}
+                  </div>
+                </div>
               </DialogTitle>
             </DialogHeader>
 
@@ -1047,29 +1124,41 @@ const { toast } = useToast();
 
                 <TabsContent value="details" className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
+                    <div className="space-y-4">                      <div>
                         <h3 className="font-semibold text-gray-900 mb-2">Job Information</h3>                        <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2">
                             <MapPinIcon className="h-4 w-4 text-gray-500" />
                             <span>{selectedJob.location_address || selectedJob.job_address || 'Location not specified'}</span>
                           </div>
+                          
+                          {/* Job Number */}
                           <div className="flex items-center gap-2">
-                            <DollarSignIcon className="h-4 w-4 text-gray-500" />
-                            <span>{formatSalary(selectedJob.total_amount || selectedJob.salary)}</span>
+                            <BriefcaseIcon className="h-4 w-4 text-gray-500" />
+                            <span>Job: {selectedJob.generated_job_id || selectedJob.job_number || selectedJob.uuid?.substring(0, 8) || 'N/A'}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <ClockIcon className="h-4 w-4 text-gray-500" />
-                            <span className="capitalize">
-                              {selectedJob.employmentType?.replace('-', ' ') || 'Full Time'}
-                            </span>
-                          </div>
+                          
+                          {/* PO Number (if available) */}
+                          {(selectedJob.purchase_order_number || selectedJob.po_number) && (
+                            <div className="flex items-center gap-2">
+                              <FileIcon className="h-4 w-4 text-gray-500" />
+                              <span>PO: {selectedJob.purchase_order_number || selectedJob.po_number}</span>
+                            </div>
+                          )}
+                          
+                          {/* Total Amount (if available) */}
+                          {(selectedJob.total_amount || selectedJob.salary) && (
+                            <div className="flex items-center gap-2">
+                              <DollarSignIcon className="h-4 w-4 text-gray-500" />
+                              <span>{formatSalary(selectedJob.total_amount || selectedJob.salary)}</span>
+                            </div>
+                          )}
+                          
                           <div className="flex items-center gap-2">
                             <CalendarIcon className="h-4 w-4 text-gray-500" />
-                            <span>Created {formatDate(selectedJob.created_date || selectedJob.createdAt || selectedJob.date)}</span>
+                            <span>Created {formatDate(selectedJob.date || selectedJob.created_date || selectedJob.createdAt)}</span>
                           </div>
                         </div>
-                      </div>                      <div>
+                      </div><div>
                         <h3 className="font-semibold text-gray-900 mb-2">Category</h3>
                         <Badge variant="secondary">{selectedJob.category || 'General'}</Badge>
                       </div>
