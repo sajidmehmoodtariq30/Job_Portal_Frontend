@@ -63,6 +63,7 @@ export const API_ENDPOINTS = {  AUTH: {
     // READ-ONLY ENDPOINTS (ServiceM8 site data)
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // Admin view - all sites
+    GET_ALL_FROM_JOBS: buildApiEndpoint('api/sites/all/from-jobs'), // Admin view - all sites from all jobs
     GET_FROM_JOBS: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/from-jobs`), // Extract sites from jobs
     GET_DEFAULT: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/default`),
     SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`), // Keep for dropdown functionality

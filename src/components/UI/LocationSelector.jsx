@@ -20,18 +20,19 @@ const LocationSelector = ({
     setIsLoading(true);
     setError(null); // Clear previous errors
     try {
-      console.log('Fetching locations from:', API_ENDPOINTS.SITES.GET_ALL_GLOBAL);
-      const response = await axios.get(API_ENDPOINTS.SITES.GET_ALL_GLOBAL);
-      console.log('Locations API response:', response.data);
+      // Use sites extracted from jobs for admin create job dialog
+      console.log('Fetching sites from jobs for admin job creation:', API_ENDPOINTS.SITES.GET_ALL_FROM_JOBS);
+      const response = await axios.get(API_ENDPOINTS.SITES.GET_ALL_FROM_JOBS);
+      console.log('Sites from jobs API response:', response.data);
       
       // Handle the response format from the backend
       if (response.data && response.data.success && Array.isArray(response.data.sites)) {
-        console.log(`Found ${response.data.sites.length} locations`);
+        console.log(`Found ${response.data.sites.length} sites from jobs`);
         setLocations(response.data.sites);
         setError(null);
       } else if (response.data && Array.isArray(response.data)) {
         // Fallback for direct array response
-        console.log(`Found ${response.data.length} locations (direct array)`);
+        console.log(`Found ${response.data.length} sites (direct array)`);
         setLocations(response.data);
         setError(null);
       } else {
@@ -40,11 +41,11 @@ const LocationSelector = ({
         setError('Unexpected response format from server');
       }
     } catch (error) {
-      console.error('Error fetching locations:', error);
+      console.error('Error fetching sites from jobs:', error);
       console.error('Error status:', error.response?.status);
       console.error('Error data:', error.response?.data);
       
-      let errorMessage = 'Failed to load locations';
+      let errorMessage = 'Failed to load sites from jobs';
       
       if (error.response?.status === 401) {
         errorMessage = 'Authentication failed - please log in again';

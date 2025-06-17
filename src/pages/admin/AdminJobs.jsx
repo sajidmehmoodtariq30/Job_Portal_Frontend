@@ -151,25 +151,26 @@ const AdminJobs = () => {
       console.error('Error fetching categories:', error);
       setCategories([]);
     }
-  };
-  // Fetch all sites for administrators
+  };  // Fetch all sites for administrators - from all jobs without client filtering
   const fetchSites = async () => {
     try {
       setLoadingSites(true);
-      const response = await axios.get(`${API_URL}/api/sites/all`);
-      console.log('Sites API response:', response.data);
+      console.log('🏢 Admin: Fetching all sites from all jobs');
+      
+      const response = await axios.get(API_ENDPOINTS.SITES.GET_ALL_FROM_JOBS);
+      console.log('🏢 Admin sites API response:', response.data);
       
       // Handle the API response structure: { success: true, sites: [...] }
       if (response.data && response.data.success && Array.isArray(response.data.sites)) {
-        console.log(`Loaded ${response.data.sites.length} sites for filtering`);
+        console.log(`✅ Admin: Loaded ${response.data.sites.length} sites from all jobs for filtering`);
         setSites(response.data.sites);
       } else {
-        console.warn('Unexpected sites API response structure:', response.data);
+        console.warn('⚠️ Admin: Unexpected sites API response structure:', response.data);
         setSites([]);
       }
     } catch (error) {
-      console.error('Error fetching sites:', error);
-      console.error('Sites API error details:', error.response?.data);
+      console.error('❌ Admin: Error fetching sites from all jobs:', error);
+      console.error('🔍 Admin: Sites API error details:', error.response?.data);
       setSites([]);
     } finally {
       setLoadingSites(false);
@@ -1068,30 +1069,48 @@ const AdminJobs = () => {
                 placeholder="Search jobs by job number, description, or address..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-              />              <div className="min-w-[200px]">
-                <Select 
-                  value={activeFilters.site} 
+              />              <div className="min-w-[250px]">
+                <SearchableSelect
+                  value={activeFilters.site}
                   onValueChange={(value) => setActiveFilters(prev => ({ ...prev, site: value }))}
+                  placeholder={loadingSites ? "Loading..." : "All locations"}
+                  searchPlaceholder="Search locations..."
                   disabled={loadingSites}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={loadingSites ? "Loading..." : "All locations"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All locations</SelectItem>
-                    {loadingSites ? (
-                      <SelectItem value="loading" disabled>Loading sites...</SelectItem>
-                    ) : sites.length === 0 ? (
-                      <SelectItem value="none" disabled>No sites available</SelectItem>
-                    ) : (
-                      Array.isArray(sites) && sites.map(site => (
-                        <SelectItem key={site.uuid} value={site.uuid}>
-                          {site.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                  displayKey="name"
+                  valueKey="value"
+                  searchKeys={['name', 'address']}
+                  isLoading={loadingSites}
+                  items={[
+                    { value: 'all', name: 'All locations', address: '' },
+                    ...sites.map(site => ({
+                      value: site.uuid,
+                      name: site.name,
+                      address: site.address || '',
+                      jobCount: site.jobCount || 0,
+                      clientCount: site.clientUuids ? site.clientUuids.length : 1
+                    }))
+                  ]}
+                  renderItem={(item) => (
+                    <div className="flex justify-between items-center w-full">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{item.name}</span>
+                        {item.address && <span className="text-xs text-gray-500">{item.address}</span>}
+                      </div>
+                      {item.jobCount !== undefined && item.value !== 'all' && (
+                        <div className="flex items-center gap-2 ml-2">
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {item.jobCount} jobs
+                          </span>
+                          {item.clientCount > 1 && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                              {item.clientCount} clients
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                />
               </div>
             </div>
             </div>
