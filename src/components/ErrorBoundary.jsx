@@ -77,15 +77,14 @@ class ErrorBoundary extends React.Component {
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Reload Application
                   </Button>
-                  
-                  {process.env.NODE_ENV === 'development' && (
+                    {process.env.NODE_ENV === 'development' && (
                     <details className="mt-4 text-xs">
                       <summary className="cursor-pointer text-gray-600">
                         Developer Info
                       </summary>
                       <pre className="mt-2 whitespace-pre-wrap text-red-600 bg-red-100 p-2 rounded">
                         {this.state.error && this.state.error.toString()}
-                        {this.state.errorInfo.componentStack}
+                        {this.state.errorInfo && this.state.errorInfo.componentStack}
                       </pre>
                     </details>
                   )}

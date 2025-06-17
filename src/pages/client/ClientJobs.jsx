@@ -51,27 +51,51 @@ const ClientJobs = () => {
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [filteredJobs, setFilteredJobs] = useState([]);const { toast } = useToast();
-  const { getClientId, hasValidAssignment } = useClientAssignment();
+  const [statusFilter, setStatusFilter] = useState('all');  const [filteredJobs, setFilteredJobs] = useState([]);
+  
+  // Request flow states
+  const [requestStep, setRequestStep] = useState('selection'); // 'selection', 'form'
+  const [requestType, setRequestType] = useState(''); // 'quote', 'job', 'order'
+  const [sites, setSites] = useState([]);
+  const [siteSearchTerm, setSiteSearchTerm] = useState('');
 
-  const [newJob, setNewJob] = useState({
-    title: '',
+const { toast } = useToast();
+  const { getClientId, hasValidAssignment } = useClientAssignment();
+  
+  // Updated form state for new request flow
+  const [newRequest, setNewRequest] = useState({
+    // For Order (basic info)
+    basic_description: '',
+    
+    // For Quote/Job (detailed form)
+    site_uuid: '',
     description: '',
-    category: '',
-    location: '',
-    salary: '',
-    employmentType: 'full-time',
-    requirements: '',
-    benefits: ''
+    site_contact_name: '',
+    site_contact_number: '',
+    email: '',
+    purchase_order_number: '',
+    work_start_date: '',
+    work_completion_date: '',
+    job_name: '',
+    type: '' // quote, job, order
+  });
+  
+  // Keep old newJob state for compatibility (if needed elsewhere)
+  const [newJob, setNewJob] = useState({
+    date: new Date().toISOString().split('T')[0], // Default to today
+    job_description: '',
+    work_done_description: '',
+    location_uuid: '',
+    category_uuid: '',
+    status: 'Quote' // Default status
   });
   useEffect(() => {
     console.log('🔄 ClientJobs useEffect - hasValidAssignment:', hasValidAssignment);
-    if (hasValidAssignment) {
-      console.log('✅ Client assignment is valid, fetching data...');
+    if (hasValidAssignment) {      console.log('✅ Client assignment is valid, fetching data...');
       fetchJobs();
       fetchCategories();
       fetchLocations();
+      fetchSites();
     } else {
       console.log('⏳ Waiting for valid client assignment...');
     }
@@ -184,6 +208,29 @@ const ClientJobs = () => {
       console.error('Failed to fetch locations:', error);
     }
   };
+  const fetchSites = async () => {
+    try {
+      const clientId = getClientId();
+      console.log('🔍 Fetching sites - Client ID:', clientId);
+      
+      if (!clientId) {
+        console.error('No client ID available for fetching sites');
+        return;
+      }
+      
+      const response = await fetch(`${API_URL}/api/clients/${clientId}/sites`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'x-client-uuid': clientId
+        }
+      });      if (!response.ok) throw new Error('Failed to fetch sites');
+      const data = await response.json();
+      setSites(data.sites || []);
+    } catch (error) {
+      console.error('Failed to fetch sites:', error);
+      setSites([]); // Ensure sites is always an array
+    }
+  };
 
   const handleCreateJob = async (e) => {
     e.preventDefault();
@@ -194,9 +241,9 @@ const ClientJobs = () => {
       
       // Add job data
       Object.keys(newJob).forEach(key => {
-        formData.append(key, newJob[key]);
-      });
+        formData.append(key, newJob[key]);      });
       formData.append('clientId', clientId);
+      formData.append('userId', clientId); // Add userId for backend compatibility
         // Add file if selected
       if (newJobFile) {
         formData.append('file', newJobFile);
@@ -211,26 +258,132 @@ const ClientJobs = () => {
 
       const data = await response.json();
       setJobs(prev => [data.data, ...prev]);
-      
-      // Reset form
+        // Reset form
       setNewJob({
-        title: '',
-        description: '',
-        category: '',
-        location: '',
-        salary: '',
-        employmentType: 'full-time',
-        requirements: '',
-        benefits: ''
+        date: new Date().toISOString().split('T')[0], // Default to today
+        job_description: '',
+        work_done_description: '',
+        location_uuid: '',
+        category_uuid: '',
+        status: 'Quote' // Default status
       });
       setNewJobFile(null);
       setIsNewJobDialogOpen(false);
       
-      toast({ title: 'Success', description: 'Job created successfully' });
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to create job', variant: 'destructive' });
+      toast({ title: 'Success', description: 'Job request submitted successfully' });    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to submit job request', variant: 'destructive' });
     }
   };
+
+  // New request flow handlers
+  const handleRequestTypeSelect = (type) => {
+    setRequestType(type);
+    setRequestStep('form');
+    setNewRequest({
+      basic_description: '',
+      site_uuid: '',
+      description: '',
+      site_contact_name: '',
+      site_contact_number: '',
+      email: '',
+      purchase_order_number: '',
+      work_start_date: '',
+      work_completion_date: '',
+      job_name: '',
+      type: type
+    });
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const clientId = getClientId();
+      const formData = new FormData();
+      
+      // Add request data based on type
+      if (requestType === 'order') {
+        formData.append('type', 'order');
+        formData.append('description', newRequest.basic_description);
+      } else {
+        // For quote and job
+        Object.keys(newRequest).forEach(key => {
+          if (newRequest[key]) {
+            formData.append(key, newRequest[key]);
+          }
+        });      }
+      
+      formData.append('clientId', clientId);
+      formData.append('userId', clientId); // Add userId for backend compatibility
+      
+      // Add file if selected
+      if (newJobFile) {
+        formData.append('file', newJobFile);
+      }
+
+      const response = await fetch(`${API_URL}/fetch/jobs/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'x-client-uuid': clientId
+        },
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Failed to submit request');
+
+      const data = await response.json();
+      setJobs(prev => [data.data, ...prev]);
+      
+      // Reset everything
+      setNewRequest({
+        basic_description: '',
+        site_uuid: '',
+        description: '',
+        site_contact_name: '',
+        site_contact_number: '',
+        email: '',
+        purchase_order_number: '',
+        work_start_date: '',
+        work_completion_date: '',
+        job_name: '',
+        type: ''
+      });
+      setNewJobFile(null);
+      setRequestStep('selection');
+      setRequestType('');
+      setIsNewJobDialogOpen(false);
+      
+      toast({ title: 'Success', description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to submit request', variant: 'destructive' });
+    }
+  };
+
+  const resetRequestFlow = () => {
+    setRequestStep('selection');
+    setRequestType('');
+    setNewRequest({
+      basic_description: '',
+      site_uuid: '',
+      description: '',
+      site_contact_name: '',
+      site_contact_number: '',
+      email: '',
+      purchase_order_number: '',
+      work_start_date: '',
+      work_completion_date: '',
+      job_name: '',
+      type: ''
+    });
+    setNewJobFile(null);
+    setSiteSearchTerm('');
+  };
+  // Filter sites based on search term
+  const filteredSites = (Array.isArray(sites) ? sites : []).filter(site => 
+    site.name?.toLowerCase().includes(siteSearchTerm.toLowerCase()) ||
+    site.address?.toLowerCase().includes(siteSearchTerm.toLowerCase())
+  );
 
   const handleNewJobFileChange = (e) => {
     const file = e.target.files[0];
@@ -366,7 +519,6 @@ const ClientJobs = () => {
       console.error('Error refreshing job data:', error);
     }
   };
-
   // Fetch attachments for selected job
   const fetchAttachments = async (jobId) => {
     if (!jobId) return;
@@ -397,7 +549,8 @@ const ClientJobs = () => {
       console.error('Error fetching attachments:', error);
     } finally {
       setAttachmentsLoading(false);
-    }  };
+    }
+  };
 
   // Function to handle opening job details dialog
   const handleViewJobDetails = async (job) => {
@@ -464,163 +617,263 @@ const ClientJobs = () => {
             <p className="text-gray-600 mt-2">Manage your job postings and applications</p>
           </div>
           
-          <Dialog open={isNewJobDialogOpen} onOpenChange={setIsNewJobDialogOpen}>
+          <Dialog open={isNewJobDialogOpen} onOpenChange={(open) => {
+            setIsNewJobDialogOpen(open);
+            if (!open) resetRequestFlow();
+          }}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2">
                 <PlusIcon className="h-4 w-4" />
-                Post New Job
+                Request
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            </DialogTrigger>            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Job Posting</DialogTitle>
-              </DialogHeader>
-              
-              <form onSubmit={handleCreateJob} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <DialogTitle>
+                  {requestStep === 'selection' ? 'Select Request Type' : `New ${requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request`}
+                </DialogTitle>
+              </DialogHeader>              
+              {requestStep === 'selection' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-6">
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-500"
+                    onClick={() => handleRequestTypeSelect('quote')}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FileIcon className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Quote</h3>
+                      <p className="text-gray-600 text-sm">Request a detailed quote for your project</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-green-500"
+                    onClick={() => handleRequestTypeSelect('job')}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <BriefcaseIcon className="h-6 w-6 text-green-600" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Job</h3>
+                      <p className="text-gray-600 text-sm">Submit a new job request with full details</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card 
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-orange-500"
+                    onClick={() => handleRequestTypeSelect('order')}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ClockIcon className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <h3 className="font-semibold text-lg mb-2">Order</h3>
+                      <p className="text-gray-600 text-sm">Quick order with basic information</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {requestStep === 'form' && requestType === 'order' && (
+                <form onSubmit={handleRequestSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Job Title *</Label>
-                    <Input
-                      id="title"
-                      value={newJob.title}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, title: e.target.value }))}
+                    <Label htmlFor="basic_description">How can we help? *</Label>
+                    <Textarea
+                      id="basic_description"
+                      value={newRequest.basic_description}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, basic_description: e.target.value }))}
+                      rows={4}
                       required
+                      placeholder="Describe what you need help with..."
                     />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category *</Label>
-                    <Select 
-                      value={newJob.category} 
-                      onValueChange={(value) => setNewJob(prev => ({ ...prev, category: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat._id} value={cat.name}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location *</Label>
-                    <Select 
-                      value={newJob.location} 
-                      onValueChange={(value) => setNewJob(prev => ({ ...prev, location: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {locations.map(loc => (
-                          <SelectItem key={loc._id} value={loc.name}>
-                            {loc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="salary">Salary (Annual)</Label>
+                    <Label htmlFor="order-file">Attach Files (Optional)</Label>
                     <Input
-                      id="salary"
-                      type="number"
-                      value={newJob.salary}
-                      onChange={(e) => setNewJob(prev => ({ ...prev, salary: e.target.value }))}
-                      placeholder="e.g., 75000"
+                      id="order-file"
+                      type="file"
+                      onChange={handleNewJobFileChange}
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                    />
+                    {newJobFile && (
+                      <p className="text-sm text-green-600">
+                        Selected: {newJobFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setRequestStep('selection')}
+                    >
+                      Back
+                    </Button>
+                    <Button type="submit">Submit Order</Button>
+                  </div>
+                </form>
+              )}
+
+              {requestStep === 'form' && (requestType === 'quote' || requestType === 'job') && (
+                <form onSubmit={handleRequestSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="site_uuid">Site *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Search sites..."
+                        value={siteSearchTerm}
+                        onChange={(e) => setSiteSearchTerm(e.target.value)}
+                        className="w-full"
+                      />                      {filteredSites.length > 0 ? (
+                        <Select 
+                          value={newRequest.site_uuid} 
+                          onValueChange={(value) => setNewRequest(prev => ({ ...prev, site_uuid: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select site" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredSites.map((site, index) => (
+                              <SelectItem key={site._id || site.uuid || `site-${index}`} value={site.uuid || site._id}>
+                                {site.name} - {site.address}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex items-center justify-center p-3 border border-gray-200 rounded-md bg-gray-50">
+                          <p className="text-gray-500 text-sm">
+                            {siteSearchTerm ? 'No sites found matching search' : 'No sites available'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">How can we help? *</Label>
+                    <Textarea
+                      id="description"
+                      value={newRequest.description}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))}
+                      rows={4}
+                      required
+                      placeholder="Describe the work needed..."
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="employmentType">Employment Type</Label>
-                  <Select 
-                    value={newJob.employmentType} 
-                    onValueChange={(value) => setNewJob(prev => ({ ...prev, employmentType: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="full-time">Full Time</SelectItem>
-                      <SelectItem value="part-time">Part Time</SelectItem>
-                      <SelectItem value="contract">Contract</SelectItem>
-                      <SelectItem value="freelance">Freelance</SelectItem>
-                      <SelectItem value="internship">Internship</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="site_contact_name">Site Contact Name</Label>
+                      <Input
+                        id="site_contact_name"
+                        value={newRequest.site_contact_name}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_name: e.target.value }))}
+                        placeholder="Contact person name"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="site_contact_number">Site Contact Number</Label>
+                      <Input
+                        id="site_contact_number"
+                        value={newRequest.site_contact_number}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_number: e.target.value }))}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="description">Job Description *</Label>
-                  <Textarea
-                    id="description"
-                    value={newJob.description}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, description: e.target.value }))}
-                    rows={4}
-                    required
-                  />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newRequest.email}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="purchase_order_number">Purchase Order Number</Label>
+                      <Input
+                        id="purchase_order_number"
+                        value={newRequest.purchase_order_number}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, purchase_order_number: e.target.value }))}
+                        placeholder="PO Number"
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="requirements">Requirements</Label>
-                  <Textarea
-                    id="requirements"
-                    value={newJob.requirements}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, requirements: e.target.value }))}
-                    rows={3}
-                  />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="work_start_date">Work Request Start Date</Label>
+                      <Input
+                        id="work_start_date"
+                        type="date"
+                        value={newRequest.work_start_date}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, work_start_date: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="work_completion_date">Work Request Completion Date</Label>
+                      <Input
+                        id="work_completion_date"
+                        type="date"
+                        value={newRequest.work_completion_date}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, work_completion_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="benefits">Benefits</Label>
-                  <Textarea
-                    id="benefits"
-                    value={newJob.benefits}
-                    onChange={(e) => setNewJob(prev => ({ ...prev, benefits: e.target.value }))}
-                    rows={3}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="job_name">Job Name</Label>
+                    <Input
+                      id="job_name"
+                      value={newRequest.job_name}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, job_name: e.target.value }))}
+                      placeholder="Name for this job"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="new-job-file">Attachment (Optional)</Label>
-                  <Input
-                    id="new-job-file"
-                    type="file"
-                    onChange={handleNewJobFileChange}
-                    accept=".pdf,.doc,.docx,.txt"
-                  />
-                  {newJobFile && (
-                    <p className="text-sm text-green-600">
-                      Selected: {newJobFile.name}
-                    </p>
-                  )}
-                  {uploadError && (
-                    <p className="text-sm text-red-600">{uploadError}</p>
-                  )}
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="request-file">Attach Files (Optional)</Label>
+                    <Input
+                      id="request-file"
+                      type="file"
+                      onChange={handleNewJobFileChange}
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                    />
+                    {newJobFile && (
+                      <p className="text-sm text-green-600">
+                        Selected: {newJobFile.name}
+                      </p>
+                    )}
+                    {uploadError && (
+                      <p className="text-sm text-red-600">{uploadError}</p>
+                    )}
+                  </div>
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setIsNewJobDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit">Create Job</Button>
-                </div>
-              </form>
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setRequestStep('selection')}
+                    >
+                      Back
+                    </Button>
+                    <Button type="submit">Submit {requestType.charAt(0).toUpperCase() + requestType.slice(1)}</Button>
+                  </div>
+                </form>
+              )}
             </DialogContent>
-          </Dialog>        </div>
+          </Dialog></div>
 
         {/* Search and Filter Section */}
         <div className="mb-6 space-y-4">
@@ -870,14 +1123,13 @@ const ClientJobs = () => {
                       {(selectedJob.geo_street || selectedJob.geo_city) && (
                         <div>
                           <h3 className="font-semibold text-gray-900 mb-2">Location Details</h3>
-                          <div className="bg-gray-50 p-3 rounded-lg border">
-                            <div className="grid grid-cols-1 gap-1 text-sm text-gray-700">
+                          <div className="bg-gray-50 p-3 rounded-lg border">                            <div className="grid grid-cols-1 gap-1 text-sm text-gray-700">
                               {selectedJob.geo_street && (
-                                <p><span className="font-medium">Street:</span> {selectedJob.geo_number ? `${selectedJob.geo_number} ${selectedJob.geo_street}` : selectedJob.geo_street}</p>
+                                <p key="street"><span className="font-medium">Street:</span> {selectedJob.geo_number ? `${selectedJob.geo_number} ${selectedJob.geo_street}` : selectedJob.geo_street}</p>
                               )}
-                              {selectedJob.geo_city && <p><span className="font-medium">City:</span> {selectedJob.geo_city}</p>}
-                              {selectedJob.geo_state && <p><span className="font-medium">State:</span> {selectedJob.geo_state}</p>}
-                              {selectedJob.geo_postcode && <p><span className="font-medium">Postcode:</span> {selectedJob.geo_postcode}</p>}
+                              {selectedJob.geo_city && <p key="city"><span className="font-medium">City:</span> {selectedJob.geo_city}</p>}
+                              {selectedJob.geo_state && <p key="state"><span className="font-medium">State:</span> {selectedJob.geo_state}</p>}
+                              {selectedJob.geo_postcode && <p key="postcode"><span className="font-medium">Postcode:</span> {selectedJob.geo_postcode}</p>}
                             </div>
                           </div>
                         </div>
@@ -946,10 +1198,9 @@ const ClientJobs = () => {
                   {!attachmentsLoading && selectedJob.attachments?.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium text-gray-900">Uploaded Files</h4>
-                      <ScrollArea className="max-h-60">
-                        <div className="space-y-2">                          {selectedJob.attachments.map((attachment) => (
+                      <ScrollArea className="max-h-60">                        <div className="space-y-2">                          {selectedJob.attachments && selectedJob.attachments.length > 0 ? selectedJob.attachments.map((attachment, index) => (
                             <div
-                              key={attachment.id || attachment._id}
+                              key={attachment.id || attachment._id || `attachment-${index}`}
                               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                             >
                               <div className="flex items-center gap-3">
@@ -970,7 +1221,12 @@ const ClientJobs = () => {
                                 <Trash2Icon className="h-4 w-4" />
                               </Button>
                             </div>
-                          ))}
+                          )) : (
+                            <div className="text-center py-4">
+                              <FileIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-gray-500 text-sm">No attachments</p>
+                            </div>
+                          )}
                         </div>
                       </ScrollArea>                    </div>
                   )}
