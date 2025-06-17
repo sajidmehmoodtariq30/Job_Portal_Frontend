@@ -131,16 +131,15 @@ const { toast } = useToast();
         if (status === 'unsuccessful' || status === 'cancelled' || status === 'rejected') {
           return false;
         }
-        
-        switch (statusFilter) {
-          case 'work-order':
-            return status === 'work order' || status === 'workorder';
-          case 'quote':
+          switch (statusFilter) {
+          case 'site':
+            return status === 'site' || status === 'on site' || status === 'at site';
+          case 'workorders':
+            return status === 'work order' || status === 'workorder' || status === 'work-order';
+          case 'quotes':
             return status === 'quote';
           case 'completed':
             return status === 'completed' || status === 'complete';
-          case 'in-progress':
-            return status === 'in progress' || status === 'in-progress';
           default:
             return true;
         }
@@ -210,8 +209,7 @@ const { toast } = useToast();
     } catch (error) {
       console.error('Failed to fetch locations:', error);
     }
-  };
-  const fetchSites = async () => {
+  };  const fetchSites = async () => {
     try {
       const clientId = getClientId();
       console.log('🔍 Fetching sites - Client ID:', clientId);
@@ -226,7 +224,9 @@ const { toast } = useToast();
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'x-client-uuid': clientId
         }
-      });      if (!response.ok) throw new Error('Failed to fetch sites');
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch sites');
       const data = await response.json();
       setSites(data.sites || []);
     } catch (error) {
@@ -671,8 +671,8 @@ const { toast } = useToast();
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">View & manage all your jobs</h1>
-            <p className="text-gray-600 mt-2">Manage your job postings and applications</p>
+            <h1 className="text-3xl font-bold text-gray-900">Jobs</h1>
+            <p className="text-gray-600 mt-2">View & Manage all your jobs. </p>
           </div>
           
           <Dialog open={isNewJobDialogOpen} onOpenChange={(open) => {
@@ -954,19 +954,17 @@ const { toast } = useToast();
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
+                </SelectTrigger>                <SelectContent>
                   <SelectItem value="all">All Jobs</SelectItem>
-                  <SelectItem value="work-order">Work Orders</SelectItem>
-                  <SelectItem value="quote">Quotes</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="site">Site</SelectItem>
+                  <SelectItem value="workorders">Work Orders</SelectItem>
+                  <SelectItem value="quotes">Quotes</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          
-          {/* Results Summary */}
+            {/* Results Summary */}
           <div className="flex items-center justify-between text-sm text-gray-600">
             <p>
               Showing {filteredJobs.length} of {jobs.filter(job => {
@@ -974,7 +972,13 @@ const { toast } = useToast();
                 return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
               }).length} jobs
               {searchTerm && ` matching "${searchTerm}"`}
-              {statusFilter !== 'all' && ` with status "${statusFilter.replace('-', ' ')}"`}
+              {statusFilter !== 'all' && ` with status "${
+                statusFilter === 'workorders' ? 'Work Orders' :
+                statusFilter === 'quotes' ? 'Quotes' :
+                statusFilter === 'site' ? 'Site' :
+                statusFilter === 'completed' ? 'Completed' :
+                statusFilter
+              }"`}
             </p>
             {(searchTerm || statusFilter !== 'all') && (
               <Button 
@@ -1195,18 +1199,7 @@ const { toast } = useToast();
                               {selectedJob.benefits}
                             </p>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Job ID Information */}
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Job Reference</h3>
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                          <p className="text-sm text-blue-800 font-mono">
-                            {selectedJob.generated_job_id || selectedJob.uuid || 'N/A'}
-                          </p>
-                        </div>
-                      </div>
+                        </div>                      )}
 
                       {/* Location Details */}
                       {(selectedJob.geo_street || selectedJob.geo_city) && (

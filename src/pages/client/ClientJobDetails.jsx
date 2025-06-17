@@ -179,11 +179,7 @@ const ClientJobDetails = () => {
                                     <FileText className="w-5 h-5 mr-2" />
                                     Job Information
                                 </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">                                <div>
-                                    <Label className="text-sm font-medium text-gray-500">Job ID</Label>
-                                    <p>{job.uuid}</p>
-                                </div>
+                            </CardHeader>                            <CardContent className="space-y-4">
                                 <div>
                                     <Label className="text-sm font-medium text-gray-500">Description</Label>
                                     <p>{job.job_description || job.description || 'No description available'}</p>
