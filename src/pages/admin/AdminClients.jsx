@@ -229,10 +229,6 @@ const AdminClients = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-semibold text-gray-700">Client ID:</span>
-                  <span className="text-gray-900">{selectedClient.uuid || 'Not Provided'}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="font-semibold text-gray-700">Name:</span>
                   <span className="text-gray-900">{selectedClient.name || 'Not Provided'}</span>
                 </div>

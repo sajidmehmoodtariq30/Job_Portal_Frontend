@@ -30,7 +30,9 @@ import {
   Trash2Icon,
   InfoIcon,
   MessageSquareIcon,
-  StickyNoteIcon
+  StickyNoteIcon,
+  SearchIcon,
+  FilterIcon
 } from 'lucide-react';
 
 const ClientJobs = () => {
@@ -44,9 +46,13 @@ const ClientJobs = () => {
   const [isJobDetailsDialogOpen, setIsJobDetailsDialogOpen] = useState(false);
   const [newJobFile, setNewJobFile] = useState(null);  const [detailsJobFile, setDetailsJobFile] = useState(null);
   const [uploadError, setUploadError] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [attachmentsLoading, setAttachmentsLoading] = useState(false);const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [filteredJobs, setFilteredJobs] = useState([]);const { toast } = useToast();
   const { getClientId, hasValidAssignment } = useClientAssignment();
 
   const [newJob, setNewJob] = useState({
@@ -69,7 +75,59 @@ const ClientJobs = () => {
     } else {
       console.log('⏳ Waiting for valid client assignment...');
     }
-  }, [hasValidAssignment]);const fetchJobs = async () => {
+  }, [hasValidAssignment]);
+
+  // Filter jobs based on search term and status filter
+  useEffect(() => {
+    let filtered = jobs;
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(job => 
+        (job.job_name?.toLowerCase() || '').includes(search) ||
+        (job.name?.toLowerCase() || '').includes(search) ||
+        (job.job_description?.toLowerCase() || '').includes(search) ||
+        (job.description?.toLowerCase() || '').includes(search) ||
+        (job.location_address?.toLowerCase() || '').includes(search) ||
+        (job.job_address?.toLowerCase() || '').includes(search) ||
+        (job.job_number?.toString() || '').includes(search)
+      );
+    }
+
+    // Apply status filter - exclude "Unsuccessful" from all filters
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(job => {
+        const status = job.status?.toLowerCase() || '';
+        
+        // Always exclude unsuccessful jobs
+        if (status === 'unsuccessful' || status === 'cancelled' || status === 'rejected') {
+          return false;
+        }
+        
+        switch (statusFilter) {
+          case 'work-order':
+            return status === 'work order' || status === 'workorder';
+          case 'quote':
+            return status === 'quote';
+          case 'completed':
+            return status === 'completed' || status === 'complete';
+          case 'in-progress':
+            return status === 'in progress' || status === 'in-progress';
+          default:
+            return true;
+        }
+      });
+    } else {
+      // Even for "all", exclude unsuccessful jobs
+      filtered = filtered.filter(job => {
+        const status = job.status?.toLowerCase() || '';
+        return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
+      });
+    }
+
+    setFilteredJobs(filtered);
+  }, [jobs, searchTerm, statusFilter]);const fetchJobs = async () => {
     try {
       const clientId = getClientId();
       const response = await fetch(`${API_URL}/fetch/jobs/client/${clientId}`, {
@@ -402,7 +460,7 @@ const ClientJobs = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Job Posts</h1>
+            <h1 className="text-3xl font-bold text-gray-900">View & manage all your jobs</h1>
             <p className="text-gray-600 mt-2">Manage your job postings and applications</p>
           </div>
           
@@ -562,23 +620,99 @@ const ClientJobs = () => {
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
+          </Dialog>        </div>
 
-        {jobs.length === 0 ? (
+        {/* Search and Filter Section */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-1">
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                type="text"
+                placeholder="Search jobs by title, description, location, or job number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <FilterIcon className="h-4 w-4 text-gray-600" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Jobs</SelectItem>
+                  <SelectItem value="work-order">Work Orders</SelectItem>
+                  <SelectItem value="quote">Quotes</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <p>
+              Showing {filteredJobs.length} of {jobs.filter(job => {
+                const status = job.status?.toLowerCase() || '';
+                return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
+              }).length} jobs
+              {searchTerm && ` matching "${searchTerm}"`}
+              {statusFilter !== 'all' && ` with status "${statusFilter.replace('-', ' ')}"`}
+            </p>
+            {(searchTerm || statusFilter !== 'all') && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </div>        {filteredJobs.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <BriefcaseIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No jobs posted yet</h3>
-              <p className="text-gray-600 mb-4">Start by creating your first job posting</p>
-              <Button onClick={() => setIsNewJobDialogOpen(true)}>
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Post Your First Job
-              </Button>
+              {jobs.length === 0 ? (
+                <>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No jobs posted yet</h3>
+                  <p className="text-gray-600 mb-4">Start by creating your first job posting</p>
+                  <Button onClick={() => setIsNewJobDialogOpen(true)}>
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Post Your First Job
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No jobs match your criteria</h3>
+                  <p className="text-gray-600 mb-4">
+                    {searchTerm ? `No jobs found matching "${searchTerm}"` : 'No jobs found with the selected filters'}
+                  </p>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setStatusFilter('all');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
-        ) : (          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {jobs.map((job) => (
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredJobs.map((job) => (
               <Card key={job.uuid} className="hover:shadow-lg transition-shadow">                <CardHeader>
                   <div className="flex justify-between items-start">                    <CardTitle className="text-lg font-semibold line-clamp-2">
                       {job.job_name || job.name || job.description?.substring(0, 30) + '...' || `Job #${job.job_number}` || 'New Job Posting'}
