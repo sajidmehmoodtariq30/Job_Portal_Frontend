@@ -100,8 +100,8 @@ export const ClientAssignmentProvider = ({ children }) => {
     };
 
     // Run initial validation
-    runValidation();    // Set up periodic validation every 5 minutes (increased from 30 seconds)
-    intervalId = setInterval(runValidation, 300000);
+    runValidation();    // Set up periodic validation every 10 minutes
+    intervalId = setInterval(runValidation, 600000);
 
     return () => {
       if (intervalId) {

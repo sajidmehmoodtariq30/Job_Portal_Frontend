@@ -9,6 +9,7 @@ import { MoveRight, Mail, ArrowLeft } from "lucide-react";
 import axios from "axios";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { useSession } from "@/context/SessionContext";
+import { cleanOAuthURL, extractOAuthParams, getProcessedOAuthData } from "@/utils/oauthUtils";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -31,20 +32,48 @@ const LoginPage = () => {
       isUser: isUser(),
       isProcessingOAuth,
       oauthProcessed
-    });
-
-    // Skip processing if we've already processed OAuth or are currently processing
+    });    // Skip processing if we've already processed OAuth or are currently processing
     if (oauthProcessed || isProcessingOAuth) {
       console.log('⏭️ Skipping - OAuth already processed or in progress');
       return;
     }
 
-    // Check for admin OAuth callback tokens in URL parameters first
-    const access_token = searchParams.get('access_token');
-    const refresh_token = searchParams.get('refresh_token');
-    const expires_in = searchParams.get('expires_in');
-    const token_type = searchParams.get('token_type');
-    const scope = searchParams.get('scope');
+    // First check for pre-processed OAuth data
+    const preProcessedData = getProcessedOAuthData();
+    if (preProcessedData) {
+      console.log('✅ Found pre-processed OAuth data, processing...');
+      
+      setOauthProcessed(true);
+      setIsProcessingOAuth(true);
+      
+      try {
+        const tokenData = {
+          access_token: preProcessedData.access_token,
+          refresh_token: preProcessedData.refresh_token,
+          expires_in: parseInt(preProcessedData.expires_in),
+          token_type: preProcessedData.token_type,
+          scope: decodeURIComponent(preProcessedData.scope)
+        };
+        
+        console.log('🔑 Processing pre-processed token data');
+        
+        // Handle admin login
+        handleAdminLogin(tokenData, () => {
+          console.log('✅ Admin login successful, navigating...');
+          setIsProcessingOAuth(false);
+          navigate('/admin', { replace: true });
+        });
+      } catch (oauthError) {
+        console.error('❌ Error processing pre-processed OAuth:', oauthError);
+        setError('Authentication failed. Please try logging in again.');
+        setIsProcessingOAuth(false);
+        setOauthProcessed(false);
+      }
+      
+      return;
+    }// Check for admin OAuth callback tokens in URL parameters first
+    const oauthParams = extractOAuthParams(searchParams);
+    const { access_token, refresh_token, expires_in, token_type, scope } = oauthParams;
     
     console.log('🔍 OAuth parameters:', { 
       access_token: !!access_token, 
@@ -52,36 +81,39 @@ const LoginPage = () => {
       expires_in, 
       token_type, 
       scope: !!scope
-    });
-
-    if (access_token && refresh_token && expires_in && token_type && scope) {
-      console.log('✅ Processing OAuth callback...');
+    });    if (access_token && refresh_token && expires_in && token_type && scope) {
+      console.log('⚠️ Processing OAuth callback directly (fallback)...');
       
       // Mark as processed immediately to prevent re-processing
       setOauthProcessed(true);
       setIsProcessingOAuth(true);
       
-      const tokenData = {
-        access_token,
-        refresh_token,
-        expires_in: parseInt(expires_in),
-        token_type,
-        scope: decodeURIComponent(scope)
-      };
-      
-      console.log('🔑 Processing token data');
-      
-      // Clean up URL immediately
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-      console.log('🧹 URL cleaned to:', cleanUrl);
-      
-      // Handle admin login
-      handleAdminLogin(tokenData, () => {
-        console.log('✅ Admin login successful, navigating...');
+      try {
+        const tokenData = {
+          access_token,
+          refresh_token,
+          expires_in: parseInt(expires_in),
+          token_type,
+          scope: decodeURIComponent(scope)
+        };
+          console.log('🔑 Processing token data');
+        
+        // Clean up URL using the safer utility
+        const cleanedUrl = cleanOAuthURL();
+        console.log('🧹 URL cleaned to:', cleanedUrl);
+        
+        // Handle admin login
+        handleAdminLogin(tokenData, () => {
+          console.log('✅ Admin login successful, navigating...');
+          setIsProcessingOAuth(false);
+          navigate('/admin', { replace: true });
+        });
+      } catch (oauthError) {
+        console.error('❌ Error processing OAuth:', oauthError);
+        setError('Authentication failed. Please try logging in again.');
         setIsProcessingOAuth(false);
-        navigate('/admin', { replace: true });
-      });
+        setOauthProcessed(false);
+      }
       
       return;
     }

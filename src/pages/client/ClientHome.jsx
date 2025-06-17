@@ -332,14 +332,13 @@ const ClientHome = () => {
     if (hasValidAssignment && clientId) {
       console.log('🔄 DASHBOARD: Initial data loading for client:', clientId);
       fetchDashboardData(false);
-      
-      // Set up interval for real-time updates (reduced frequency)
+        // Set up interval for real-time updates (reduced frequency)
       const intervalId = setInterval(() => {
         // Only refresh if we still have a valid assignment
         if (hasValidAssignment && clientId) {
           fetchDashboardData(true);
         }
-      }, 300000); // Refresh every 5 minutes
+      }, 600000); // Refresh every 10 minutes
       
       return () => clearInterval(intervalId);
     }

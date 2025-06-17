@@ -44,17 +44,18 @@ import { AdminProtectedRoute, ClientProtectedRoute } from './components/Protecte
 import TokenHandler from './components/TokenHandler';
 import SessionWarningModal from './components/SessionWarningModal';
 import ClientLinkingNotification from './components/ClientLinkingNotification';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   const { toasts, dismiss } = useToast();
-
   return (
-    <Router>      <SessionProvider>
-        <PermissionsProvider>
-          <NotificationProvider>
-            <JobProvider>
-              <TokenHandler />
-              <Routes>
+    <ErrorBoundary>
+      <Router>        <SessionProvider>
+          <PermissionsProvider>
+            <NotificationProvider>
+              <JobProvider>
+                <TokenHandler />
+                <Routes>
               {/* Public Routes */}
               <Route element={<AppLayout />}>
                 <Route index element={<Home />} />
@@ -111,13 +112,13 @@ function App() {
               {/* Default Redirects */}
               <Route path="*" element={<Navigate to="/login" replace />} />            </Routes>
             <SessionWarningModal />
-            <ClientLinkingNotification />
-            <ToastContainer toasts={toasts} onDismiss={dismiss} />
-          </JobProvider>
-        </NotificationProvider>
-      </PermissionsProvider>
-    </SessionProvider>
-    </Router>
+            <ClientLinkingNotification />              <ToastContainer toasts={toasts} onDismiss={dismiss} />
+            </JobProvider>
+          </NotificationProvider>
+        </PermissionsProvider>
+      </SessionProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

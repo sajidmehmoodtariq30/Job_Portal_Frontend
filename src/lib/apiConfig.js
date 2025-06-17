@@ -118,9 +118,13 @@ export const API_ENDPOINTS = {  AUTH: {
     UPDATE: (noteId) => buildApiEndpoint(`api/notes/${noteId}`),
     DELETE: (noteId) => buildApiEndpoint(`api/notes/${noteId}`),
     GET_SINGLE: (noteId) => buildApiEndpoint(`api/notes/single/${noteId}`)
-  },
-  CLIENT_VALIDATION: {
+  },  CLIENT_VALIDATION: {
     VALIDATE_ASSIGNMENT: buildApiEndpoint('api/client/validate-client-assignment')
+  },
+
+  CONTACTS: {
+    GET_ALL: buildApiEndpoint('api/contacts'),
+    GET_CLIENT_SITES: (clientUuid) => buildApiEndpoint(`api/contacts/client-sites/${clientUuid}`)
   }
 };
 
