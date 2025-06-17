@@ -70,12 +70,10 @@ const ClientHome = () => {
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead, triggerNotification } = useNotifications();
   const { } = useSession();
   const { hasValidAssignment } = useClientAssignment();
-
   // State variables
   const [dashboardData, setDashboardData] = useState({
     stats: {},
     jobs: [],
-    quotes: [],
     upcomingServices: [],
     recentActivity: []
   });
@@ -238,12 +236,11 @@ const ClientHome = () => {
           date: '2025-04-20',
           type: 'Work Order',
           description: 'Routine maintenance check on surveillance system',
-          assignedTech: 'Miguel Rodriguez',
-          location: 'Branch Office',
+          assignedTech: 'Miguel Rodriguez',          location: 'Branch Office',
           attachments: 0,
           clientId: clientId
         }
-      ],      quotes: [], // Quotes feature removed
+      ],
       upcomingServices: [
         {
           id: 'SVC-001',
@@ -311,12 +308,10 @@ const ClientHome = () => {
       if (process.env.NODE_ENV === 'development') {
         console.warn('⚠️ DASHBOARD: Using mock data for development purposes only');
         loadMockData();
-      } else {
-        // In production, show empty data instead of mock data
+      } else {        // In production, show empty data instead of mock data
         setDashboardData({
           stats: {},
           jobs: [],
-          quotes: [],
           upcomingServices: [],
           recentActivity: []
         });
@@ -376,9 +371,7 @@ const ClientHome = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'In Progress': return 'bg-purple-600 text-white';
-      case 'Quote': return 'bg-orange-500 text-white';
-      case 'Work Order': return 'bg-blue-600 text-white';
+      case 'In Progress': return 'bg-purple-600 text-white';      case 'Work Order': return 'bg-blue-600 text-white';
       case 'Completed': return 'bg-green-600 text-white';
       case 'Scheduled': return 'bg-purple-600 text-white';
       case 'On Hold': return 'bg-gray-600 text-white';
@@ -395,7 +388,7 @@ const ClientHome = () => {
       default: return <AlertCircle className="text-gray-500" />;
     }
   };// Extract data from the dashboard data object for easier use
-  const { stats, jobs, quotes, upcomingServices, recentActivity } = dashboardData;
+  const { stats, jobs, upcomingServices, recentActivity } = dashboardData;
 
   return (
     <div className="space-y-6">
@@ -486,7 +479,6 @@ const ClientHome = () => {
                       {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
                       {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
                       {notification.type?.includes('chat') && <MessageSquare className="text-blue-500" size={20} />}
-                      {notification.type?.includes('quote') && <FileText className="text-orange-500" size={20} />}
                       {notification.type?.includes('service') && <Calendar className="text-purple-500" size={20} />}
                       <div>
                         <p className="font-medium text-sm">{notification.title || notification.message}</p>
@@ -545,95 +537,102 @@ const ClientHome = () => {
             Try Real Data
           </Button>
         </div>
-      )}
-
-      {/* Dashboard Overview Cards */}
+      )}      {/* Dashboard Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Active Jobs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-4 w-24" />
-              </>
-            ) : (
-              <>
-                <div className="text-3xl font-bold">
-                  {jobs.filter(job => job.status !== 'Completed').length}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {jobs.filter(job => job.status === 'In Progress').length} in progress
-                </p>
-              </>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
-              View all jobs <ArrowRight size={16} className="ml-1" />
-            </Button>
-          </CardFooter>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Completed Jobs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-4 w-24" />
-              </>
-            ) : (
-              <>
-                <div className="text-3xl font-bold">
-                  {jobs.filter(job => job.status === 'Completed').length}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  In the last 30 days
-                </p>
-              </>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
-              View completed jobs <ArrowRight size={16} className="ml-1" />
-            </Button>
-          </CardFooter>
-        </Card>
+        {/* Active Jobs Card */}
+        {(loading || jobs.filter(job => job.status !== 'Completed').length > 0) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Active Jobs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold">
+                    {jobs.filter(job => job.status !== 'Completed').length}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {jobs.filter(job => job.status === 'In Progress').length} in progress
+                  </p>
+                </>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
+                View all jobs <ArrowRight size={16} className="ml-1" />
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+        {/* Completed Jobs Card */}
+        {(loading || jobs.filter(job => job.status === 'Completed').length > 0) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Completed Jobs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold">
+                    {jobs.filter(job => job.status === 'Completed').length}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    In the last 30 days
+                  </p>
+                </>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
+                View completed jobs <ArrowRight size={16} className="ml-1" />
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Upcoming Services</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-4 w-24" />
-              </>
-            ) : (
-              <>
-                <div className="text-3xl font-bold">
-                  {upcomingServices.length}
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Next: {upcomingServices.length > 0 ?
-                    new Date(upcomingServices[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
-                    'None scheduled'}
-                </p>
-              </>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button variant="link" className="p-0" onClick={() => navigate('/client/schedule')}>
-              View schedule <ArrowRight size={16} className="ml-1" />
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>      {/* Main Dashboard Content */}
+        {/* Upcoming Services Card */}
+        {(loading || upcomingServices.length > 0) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Upcoming Services</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold">
+                    {upcomingServices.length}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Next: {upcomingServices.length > 0 ?
+                      new Date(upcomingServices[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
+                      'None scheduled'}
+                  </p>
+                </>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="link" className="p-0" onClick={() => navigate('/client/schedule')}>
+                View schedule <ArrowRight size={16} className="ml-1" />
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
+      </div>{/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content - 2/3 width */}
         <div className="lg:col-span-2 space-y-6">
@@ -722,9 +721,7 @@ const ClientHome = () => {
                           dataKey="value"
                           nameKey="name"
                           label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {[
-                            { name: 'Quotes', color: '#f59e0b' },
+                        >                          {[
                             { name: 'In Progress', color: '#8b5cf6' },
                             { name: 'Scheduled', color: '#3b82f6' },
                             { name: 'Completed', color: '#10b981' }
@@ -773,131 +770,117 @@ const ClientHome = () => {
               )}
             </CardContent>
           </Card>          {/* Upcoming Services */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Services</CardTitle>
-              <CardDescription>Scheduled services for your locations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map(index => (
-                    <div key={index} className="flex items-center gap-4 pb-4 border-b last:border-0 last:pb-0">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-full" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : upcomingServices.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingServices.map(service => (
-                    <div key={service.id} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
-                      <div className="bg-blue-50 dark:bg-blue-950 rounded-full p-3 flex-shrink-0">
-                        <Calendar className="h-5 w-5 text-blue-500" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium">{service.title}</h4>
-                        <div className="flex items-center gap-4 mt-1">
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{service.time}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Building className="h-3.5 w-3.5" />
-                            <span>{service.location}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <User className="h-3.5 w-3.5" />
-                            <span>{service.tech}</span>
-                          </div>
+          {(loading || upcomingServices.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming Services</CardTitle>
+                <CardDescription>Scheduled services for your locations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map(index => (
+                      <div key={index} className="flex items-center gap-4 pb-4 border-b last:border-0 last:pb-0">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-full" />
                         </div>
                       </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap">
-                        {new Date(service.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {upcomingServices.map(service => (
+                      <div key={service.id} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
+                        <div className="bg-blue-50 dark:bg-blue-950 rounded-full p-3 flex-shrink-0">
+                          <Calendar className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium">{service.title}</h4>
+                          <div className="flex items-center gap-4 mt-1">
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>{service.time}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Building className="h-3.5 w-3.5" />
+                              <span>{service.location}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <User className="h-3.5 w-3.5" />
+                              <span>{service.tech}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap">
+                          {new Date(service.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Calendar className="h-12 w-12 text-muted-foreground opacity-50" />
-                  <h3 className="mt-4 text-lg font-medium">No upcoming services</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    When you have scheduled services, they will appear here.
-                  </p>
-                </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+              {upcomingServices.length > 3 && (
+                <CardFooter>
+                  <Button variant="outline" className="w-full">
+                    View All Scheduled Services
+                  </Button>
+                </CardFooter>
               )}
-            </CardContent>
-            {upcomingServices.length > 3 && (
-              <CardFooter>
-                <Button variant="outline" className="w-full">
-                  View All Scheduled Services
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
-
-          {/* Recent Job Updates */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Recent Updates</CardTitle>
-                <CardDescription>Latest updates on your jobs and services</CardDescription>
-              </div>
-              {dataRefreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-5">
-                  {[1, 2, 3, 4, 5].map(index => (
-                    <div key={index} className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-full" />
-                      </div>
-                      <Skeleton className="h-3 w-14" />
-                    </div>
-                  ))}
+            </Card>
+          )}          {/* Recent Job Updates */}
+          {(loading || recentActivity.length > 0) && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Recent Updates</CardTitle>
+                  <CardDescription>Latest updates on your jobs and services</CardDescription>
                 </div>
-              ) : recentActivity.length > 0 ? (
-                <div className="space-y-5">
-                  {recentActivity.map(activity => (
-                    <div key={activity.id} className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0">
-                      <div className="bg-muted rounded-full p-2">
-                        {getActivityIcon(activity.type)}
+                {dataRefreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="space-y-5">
+                    {[1, 2, 3, 4, 5].map(index => (
+                      <div key={index} className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-full" />
+                        </div>
+                        <Skeleton className="h-3 w-14" />
                       </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium">{activity.title}</h4>
-                        <p className="text-sm text-muted-foreground">{activity.description}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {recentActivity.map(activity => (
+                      <div key={activity.id} className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0">
+                        <div className="bg-muted rounded-full p-2">
+                          {getActivityIcon(activity.type)}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium">{activity.title}</h4>
+                          <p className="text-sm text-muted-foreground">{activity.description}</p>
+                        </div>
+                        <div className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <FileText className="h-12 w-12 text-muted-foreground opacity-50" />
-                  <h3 className="mt-4 text-lg font-medium">No recent updates</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    When there are updates to your jobs and services, they will appear here.
-                  </p>
-                </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+              {recentActivity.length > 5 && (
+                <CardFooter>
+                  <Button variant="outline" className="w-full">
+                    View All Updates
+                  </Button>
+                </CardFooter>
               )}
-            </CardContent>
-            {recentActivity.length > 5 && (
-              <CardFooter>
-                <Button variant="outline" className="w-full">
-                  View All Updates
-                </Button>
-              </CardFooter>
-            )}
-          </Card>        </div>
+            </Card>
+          )}</div>
 
         {/* Right Sidebar - 1/3 width */}
         <div className="space-y-6">
