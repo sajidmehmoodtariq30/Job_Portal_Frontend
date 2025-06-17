@@ -80,15 +80,14 @@ const ClientLayout = () => {
         name: clientName,
         email: localStorage.getItem('client_email') || localStorage.getItem('user_email') || 'user@company.com',
         avatar: null
-    }// Navigation data needed for mobile page title
+    }    // Navigation data needed for mobile page title
     const navigation = [
         { name: 'Dashboard', href: '/client' },
         { name: 'Jobs', href: '/client/jobs' },
-        { name: 'Quotes', href: '/client/quotes' },
         { name: 'Invoices', href: '/client/invoices' },
         { name: 'Support', href: '/client/support' },
         { name: 'Settings', href: '/client/settings' }
-    ];    const handleLogout = () => {
+    ];const handleLogout = () => {
         if (window.confirm('Are you sure you want to logout?')) {
             // Remove client UUID header before logout
             removeClientUuidHeader();

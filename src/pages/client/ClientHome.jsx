@@ -70,12 +70,10 @@ const ClientHome = () => {
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead, triggerNotification } = useNotifications();
   const { } = useSession();
   const { hasValidAssignment } = useClientAssignment();
-
   // State variables
   const [dashboardData, setDashboardData] = useState({
     stats: {},
     jobs: [],
-    quotes: [],
     upcomingServices: [],
     recentActivity: []
   });
@@ -238,12 +236,11 @@ const ClientHome = () => {
           date: '2025-04-20',
           type: 'Work Order',
           description: 'Routine maintenance check on surveillance system',
-          assignedTech: 'Miguel Rodriguez',
-          location: 'Branch Office',
+          assignedTech: 'Miguel Rodriguez',          location: 'Branch Office',
           attachments: 0,
           clientId: clientId
         }
-      ],      quotes: [], // Quotes feature removed
+      ],
       upcomingServices: [
         {
           id: 'SVC-001',
@@ -311,12 +308,10 @@ const ClientHome = () => {
       if (process.env.NODE_ENV === 'development') {
         console.warn('⚠️ DASHBOARD: Using mock data for development purposes only');
         loadMockData();
-      } else {
-        // In production, show empty data instead of mock data
+      } else {        // In production, show empty data instead of mock data
         setDashboardData({
           stats: {},
           jobs: [],
-          quotes: [],
           upcomingServices: [],
           recentActivity: []
         });
@@ -376,9 +371,7 @@ const ClientHome = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'In Progress': return 'bg-purple-600 text-white';
-      case 'Quote': return 'bg-orange-500 text-white';
-      case 'Work Order': return 'bg-blue-600 text-white';
+      case 'In Progress': return 'bg-purple-600 text-white';      case 'Work Order': return 'bg-blue-600 text-white';
       case 'Completed': return 'bg-green-600 text-white';
       case 'Scheduled': return 'bg-purple-600 text-white';
       case 'On Hold': return 'bg-gray-600 text-white';
@@ -395,7 +388,7 @@ const ClientHome = () => {
       default: return <AlertCircle className="text-gray-500" />;
     }
   };// Extract data from the dashboard data object for easier use
-  const { stats, jobs, quotes, upcomingServices, recentActivity } = dashboardData;
+  const { stats, jobs, upcomingServices, recentActivity } = dashboardData;
 
   return (
     <div className="space-y-6">
@@ -486,7 +479,6 @@ const ClientHome = () => {
                       {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
                       {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
                       {notification.type?.includes('chat') && <MessageSquare className="text-blue-500" size={20} />}
-                      {notification.type?.includes('quote') && <FileText className="text-orange-500" size={20} />}
                       {notification.type?.includes('service') && <Calendar className="text-purple-500" size={20} />}
                       <div>
                         <p className="font-medium text-sm">{notification.title || notification.message}</p>
