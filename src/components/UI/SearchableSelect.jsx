@@ -43,6 +43,11 @@ const SearchableSelect = ({
 
   // Handle selection
   const handleSelect = (item) => {
+    // Don't allow selection of search prompt items or disabled items
+    if (item.isSearchPrompt || item.disabled) {
+      return;
+    }
+    
     onValueChange(item[valueKey]);
     setIsOpen(false);
     setSearchTerm('');
@@ -178,7 +183,11 @@ const SearchableSelect = ({
                     <div
                       key={item[valueKey]}
                       onClick={() => handleSelect(item)}
-                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${
+                      className={`p-3 ${
+                        item.isSearchPrompt || item.disabled 
+                          ? 'text-gray-500 italic cursor-default' 
+                          : 'cursor-pointer hover:bg-gray-50'
+                      } border-b border-gray-50 last:border-b-0 ${
                         value === item[valueKey] ? 'bg-blue-50 text-blue-900' : ''
                       }`}
                     >

@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Building, 
   MapPin, 
   AlertCircle,
   Loader2,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Search,
+  Filter,
+  X
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
@@ -20,6 +23,12 @@ const SiteManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [totalSites, setTotalSites] = useState(0);
+  
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedJobCountRange, setSelectedJobCountRange] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   
   // Get client data from session/localStorage
   const getClientData = () => {
@@ -53,8 +62,8 @@ const SiteManagement = () => {
 
   console.log('🏢 ClientSites - Using client UUID:', clientUuid);
 
-  // Fetch sites based on job addresses
-  const fetchSitesFromJobs = async () => {
+  // Fetch sites using hierarchical company structure
+  const fetchSitesFromCompanies = async () => {
     if (!clientUuid) {
       console.error('No client UUID available for fetching sites');
       setError('No client data available');
@@ -66,88 +75,66 @@ const SiteManagement = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch jobs for this client
-      const response = await fetch(`${API_URL}/fetch/jobs/client/${clientUuid}`, {
+      console.log('🏢 Fetching hierarchical company sites for client:', clientUuid);
+      
+      // Fetch hierarchical company sites for this client
+      const response = await fetch(`${API_URL}/api/clients/${clientUuid}/sites`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientUuid
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
-
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }      const jobsData = await response.json();
-      const jobs = jobsData.data || jobsData || [];
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       
-      console.log('🔍 Fetched jobs for sites:', jobs.length);
-
-      // Filter jobs to only include those for the current client
-      const clientJobs = jobs.filter(job => {
-        // Check if job belongs to current client using company_uuid
-        const belongsToClient = job.company_uuid === clientUuid || 
-                               job.created_by_staff_uuid === clientUuid ||
-                               job.client_uuid === clientUuid;
-        
-        if (belongsToClient) {
-          console.log('✅ Job belongs to client:', job.generated_job_id || job.uuid);
-        }
-        
-        return belongsToClient;
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch sites');
+      }
+      
+      let sitesData = data.sites || [];
+      
+      console.log('🏢 RAW COMPANY SITES:', sitesData.length);
+      console.log('🏢 DATA SOURCE:', data.source);
+      console.log('🏢 SAMPLE SITE:', sitesData[0]);
+      
+      // Apply business filtering rules
+      // 1. Exclude sites with 'shop' or 'Shop' in the name
+      const filteredSites = sitesData.filter(site => {
+        const hasShop = site.name && (site.name.includes('Shop') || site.name.includes('shop'));
+        return !hasShop;
       });
       
-      console.log(`🏢 Filtered jobs for client ${clientUuid}: ${clientJobs.length} out of ${jobs.length} total jobs`);
-
-      // Extract unique addresses from client jobs only
-      const addressMap = new Map();
-      
-      clientJobs.forEach((job, index) => {
-        // Get address from various possible fields
-        const jobAddress = job.job_address || job.billing_address;
-        const geoAddress = job.geo_street && job.geo_city ? 
-          `${job.geo_number ? job.geo_number + ' ' : ''}${job.geo_street}, ${job.geo_city}, ${job.geo_state || ''} ${job.geo_postcode || ''}`.trim() : 
-          null;
+      // 2. Sort sites: Parent companies first, then SkinKandy sites, then alphabetically
+      filteredSites.sort((a, b) => {
+        // Parent companies (no parent_company_uuid) come first
+        if (!a.parent_company_uuid && b.parent_company_uuid) return -1;
+        if (a.parent_company_uuid && !b.parent_company_uuid) return 1;
         
-        const primaryAddress = jobAddress || geoAddress;
+        // Within each group, SkinKandy sites come first
+        const aHasSkinKandy = a.name && a.name.toLowerCase().includes('skinkandy');
+        const bHasSkinKandy = b.name && b.name.toLowerCase().includes('skinkandy');
         
-        if (primaryAddress) {
-          const addressKey = primaryAddress.toLowerCase().trim();
-          
-          if (!addressMap.has(addressKey)) {
-            // Create a site object from the job address
-            const site = {
-              id: `site-${index}`,
-              uuid: `site-${Date.now()}-${index}`,
-              name: primaryAddress.split(',')[0] || primaryAddress, // Use first part as name
-              address: primaryAddress,
-              // Parse geo components if available
-              suburb: job.geo_city,
-              city: job.geo_city,
-              state: job.geo_state,
-              postcode: job.geo_postcode,
-              // Additional info
-              jobCount: 1,
-              coordinates: job.lat && job.lng ? { lat: job.lat, lng: job.lng } : null
-            };
-            
-            addressMap.set(addressKey, site);
-          } else {
-            // Increment job count for existing address
-            const existingSite = addressMap.get(addressKey);
-            existingSite.jobCount += 1;
-          }
-        }
+        if (aHasSkinKandy && !bHasSkinKandy) return -1;
+        if (!aHasSkinKandy && bHasSkinKandy) return 1;
+        
+        // Finally, sort alphabetically
+        return (a.name || '').localeCompare(b.name || '');
       });
-
-      const uniqueSites = Array.from(addressMap.values());
       
-      console.log('🏢 Generated sites from job addresses:', uniqueSites.length);
+      console.log('🏢 FILTERED COMPANY SITES:', filteredSites.length);
+      console.log('🏢 PARENT COMPANIES:', filteredSites.filter(site => !site.parent_company_uuid).length);
+      console.log('🏢 CHILD COMPANIES:', filteredSites.filter(site => site.parent_company_uuid).length);
       
-      setSites(uniqueSites);
-      setTotalSites(uniqueSites.length);
+      setSites(filteredSites);
+      setTotalSites(filteredSites.length);
       
     } catch (error) {
-      console.error('Error fetching sites from jobs:', error);
-      setError('Failed to load sites. Please try again.');
+      console.error('❌ Error fetching company sites:', error);
+      setError(`Failed to fetch sites: ${error.message}`);
       setSites([]);
       setTotalSites(0);
     } finally {
@@ -155,13 +142,98 @@ const SiteManagement = () => {
     }
   };
 
+  // Constants for site limiting
+  const SITE_DISPLAY_LIMIT = 80;
+
+  // Filter and search logic
+  const filteredSites = useMemo(() => {
+    let filtered = sites;
+
+    // Apply filters first
+    // Search filter
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(site => 
+        (site.name || '').toLowerCase().includes(search) ||
+        (site.address || '').toLowerCase().includes(search) ||
+        (site.suburb || '').toLowerCase().includes(search) ||
+        (site.city || '').toLowerCase().includes(search) ||
+        (site.postcode || '').toLowerCase().includes(search)
+      );
+      // When searching, don't apply the 80-site limit to allow finding sites beyond the limit
+    } else {
+      // When not searching, apply the 80-site limit
+      filtered = filtered.slice(0, SITE_DISPLAY_LIMIT);
+    }
+
+    // State filter
+    if (selectedState) {
+      filtered = filtered.filter(site => 
+        (site.state || '').toLowerCase() === selectedState.toLowerCase()
+      );
+    }
+
+    // Job count range filter
+    if (selectedJobCountRange) {
+      filtered = filtered.filter(site => {
+        const jobCount = site.jobCount || 0;
+        switch (selectedJobCountRange) {
+          case '1':
+            return jobCount === 1;
+          case '2-5':
+            return jobCount >= 2 && jobCount <= 5;
+          case '6-10':
+            return jobCount >= 6 && jobCount <= 10;
+          case '10+':
+            return jobCount > 10;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  }, [sites, searchTerm, selectedState, selectedJobCountRange]);
+
+  // Calculate display counts
+  const isSearchActive = searchTerm.trim() || selectedState || selectedJobCountRange;
+  const actualDisplayedCount = filteredSites.length;
+  const totalCount = sites.length;
+  const isLimited = !isSearchActive && totalCount > SITE_DISPLAY_LIMIT;
+  
+  // For display purposes, ALWAYS hide the real total when it's above 80
+  // Also limit the displayed count to never exceed 80
+  const displayTotalCount = totalCount > SITE_DISPLAY_LIMIT ? SITE_DISPLAY_LIMIT : totalCount;
+  const displayedCount = actualDisplayedCount > SITE_DISPLAY_LIMIT ? SITE_DISPLAY_LIMIT : actualDisplayedCount;
+
+  // Get unique states for filter dropdown
+  const availableStates = useMemo(() => {
+    const states = sites
+      .map(site => site.state)
+      .filter(Boolean)
+      .filter((state, index, arr) => arr.indexOf(state) === index)
+      .sort();
+    return states;
+  }, [sites]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedState('');
+    setSelectedJobCountRange('');
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm || selectedState || selectedJobCountRange;
+
   // Initial load
   useEffect(() => {
-    fetchSitesFromJobs();
+    fetchSitesFromCompanies();
   }, [clientUuid]);
+  
   // Refresh handler
   const handleRefresh = () => {
-    fetchSitesFromJobs();
+    fetchSitesFromCompanies();
   };
 
   if (loading) {
@@ -191,43 +263,165 @@ const SiteManagement = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">        
           <div>
-            <h1 className="text-3xl font-bold">Site Management</h1>            <p className="text-muted-foreground mt-1">
-              View your business locations and sites ({totalSites} total)
+            <h1 className="text-3xl font-bold">Site Management</h1>            
+            <p className="text-muted-foreground mt-1">
+              View your business locations and sites ({displayedCount} of {displayTotalCount} total)
             </p>
           </div>
         
           <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => setShowFilters(!showFilters)} 
+              variant="outline" 
+              className="flex items-center gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 ml-1">
+                  {[searchTerm, selectedState, selectedJobCountRange].filter(Boolean).length}
+                </span>
+              )}
+            </Button>
             <Button onClick={handleRefresh} variant="outline" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Refresh
             </Button>
           </div>
+        </div>
+
+        {/* Search and Filters */}
+        <div className="space-y-4">
+          {/* Search Bar - Always visible */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <input
+              type="text"
+              placeholder="Search sites by name, address, suburb, or postcode..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Advanced Filters - Collapsible */}
+          {showFilters && (
+            <Card className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* State Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    State/Territory
+                  </label>
+                  <select
+                    value={selectedState}
+                    onChange={(e) => setSelectedState(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">All States</option>
+                    {availableStates.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Job Count Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Count
+                  </label>
+                  <select
+                    value={selectedJobCountRange}
+                    onChange={(e) => setSelectedJobCountRange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">All Counts</option>
+                    <option value="1">1 job</option>
+                    <option value="2-5">2-5 jobs</option>
+                    <option value="6-10">6-10 jobs</option>
+                    <option value="10+">10+ jobs</option>
+                  </select>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="flex items-end">
+                  <Button
+                    onClick={clearFilters}
+                    variant="outline"
+                    disabled={!hasActiveFilters}
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+
+              {/* Active Filters Display */}
+              {hasActiveFilters && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-sm text-gray-600">Active filters:</span>
+                    {searchTerm && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        Search: "{searchTerm}"
+                        <button onClick={() => setSearchTerm('')} className="hover:text-blue-600">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                    {selectedState && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                        State: {selectedState}
+                        <button onClick={() => setSelectedState('')} className="hover:text-green-600">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                    {selectedJobCountRange && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
+                        Jobs: {selectedJobCountRange}
+                        <button onClick={() => setSelectedJobCountRange('')} className="hover:text-purple-600">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
         </div>        {/* Sites Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sites.map((site) => (
+          {filteredSites.map((site) => (
             <Card key={site.uuid || site.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="space-y-3">                  {/* Site Name */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <Building className="h-5 w-5 text-primary flex-shrink-0" />
                       <h3 className="font-semibold text-lg text-gray-900 truncate">
                         {site.name || 'Unnamed Site'}
                       </h3>
                     </div>
-                    {site.jobCount && (
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                        {site.jobCount} job{site.jobCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
                   </div>
                     {/* Site Address */}
                   <div className="flex items-start gap-2">
                     <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
-                    <div className="text-sm text-gray-600 leading-relaxed">
-                      {site.address && <div>{site.address}</div>}
+                    <div className="text-sm text-gray-600 leading-relaxed min-w-0 flex-1">
+                      {site.address && (
+                        <div className="break-words">{site.address}</div>
+                      )}
                       {(site.suburb || site.city || site.state || site.postcode) && (
-                        <div>
+                        <div className="break-words">
                           {[site.suburb, site.city, site.state, site.postcode]
                             .filter(Boolean)
                             .join(', ')}
@@ -244,7 +438,8 @@ const SiteManagement = () => {
           ))}
         </div>
 
-        {sites.length === 0 && (
+        {/* Empty State */}
+        {filteredSites.length === 0 && sites.length === 0 && (
           <Card className="text-center py-12">
             <CardContent>
               <Building className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -253,7 +448,8 @@ const SiteManagement = () => {
                 No site contacts are associated with your client account.
               </p>
               {!clientUuid && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-4">                  <div className="flex items-center">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-4">
+                  <div className="flex items-center">
                     <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2" />
                     <p className="text-sm text-yellow-800">
                       Client information not found. Please ensure you are properly logged in.
@@ -261,6 +457,23 @@ const SiteManagement = () => {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No Results After Filtering */}
+        {filteredSites.length === 0 && sites.length > 0 && (
+          <Card className="text-center py-12">
+            <CardContent>
+              <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No sites match your filters</h3>
+              <p className="text-muted-foreground mb-4">
+                Try adjusting your search terms or filters to find sites.
+              </p>
+              <Button onClick={clearFilters} variant="outline" className="flex items-center gap-2 mx-auto">
+                <X className="h-4 w-4" />
+                Clear All Filters
+              </Button>
             </CardContent>
           </Card>
         )}

@@ -29,7 +29,7 @@ const ClientLayout = () => {
     const [clientId, setClientId] = useState(null)
     const [clientName, setClientName] = useState('Loading...')
     const [isLoading, setIsLoading] = useState(true)    // Use refresh hooks for real-time updates
-    usePermissionsRefresh(30000); // Refresh every 30 seconds
+    usePermissionsRefresh(1800000); // Refresh every 30 minutes
     useVisibilityRefresh(); // Refresh when tab becomes visible
     useFocusRefresh(); // Refresh when window gains focus
     usePermissionsUpdateListener(); // Listen for real-time permission updates// Check for stored client data or user data on component mount and set client info

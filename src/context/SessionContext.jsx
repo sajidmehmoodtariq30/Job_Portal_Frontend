@@ -24,7 +24,7 @@ export const SessionProvider = ({ children }) => {
   const ADMIN_SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
   const USER_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
   const SESSION_WARNING_TIME = 5 * 60 * 1000; // 5 minutes before expiry
-  const SESSION_CHECK_INTERVAL = 60 * 1000; // Check every minute
+  const SESSION_CHECK_INTERVAL = 15 * 60 * 1000; // Check every 15 minutes
 
   // Initialize session from localStorage
   useEffect(() => {

@@ -32,7 +32,7 @@ const ApiPlugin = () => {
     fetchActivityLogs();
     
     // Set up polling for real-time updates
-    const pollingInterval = setInterval(fetchActivityLogs, 30000); // Fetch every 30 seconds
+    const pollingInterval = setInterval(fetchActivityLogs, 1800000); // Fetch every 30 minutes
     
     // Clean up interval on component unmount
     return () => clearInterval(pollingInterval);

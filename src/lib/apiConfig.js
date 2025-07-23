@@ -60,15 +60,17 @@ export const API_ENDPOINTS = {  AUTH: {
     GET_CLIENT_NAME: (uuid) => buildApiEndpoint(`api/users/client-name/${uuid}`), // Add client name endpoint
     GET_CLIENT_SITES: (id) => buildApiEndpoint(`api/users/${id}/client-sites`) // Add client sites endpoint
   },  SITES: {
-    // READ-ONLY ENDPOINTS (ServiceM8 site data)
-    GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
-    GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'),  // Admin view - all sites
-    GET_ALL_FROM_JOBS: buildApiEndpoint('api/sites/all/from-jobs'), // Admin view - all sites from all jobs
-    GET_FROM_JOBS: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/from-jobs`), // Extract sites from jobs
+    // HIERARCHICAL COMPANY ENDPOINTS (ServiceM8 Companies API)
+    GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`), // Client-specific hierarchical sites
+    GET_ALL_GLOBAL: buildApiEndpoint('api/sites/all'), // Global hierarchical companies view
+    GET_HIERARCHY: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/hierarchy`), // Parent-child relationships
+    GET_FILTERED: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/filtered`), // Advanced filtering
+    GET_CHILDREN: (parentUuid) => buildApiEndpoint(`api/sites/companies/${parentUuid}/children`), // Child companies
+    GET_GLOBAL_HIERARCHY: buildApiEndpoint('api/sites/companies/hierarchy'), // Global hierarchy view
     GET_DEFAULT: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites/default`),
-    SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`), // Keep for dropdown functionality
     
     // DISABLED ENDPOINTS (ServiceM8 site data is read-only)
+    SET_DEFAULT: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}/set-default`), // Keep for dropdown functionality
     // CREATE: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`),
     // UPDATE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`),
     // DELETE: (clientId, siteId) => buildApiEndpoint(`api/clients/${clientId}/sites/${siteId}`)

@@ -29,8 +29,8 @@ const SessionWarningModal = () => {
       }
     };
 
-    // Check every 10 seconds when close to expiry
-    const interval = setInterval(checkSessionWarning, 10000);
+    // Check every 15 minutes when close to expiry
+    const interval = setInterval(checkSessionWarning, 900000);
     checkSessionWarning(); // Check immediately
 
     return () => clearInterval(interval);
