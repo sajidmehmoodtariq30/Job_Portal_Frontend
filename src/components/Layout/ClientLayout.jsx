@@ -30,8 +30,8 @@ const ClientLayout = () => {
     const [clientName, setClientName] = useState('Loading...')
     const [isLoading, setIsLoading] = useState(true)    // Use refresh hooks for real-time updates
     usePermissionsRefresh(1800000); // Refresh every 30 minutes
-    useVisibilityRefresh(); // Refresh when tab becomes visible
-    useFocusRefresh(); // Refresh when window gains focus
+    useVisibilityRefresh(); // Refresh when tab becomes visible (with 5-minute throttle)
+    useFocusRefresh(); // Refresh when window gains focus (with 5-minute throttle)
     usePermissionsUpdateListener(); // Listen for real-time permission updates// Check for stored client data or user data on component mount and set client info
     useEffect(() => {
         const storedClientData = localStorage.getItem('client_data');

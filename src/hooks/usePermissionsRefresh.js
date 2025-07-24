@@ -37,15 +37,22 @@ export const usePermissionsRefresh = (intervalMs = 1800000) => { // Default 30 m
 export const useVisibilityRefresh = () => {
   const { refreshPermissions } = usePermissions();
   const { refreshUserData, isUser } = useSession();
+  const lastRefreshRef = useRef(0);
+  const THROTTLE_DELAY = 300000; // 5 minutes throttle to prevent excessive refreshing
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (!document.hidden && isUser()) {
-        // User came back to the tab, refresh data
-        await Promise.all([
-          refreshPermissions(),
-          refreshUserData()
-        ]);
+        const now = Date.now();
+        // Only refresh if it's been more than 5 minutes since last refresh
+        if (now - lastRefreshRef.current > THROTTLE_DELAY) {
+          lastRefreshRef.current = now;
+          // User came back to the tab, refresh data
+          await Promise.all([
+            refreshPermissions(),
+            refreshUserData()
+          ]);
+        }
       }
     };
 
@@ -63,14 +70,21 @@ export const useVisibilityRefresh = () => {
 export const useFocusRefresh = () => {
   const { refreshPermissions } = usePermissions();
   const { refreshUserData, isUser } = useSession();
+  const lastRefreshRef = useRef(0);
+  const THROTTLE_DELAY = 300000; // 5 minutes throttle to prevent excessive refreshing
 
   useEffect(() => {
     const handleFocus = async () => {
       if (isUser()) {
-        await Promise.all([
-          refreshPermissions(),
-          refreshUserData()
-        ]);
+        const now = Date.now();
+        // Only refresh if it's been more than 5 minutes since last refresh
+        if (now - lastRefreshRef.current > THROTTLE_DELAY) {
+          lastRefreshRef.current = now;
+          await Promise.all([
+            refreshPermissions(),
+            refreshUserData()
+          ]);
+        }
       }
     };
 

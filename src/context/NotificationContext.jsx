@@ -149,12 +149,12 @@ export const NotificationProvider = ({ children }) => {  const [notifications, s
       }
     };
 
-    // Poll every 5 minutes for notifications
+    // Poll every 15 minutes for notifications (reduced from 5 minutes to prevent interruptions)
     const interval = setInterval(() => {
       if (!isPaused) {
         pollNotifications();
       }
-    }, 300000);
+    }, 900000); // 15 minutes instead of 5 minutes
     setIsConnected(true);
 
     // Poll immediately on mount
