@@ -293,14 +293,13 @@ const AdminJobs = () => {
 
   // Reset jobs when tab changes
   const handleTabChange = (tab) => {
-    setActiveTab(tab);    resetJobs();
-
+    setActiveTab(tab);
+    resetJobs();
     // Always use simple job fetching
     fetchJobs(1, tab);
-
-    // Reset search term and visible jobs count when changing tabs for better performance
-    setSearchTerm('');
-    setVisibleJobs(10);  };
+    // Only reset visible jobs count, do not reset search term
+    setVisibleJobs(10);
+  };
 
   // Handle search term changes
   const handleSearchChange = (value) => {

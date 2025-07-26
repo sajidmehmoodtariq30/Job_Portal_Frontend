@@ -51,17 +51,16 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import { API_URL, API_ENDPOINTS } from '@/lib/apiConfig';
-import { getWelcomeMessage, getClientNameByUuid } from '@/utils/clientUtils';
-import { useSites } from '@/hooks/useSites';
+import { getWelcomeMessage } from '@/utils/clientUtils';
 import { useNotifications } from '@/context/NotificationContext';
-import { useSession } from '@/context/SessionContext';
 import { useClientAssignment } from '@/context/ClientAssignmentContext';
 
 const ClientHome = () => {
   const navigate = useNavigate();
-  const { notifications: contextNotifications, unreadCount, clearAll, markAsRead, triggerNotification } = useNotifications();
-  const { } = useSession();
-  const { hasValidAssignment } = useClientAssignment();  // State variables
+  const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
+  const { hasValidAssignment } = useClientAssignment();
+  
+  // State variables - all at the top
   const [dashboardData, setDashboardData] = useState({
     stats: {},
     jobs: [],
@@ -70,12 +69,11 @@ const ClientHome = () => {
   });
   const [loading, setLoading] = useState(true);
   const [dataRefreshing, setDataRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
-  const [clientName, setClientName] = useState('');  
-  // Sites dropdown removed - not needed for dashboard
+  const [clientName, setClientName] = useState('');
+  const [showAllUpdates, setShowAllUpdates] = useState(false);
 
   // Get client data from localStorage
   const getClientData = () => {
@@ -92,34 +90,205 @@ const ClientHome = () => {
   };
 
   const clientData = getClientData();
-
-  // Get client ID from localStorage only - this should be the assigned client UUID
   const clientId = clientData?.assignedClientUuid || clientData?.uuid || localStorage.getItem('client_id') || localStorage.getItem('clientId') || localStorage.getItem('userId') || localStorage.getItem('client_uuid');
 
-  // Early return if not assigned to a client
-  if (!hasValidAssignment || !clientId) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <AlertCircle className="h-16 w-16 text-muted-foreground" />
-        <div className="text-center">
-          <h3 className="text-lg font-semibold">Access Restricted</h3>
-          <p className="text-muted-foreground mt-2">
-            You need to be assigned to a client to view the dashboard.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Check Access
-          </Button>
-        </div>
-      </div>
-    );  }
-  
-  // Site dropdown and related functions removed - not needed for dashboard
-  
+  // Mock data function
+  const loadMockData = useCallback(() => {
+    console.warn('⚠️ DASHBOARD: Using mock data (DEVELOPMENT ONLY)');
+    
+    localStorage.setItem('using_mock_dashboard_data', 'true');
+    
+    const mockData = {
+      stats: {
+        activeJobs: 2,
+        inProgressJobs: 1,
+        completedJobs: 1,
+        completedJobsLast30Days: 1,
+        upcomingServices: 2,
+        nextServiceDate: "2025-04-20",
+        statusBreakdown: {
+          inProgress: "50.0",
+          scheduled: "25.0",
+          completed: "25.0"
+        },
+        quotes: 3 // Add quotes count
+      },
+      jobs: [
+        {
+          id: 'JOB-2025-0423',
+          jobNumber: 'JOB-2025-0423',
+          title: 'Network Installation',
+          status: 'In Progress',
+          date: '2025-04-15',
+          dueDate: '2025-04-20',
+          type: 'Work Order',
+          description: 'Install new network infrastructure including switches and access points',
+          assignedTech: 'Alex Johnson',
+          location: 'Main Office',
+          site_name: 'SkinKandy Australia',
+          attachments: 2,
+          clientId: clientId
+        },
+        {
+          id: 'QUOTE-2025-0421',
+          jobNumber: 'QUOTE-2025-0421',
+          title: 'Office Renovation Quote',
+          status: 'Quote',
+          date: '2025-04-18',
+          type: 'Quote',
+          description: 'Quote for complete office renovation',
+          location: 'Branch Office',
+          site_name: 'SkinKandy Carousel',
+          clientId: clientId
+        },
+        {
+          id: 'JOB-2025-0418',
+          jobNumber: 'JOB-2025-0418',
+          title: 'Digital Signage Installation',
+          status: 'Completed',
+          date: '2025-04-10',
+          completedDate: '2025-04-12',
+          type: 'Work Order',
+          description: 'Install 3 digital signage displays in reception area',
+          assignedTech: 'Mike Wilson',
+          location: 'Reception Area',
+          site_name: 'SkinKandy Bendigo',
+          attachments: 1,
+          clientId: clientId
+        }
+      ],
+      upcomingServices: [
+        {
+          id: 'SVC-001',
+          title: 'Network Maintenance',
+          date: '2025-04-20',
+          time: '10:00 AM',
+          location: 'Main Office',
+          tech: 'Alex Johnson',
+          clientId: clientId
+        },
+        {
+          id: 'SVC-002',
+          title: 'Security Check',
+          date: '2025-04-22',
+          time: '2:00 PM',
+          location: 'Branch Office',
+          tech: 'Sarah Davis',
+          clientId: clientId
+        }
+      ],
+      recentActivity: [
+        { 
+          id: 1, 
+          type: 'job_status_update', 
+          title: 'Job Update - In Progress', 
+          description: 'JOB-2025-0423', 
+          date: '2025-04-15', 
+          site_name: 'SkinKandy Australia',
+          status: 'In Progress',
+          jobNumber: 'JOB-2025-0423',
+          clientId: clientId 
+        },
+        { 
+          id: 2, 
+          type: 'job_status_update', 
+          title: 'Job Update - Quote', 
+          description: 'QUOTE-2025-0421', 
+          date: '2025-04-18', 
+          site_name: 'SkinKandy Carousel',
+          status: 'Quote',
+          jobNumber: 'QUOTE-2025-0421',
+          clientId: clientId 
+        },
+        { 
+          id: 3, 
+          type: 'job_status_update', 
+          title: 'Job Update - Completed', 
+          description: 'JOB-2025-0418', 
+          date: '2025-04-12', 
+          site_name: 'SkinKandy Bendigo',
+          status: 'Completed',
+          jobNumber: 'JOB-2025-0418',
+          clientId: clientId 
+        },
+        { 
+          id: 4, 
+          type: 'document_uploaded', 
+          title: 'Document Uploaded', 
+          description: 'Network Diagram.pdf', 
+          date: '2025-04-11', 
+          clientId: clientId 
+        },
+        { 
+          id: 5, 
+          type: 'invoice_paid', 
+          title: 'Invoice Paid', 
+          description: 'INV-2025-0056', 
+          date: '2025-04-08', 
+          clientId: clientId 
+        },
+        { 
+          id: 6, 
+          type: 'service_scheduled', 
+          title: 'Service Scheduled', 
+          description: 'Network Maintenance', 
+          date: '2025-04-07', 
+          clientId: clientId 
+        }
+      ]
+    };
+
+    setDashboardData(mockData);
+    setLastUpdated(new Date());
+    
+    console.warn('⚠️ DASHBOARD: Mock data loaded for client:', clientId);
+  }, [clientId]);
+
+  // Fetch dashboard data from the backend
+  const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {
+    if (showRefreshIndicator) {
+      setDataRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError(null);
+
+    try {
+      // Make sure we have a valid client ID
+      if (!clientId || !hasValidAssignment) {
+        throw new Error('No valid client assignment found');
+      }
+      
+      console.log(`🔄 DASHBOARD: Fetching dashboard data for client: ${clientId}`);
+      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId}`);
+      console.log('📊 DASHBOARD: Data received:', response.data);
+      setDashboardData(response.data);
+
+      setLastUpdated(new Date());
+
+    } catch (err) {
+      console.error('❌ DASHBOARD: Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. Please try refreshing.');
+      
+      // Use mock data in development environment
+      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+        console.warn('⚠️ DASHBOARD: Using mock data for development purposes only');
+        loadMockData();
+      } else {
+        setDashboardData({
+          stats: {},
+          jobs: [],
+          upcomingServices: [],
+          recentActivity: []
+        });
+      }
+    } finally {
+      setLoading(false);
+      setDataRefreshing(false);
+    }
+  }, [clientId, hasValidAssignment, loadMockData]);
+
   // Debugging - check what client ID we have
   useEffect(() => {
     console.log('🏠 DASHBOARD: Current clientData:', clientData);
@@ -153,208 +322,84 @@ const ClientHome = () => {
 
     fetchClientInfo();
   }, [clientData, clientId]);
-  // FOR DEVELOPMENT ONLY - Mock data for development and testing purposes
-  const loadMockData = () => {
-    console.warn('⚠️ DASHBOARD: Using mock data (DEVELOPMENT ONLY)');
-    
-    // Clear mock data flag in localStorage to remember this is mock data
-    localStorage.setItem('using_mock_dashboard_data', 'true');
-      // Mock data structure to match our backend API response - Work Orders Only
-    const mockData = {
-      stats: {
-        activeJobs: 2, // Only work orders that are not completed
-        inProgressJobs: 1, // Only work orders in progress
-        completedJobs: 1, // Only completed work orders
-        completedJobsLast30Days: 1,
-        upcomingServices: 2,
-        nextServiceDate: "2025-04-20",
-        statusBreakdown: {
-          inProgress: "50.0", // Updated percentages for work orders only
-          scheduled: "25.0",
-          completed: "25.0"
-        }
-      },
-      jobs: [
-        {
-          id: 'JOB-2025-0423',
-          jobNumber: 'JOB-2025-0423',
-          title: 'Network Installation',
-          status: 'In Progress',
-          date: '2025-04-15',
-          dueDate: '2025-04-20',
-          type: 'Work Order',
-          description: 'Install new network infrastructure including switches and access points',
-          assignedTech: 'Alex Johnson',
-          location: 'Main Office',
-          attachments: 2,
-          clientId: clientId // Make sure it's associated with this client
-        },
-        {
-          id: 'JOB-2025-0418',
-          jobNumber: 'JOB-2025-0418',
-          title: 'Digital Signage Installation',
-          status: 'Completed',
-          date: '2025-04-10',
-          completedDate: '2025-04-12',
-          type: 'Work Order',
-          description: 'Install 3 digital signage displays in reception area',
-          assignedTech: 'Sarah Davis',
-          location: 'Main Office',
-          attachments: 3,
-          clientId: clientId
-        },
-        {
-          id: 'JOB-2025-0415',
-          jobNumber: 'JOB-2025-0415',
-          title: 'Surveillance System Maintenance',
-          status: 'Scheduled',
-          date: '2025-04-20',
-          type: 'Work Order',
-          description: 'Routine maintenance check on surveillance system',
-          assignedTech: 'Miguel Rodriguez',          location: 'Branch Office',
-          attachments: 0,
-          clientId: clientId
-        }
-      ],
-      upcomingServices: [
-        {
-          id: 'SVC-001',
-          title: 'Network Maintenance',
-          date: '2025-04-20',
-          time: '10:00 AM',
-          location: 'Main Office',
-          tech: 'Alex Johnson',
-          clientId: clientId
-        },
-        {
-          id: 'SVC-002',
-          title: 'Security Check',
-          date: '2025-04-22',
-          time: '2:00 PM',
-          location: 'Branch Office',
-          tech: 'Sarah Davis',
-          clientId: clientId
-        }
-      ],
-      recentActivity: [        { id: 1, type: 'job_created', title: 'New Job Request Created', description: 'Network Installation', date: '2025-04-15', clientId: clientId },
-        { id: 3, type: 'job_completed', title: 'Job Completed', description: 'Digital Signage Installation', date: '2025-04-12', clientId: clientId },
-        { id: 4, type: 'document_uploaded', title: 'Document Uploaded', description: 'Network Diagram.pdf', date: '2025-04-11', clientId: clientId },
-        { id: 5, type: 'invoice_paid', title: 'Invoice Paid', description: 'INV-2025-0056', date: '2025-04-08', clientId: clientId },
-        { id: 6, type: 'service_scheduled', title: 'Service Scheduled', description: 'Network Maintenance', date: '2025-04-07', clientId: clientId }
-      ]
-    };
 
-    setDashboardData(mockData);
-    setLastUpdated(new Date());
-    
-    // Display a warning in the console that this is mock data
-    console.warn('⚠️ DASHBOARD: Mock data loaded for client:', clientId);
-  };
-  // Fetch dashboard data from the backend
-  const fetchDashboardData = useCallback(async (showRefreshIndicator = true) => {
-    if (showRefreshIndicator) {
-      setDataRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    setError(null);
-
-    try {
-      // Make sure we have a valid client ID
-      if (!clientId || !hasValidAssignment) {
-        throw new Error('No valid client assignment found');
-      }
-      
-      // Call our backend endpoint for dashboard stats with the assigned client ID
-      console.log(`🔄 DASHBOARD: Fetching dashboard data for client: ${clientId}`);
-      const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId}`);
-      console.log('📊 DASHBOARD: Data received:', response.data);
-      setDashboardData(response.data);
-
-      // Set last updated timestamp
-      setLastUpdated(new Date());
-
-    } catch (err) {
-      console.error('❌ DASHBOARD: Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data. Please try refreshing.');
-      
-      // Only use mock data in development environment and if explicitly allowed
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ DASHBOARD: Using mock data for development purposes only');
-        loadMockData();
-      } else {        // In production, show empty data instead of mock data
-        setDashboardData({
-          stats: {},
-          jobs: [],
-          upcomingServices: [],
-          recentActivity: []
-        });
-      }
-    } finally {
-      setLoading(false);
-      setDataRefreshing(false);
-    }
-  }, [clientId, hasValidAssignment]);  // Initial data loading
+  // Initial data loading
   useEffect(() => {
-    // Only fetch data if we have a valid client assignment
     if (hasValidAssignment && clientId) {
-      console.log('🔄 DASHBOARD: Initial data loading for client:', clientId);
       fetchDashboardData(false);
-        // Set up interval for real-time updates (reduced frequency)
-      const intervalId = setInterval(() => {
-        // Only refresh if we still have a valid assignment
-        if (hasValidAssignment && clientId) {
-          fetchDashboardData(true);
-        }
-      }, 600000); // Refresh every 10 minutes
-      
-      return () => clearInterval(intervalId);
     }
-  }, [fetchDashboardData, hasValidAssignment, clientId]);  // Add visibility change listener to refresh data when user navigates back to dashboard
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Page is now visible, refresh dashboard data
-        fetchDashboardData(true);
-      }
-    };
+  }, [fetchDashboardData, hasValidAssignment, clientId]);
 
-    const handleFocus = () => {
-      // Window regained focus, refresh dashboard data
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!hasValidAssignment || !clientId) return;
+
+    const interval = setInterval(() => {
       fetchDashboardData(true);
-    };return () => {
-      // Cleanup event listeners
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchDashboardData, hasValidAssignment, clientId]);
 
   // Handle manual refresh
   const handleRefresh = () => {
     fetchDashboardData(true);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'In Progress': return 'bg-purple-600 text-white';      case 'Work Order': return 'bg-blue-600 text-white';
-      case 'Completed': return 'bg-green-600 text-white';
-      case 'Scheduled': return 'bg-purple-600 text-white';
-      case 'On Hold': return 'bg-gray-600 text-white';
-      default: return 'bg-gray-600 text-white';
-    }
+  // Navigate to jobs page with filters
+  const handleJobClick = (job) => {
+    navigate('/client/jobs', { 
+      state: { 
+        filterByJobNumber: job.jobNumber,
+        filterByStatus: job.status 
+      } 
+    });
   };
+
+  // Get activity icon
   const getActivityIcon = (type) => {
     switch (type) {
       case 'job_created': return <FileText className="text-blue-500" />;
+      case 'job_status_update': return <CheckCircle className="text-green-500" />;
       case 'job_completed': return <CheckCircle className="text-green-500" />;
       case 'document_uploaded': return <FileBarChart className="text-purple-500" />;
       case 'invoice_paid': return <BarChart3 className="text-green-500" />;
       case 'service_scheduled': return <Calendar className="text-purple-500" />;
       default: return <AlertCircle className="text-gray-500" />;
     }
-  };// Extract data from the dashboard data object for easier use
+  };
+
+  // Early return if not assigned to a client
+  if (!hasValidAssignment || !clientId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <AlertCircle className="h-16 w-16 text-muted-foreground" />
+        <div className="text-center">
+          <h3 className="text-lg font-semibold">Access Restricted</h3>
+          <p className="text-muted-foreground mt-2">
+            You need to be assigned to a client to view the dashboard.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Check Access
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Extract data from the dashboard data object for easier use
   const { stats, jobs, upcomingServices, recentActivity } = dashboardData;
+
+  // Calculate quotes count
+  const quotesCount = jobs.filter(job => job.status === 'Quote').length || stats.quotes || 0;
+
+  // Filter recent activity to show relevant updates
+  const displayedActivity = showAllUpdates ? recentActivity : recentActivity.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -371,7 +416,9 @@ const ClientHome = () => {
               </span>
             )}
           </p>
-        </div>        <div className="flex items-center gap-4">
+        </div>
+
+        <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="relative">
@@ -402,7 +449,8 @@ const ClientHome = () => {
                     key={notification.id}
                     className={`p-3 ${!notification.read ? 'bg-muted/50' : ''}`}
                     onClick={() => !notification.read && markAsRead(notification.id)}
-                  >                  <div className="flex gap-3 items-start">
+                  >
+                    <div className="flex gap-3 items-start">
                       {notification.type?.includes('job') && <CheckCircle className="text-green-500" size={20} />}
                       {notification.type?.includes('attachment') && <FileText className="text-blue-500" size={20} />}
                       {notification.type?.includes('note') && <MessageSquare className="text-purple-500" size={20} />}
@@ -442,7 +490,9 @@ const ClientHome = () => {
 
           <Button onClick={() => navigate('/client/jobs')}>View All Jobs</Button>
         </div>
-      </div>      {/* Error message if any */}
+      </div>
+
+      {/* Error message if any */}
       {error && (
         <div className="p-4 border border-red-200 rounded-md bg-red-50 text-red-800 flex items-center gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
@@ -454,7 +504,7 @@ const ClientHome = () => {
       )}
 
       {/* Warning for mock data (development only) */}
-      {localStorage.getItem('using_mock_dashboard_data') === 'true' && process.env.NODE_ENV === 'development' && (
+      {localStorage.getItem('using_mock_dashboard_data') === 'true' && typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
         <div className="p-4 border border-yellow-200 rounded-md bg-yellow-50 text-yellow-800 flex items-center gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <p>Using mock data for development purposes only.</p>
@@ -465,8 +515,10 @@ const ClientHome = () => {
             Try Real Data
           </Button>
         </div>
-      )}      {/* Dashboard Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+      )}
+
+      {/* Dashboard Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 w-full">
         {/* Active Jobs Card - Work Orders Only */}
         {(loading || jobs.filter(job => job.status !== 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length > 0) && (
           <Card>
@@ -491,12 +543,42 @@ const ClientHome = () => {
               )}
             </CardContent>
             <CardFooter>
-              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
+              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs', { state: { filterByStatus: 'Work Order', filterByType: 'Work Order' } })}>
                 View all jobs <ArrowRight size={16} className="ml-1" />
               </Button>
             </CardFooter>
           </Card>
         )}
+
+        {/* Quotes Box */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Quotes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-4 w-24" />
+              </>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-orange-600">
+                  {quotesCount}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Active quotes
+                </p>
+              </>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs', { state: { filterByStatus: 'Quote' } })}>
+              View all quotes <ArrowRight size={16} className="ml-1" />
+            </Button>
+          </CardFooter>
+        </Card>
+
         {/* Completed Jobs Card - Work Orders Only */}
         {(loading || jobs.filter(job => job.status === 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length > 0) && (
           <Card>
@@ -521,13 +603,15 @@ const ClientHome = () => {
               )}
             </CardContent>
             <CardFooter>
-              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
+              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs', { state: { filterByStatus: 'Completed', filterByType: 'Work Order' } })}>
                 View completed jobs <ArrowRight size={16} className="ml-1" />
               </Button>
             </CardFooter>
           </Card>
         )}
-      </div>{/* Main Dashboard Content */}
+      </div>
+
+      {/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content - 2/3 width */}
         <div className="lg:col-span-2 space-y-6">
@@ -591,7 +675,9 @@ const ClientHome = () => {
                 </CardFooter>
               )}
             </Card>
-          )}          {/* Recent Job Updates */}
+          )}
+
+          {/* Recent Job Updates */}
           {(loading || recentActivity.length > 0) && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -617,14 +703,27 @@ const ClientHome = () => {
                   </div>
                 ) : (
                   <div className="space-y-5">
-                    {recentActivity.map(activity => (
-                      <div key={activity.id} className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0">
+                    {displayedActivity.map(activity => (
+                      <div 
+                        key={activity.id} 
+                        className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0 cursor-pointer hover:bg-muted/50 p-2 rounded-md -m-2"
+                        onClick={() => {
+                          if (activity.type === 'job_status_update' && activity.jobNumber) {
+                            handleJobClick({ jobNumber: activity.jobNumber, status: activity.status });
+                          }
+                        }}
+                      >
                         <div className="bg-muted rounded-full p-2">
                           {getActivityIcon(activity.type)}
                         </div>
                         <div className="flex-1">
                           <h4 className="text-sm font-medium">{activity.title}</h4>
-                          <p className="text-sm text-muted-foreground">{activity.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {activity.type === 'job_status_update' ? activity.description : activity.description}
+                          </p>
+                          {activity.site_name && (
+                            <p className="text-xs text-muted-foreground mt-1">{activity.site_name}</p>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -636,13 +735,18 @@ const ClientHome = () => {
               </CardContent>
               {recentActivity.length > 5 && (
                 <CardFooter>
-                  <Button variant="outline" className="w-full">
-                    View All Updates
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => setShowAllUpdates(!showAllUpdates)}
+                  >
+                    {showAllUpdates ? 'Hide' : 'Show More'}
                   </Button>
                 </CardFooter>
               )}
             </Card>
-          )}</div>
+          )}
+        </div>
 
         {/* Right Sidebar - 1/3 width */}
         <div className="space-y-6">
@@ -658,7 +762,8 @@ const ClientHome = () => {
                   <Skeleton className="h-4 w-28 mx-auto" />
                   <Skeleton className="h-3 w-40 mx-auto" />
                 </div>
-              ) : (                <div className="text-center">
+              ) : (
+                <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                     <Building className="h-8 w-8 text-primary" />
                   </div>
@@ -667,7 +772,6 @@ const ClientHome = () => {
               )}
             </CardContent>
           </Card>
-
         </div>
       </div>
     </div>

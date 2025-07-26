@@ -65,7 +65,7 @@ const ClientSupport = () => {
         </div>
       </div>
 
-      <p className="text-muted-foreground mb-6">Need help? Contact our support team or submit a request below. We aim to respond within 1 business day.</p>
+      <p className="text-muted-foreground mb-6">Need help? Submit a request below. We aim to respond within 1-2 business days.</p>
 
       <Card>
         <CardHeader>
@@ -74,10 +74,7 @@ const ClientSupport = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="text-blue-500" size={18} />
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:underline">{SUPPORT_EMAIL}</a>
-            </div>
+            {/* Email contact removed as requested */}
             <div className="flex items-center gap-2 text-sm">
               <Phone className="text-blue-500" size={18} />
               <a href={`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`} className="hover:underline">{SUPPORT_PHONE}</a>

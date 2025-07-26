@@ -70,14 +70,14 @@ const COLORS = {
 
 const AdminHome = () => {
   const navigate = useNavigate()
-  const { notifications, unreadCount, markAsRead, clearAll, isConnected, triggerNotification } = useNotifications()
-  const [activeTab, setActiveTab] = useState("overview")
+  const { notifications, unreadCount, markAsRead, clearAll } = useNotifications()
+  // State for job request dialog
+  const [isJobRequestOpen, setIsJobRequestOpen] = useState(false)
     // State management for real data
   const [loading, setLoading] = useState(true)
   const [jobStatusData, setJobStatusData] = useState([])
   const [recentActivityData, setRecentActivityData] = useState([])
   const [recentJobs, setRecentJobs] = useState([])
-  const [clients, setClients] = useState([])
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [selectedJob, setSelectedJob] = useState(null)
   const [jobClientName, setJobClientName] = useState("Unknown Client")
@@ -174,8 +174,7 @@ const AdminHome = () => {
           clientsResponse.data : 
           (clientsResponse.data.data || [])
           
-        setClients(clientsData)
-          // Map client UUIDs to names for recent jobs - keep the full job data
+        // Map client UUIDs to names for recent jobs - keep the full job data
         const jobsWithClientNames = sortedJobs.map(job => {
           const client = clientsData.find(c => c.uuid === job.company_uuid) || {}
           return {
@@ -258,7 +257,7 @@ const AdminHome = () => {
         month: 'short', 
         day: 'numeric' 
       });
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };  // Helper function to get job number - now uses ServiceM8's generated_job_id
@@ -375,9 +374,16 @@ const AdminHome = () => {
     }
   };
 
-  return (    <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>        <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          {/* Request Job Button */}
+          <Button variant="default" onClick={() => setIsJobRequestOpen(true)}>
+            Request Job
+          </Button>
+          {/* Notification Button */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="relative">
@@ -418,6 +424,23 @@ const AdminHome = () => {
                       <div>
                         <p className="font-medium text-sm">{notification.title || notification.message}</p>
                         <p className="text-xs text-muted-foreground">
+      {/* Job Request Dialog */}
+      <Dialog open={isJobRequestOpen} onOpenChange={setIsJobRequestOpen}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>Request a New Job</DialogTitle>
+            <DialogDescription>
+              Fill out the form below to request a new job. (Form fields can be added here.)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-center text-muted-foreground">Job request form coming soon.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setIsJobRequestOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
                           {new Date(notification.timestamp).toLocaleTimeString()}
                         </p>
                       </div>
@@ -446,7 +469,7 @@ const AdminHome = () => {
         </div>
       </div>
       
-      <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>
+      <Tabs defaultValue="overview" className="space-y-4">`
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
@@ -489,7 +512,30 @@ const AdminHome = () => {
                   </div>
                 )}
               </CardContent>
-            </Card>            
+            </Card>
+
+            {/* Quotes Box */}
+            <Card className="admin-card">
+              <CardHeader>
+                <CardTitle>Quotes</CardTitle>
+                <CardDescription>Active quotes in the system</CardDescription>
+              </CardHeader>
+              <CardContent className="h-64 flex flex-col items-center justify-center">
+                {loading ? (
+                  renderSkeletonCard()
+                ) : (
+                  <>
+                    <div className="text-5xl font-bold text-orange-600">
+                      {Array.isArray(jobStatusData)
+                        ? (jobStatusData.find(s => s.name === 'Quote')?.value || 0)
+                        : 0}
+                    </div>
+                    <div className="mt-2 text-lg text-muted-foreground">Active Quotes</div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="admin-card">
               <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>

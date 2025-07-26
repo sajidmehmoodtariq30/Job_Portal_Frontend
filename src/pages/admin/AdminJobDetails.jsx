@@ -158,13 +158,18 @@ const AdminJobDetails = () => {
     }
 
     return (
+
         <div className="space-y-6">
+            {/* Job Description at the top */}
+            <div className="mb-2">
+                <h2 className="text-lg font-semibold mb-1">Job Description</h2>
+                <p className="text-muted-foreground">{job.job_description || job.description || 'No description'}</p>
+            </div>
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold">
                         {job.generated_job_id || `Job ${job.uuid?.slice(0, 8)}`}
                     </h1>
-                    <p className="text-muted-foreground">{job.job_description || job.description}</p>
                 </div>
                 <div className="flex gap-2">
                     <Dialog open={isUpdateStatusOpen} onOpenChange={setIsUpdateStatusOpen}>
@@ -202,11 +207,12 @@ const AdminJobDetails = () => {
                 </div>
             </div>
 
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Job Information</CardTitle>
-                        <CardDescription>Details about this job</CardDescription>
+                        <CardDescription>Job Address</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4">
@@ -234,10 +240,6 @@ const AdminJobDetails = () => {
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Amount</h3>
                                 <p>${job.quote_amount || job.amount || '0.00'}</p>
-                            </div>
-                            <div className="col-span-2">
-                                <h3 className="font-medium text-sm text-muted-foreground mb-1">Description</h3>
-                                <p>{job.job_description || job.description || 'No description'}</p>
                             </div>
                             <div>
                                 <h3 className="font-medium text-sm text-muted-foreground mb-1">Job Number</h3>
