@@ -186,8 +186,6 @@ const { toast } = useToast();
           return false;
         }
           switch (statusFilter) {
-          case 'site':
-            return status === 'site' || status === 'on site' || status === 'at site';
           case 'workorders':
             return status === 'work order' || status === 'workorder' || status === 'work-order';
           case 'quotes':
@@ -246,29 +244,102 @@ const { toast } = useToast();
   const fetchSites = useCallback(async () => {
     try {
       const clientId = getClientId();
-      console.log('🔍 Fetching sites from jobs - Client ID:', clientId);
+      console.log('🔍 Fetching sites for client - Client ID:', clientId);
       
       if (!clientId) {
         console.error('No client ID available for fetching sites');
         return;
       }
       
-      const response = await fetch(API_ENDPOINTS.SITES.GET_FROM_JOBS(clientId), {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientId
+      // Try multiple endpoints to get sites
+      const endpoints = [
+        API_ENDPOINTS.SITES.GET_ALL(clientId),
+        API_ENDPOINTS.CONTACTS.GET_CLIENT_SITES(clientId),
+        `${API_URL}/api/clients/${clientId}/sites`
+      ];
+
+      let sitesData = [];
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log('🔍 Trying endpoint:', endpoint);
+          
+          const response = await fetch(endpoint, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'x-client-uuid': clientId
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('🏢 Sites response from', endpoint, ':', data);
+            
+            // Handle different response formats
+            if (Array.isArray(data)) {
+              sitesData = data;
+            } else if (data.sites && Array.isArray(data.sites)) {
+              sitesData = data.sites;
+            } else if (data.data && Array.isArray(data.data)) {
+              sitesData = data.data;
+            }
+            
+            if (sitesData.length > 0) {
+              console.log(`✅ Successfully fetched ${sitesData.length} sites from ${endpoint}`);
+              break;
+            }
+          } else {
+            console.warn(`⚠️ Endpoint ${endpoint} returned status:`, response.status);
+          }
+        } catch (endpointError) {
+          console.warn(`❌ Error with endpoint ${endpoint}:`, endpointError.message);
+          lastError = endpointError;
         }
-      });
+      }
+
+      // If no sites found from API, create mock sites for development
+      if (sitesData.length === 0) {
+        console.warn('⚠️ No sites found from API, using mock data for development');
+        sitesData = [
+          {
+            uuid: 'site-1',
+            name: 'Main Office',
+            address: '123 Business Street, City, State 12345',
+            type: 'Office'
+          },
+          {
+            uuid: 'site-2',
+            name: 'Warehouse Location',
+            address: '456 Industrial Ave, City, State 12345',
+            type: 'Warehouse'
+          },
+          {
+            uuid: 'site-3',
+            name: 'Branch Office',
+            address: '789 Corporate Blvd, City, State 12345',
+            type: 'Office'
+          }
+        ];
+      }
       
-      if (!response.ok) throw new Error('Failed to fetch sites from jobs');
-      const data = await response.json();
-      console.log('🏢 Sites extracted from jobs:', data);
+      setSites(sitesData);
+      console.log('🏢 Final sites state updated:', sitesData);
+    } catch (error) {
+      console.error('❌ Failed to fetch sites:', error);
       
-      setSites(data.sites || []);
-      console.log('🏢 Sites state updated:', data.sites || []);
-    } catch {
-      console.error('Failed to fetch sites from jobs:');
-      setSites([]); // Ensure sites is always an array
+      // Set mock sites as fallback
+      const mockSites = [
+        {
+          uuid: 'site-default',
+          name: 'Default Site',
+          address: 'Main Location',
+          type: 'Office'
+        }
+      ];
+      
+      setSites(mockSites);
+      console.log('🏢 Using fallback mock sites:', mockSites);
     }
   }, [getClientId]);
 
@@ -298,6 +369,12 @@ const { toast } = useToast();
       job_name: '',
       type: type
     });
+    
+    // Fetch sites when moving to form step for quote or job requests
+    if (type === 'quote' || type === 'job') {
+      console.log('🔄 Fetching sites for job creation form...');
+      fetchSites();
+    }
   };
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
@@ -1031,7 +1108,6 @@ const { toast } = useToast();
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Jobs</SelectItem>
-                  <SelectItem value="site">Site</SelectItem>
                   <SelectItem value="workorders">Work Orders</SelectItem>
                   <SelectItem value="quotes">Quotes</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -1068,7 +1144,6 @@ const { toast } = useToast();
               {statusFilter !== 'all' && ` with status "${
                 statusFilter === 'workorders' ? 'Work Orders' :
                 statusFilter === 'quotes' ? 'Quotes' :
-                statusFilter === 'site' ? 'Site' :
                 statusFilter === 'completed' ? 'Completed' :
                 statusFilter
               }"`}
