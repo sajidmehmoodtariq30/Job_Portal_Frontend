@@ -159,19 +159,19 @@ const ClientHome = () => {
     
     // Clear mock data flag in localStorage to remember this is mock data
     localStorage.setItem('using_mock_dashboard_data', 'true');
-      // Mock data structure to match our backend API response
+      // Mock data structure to match our backend API response - Work Orders Only
     const mockData = {
       stats: {
-        activeJobs: 3,
-        inProgressJobs: 1,
-        completedJobs: 1,
+        activeJobs: 2, // Only work orders that are not completed
+        inProgressJobs: 1, // Only work orders in progress
+        completedJobs: 1, // Only completed work orders
         completedJobsLast30Days: 1,
         upcomingServices: 2,
         nextServiceDate: "2025-04-20",
         statusBreakdown: {
-          inProgress: "33.3",
-          scheduled: "33.3",
-          completed: "33.3"
+          inProgress: "50.0", // Updated percentages for work orders only
+          scheduled: "25.0",
+          completed: "25.0"
         }
       },
       jobs: [
@@ -467,11 +467,11 @@ const ClientHome = () => {
         </div>
       )}      {/* Dashboard Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-        {/* Active Jobs Card */}
-        {(loading || jobs.filter(job => job.status !== 'Completed').length > 0) && (
+        {/* Active Jobs Card - Work Orders Only */}
+        {(loading || jobs.filter(job => job.status !== 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length > 0) && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Active Jobs</CardTitle>
+              <CardTitle className="text-lg">Active Work Orders</CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -482,10 +482,10 @@ const ClientHome = () => {
               ) : (
                 <>
                   <div className="text-3xl font-bold">
-                    {jobs.filter(job => job.status !== 'Completed').length}
+                    {jobs.filter(job => job.status !== 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {jobs.filter(job => job.status === 'In Progress').length} in progress
+                    {jobs.filter(job => (job.status === 'In Progress' || job.status === 'Work Order') && (job.type === 'Work Order' || job.status === 'Work Order')).length} in progress
                   </p>
                 </>
               )}
@@ -497,8 +497,8 @@ const ClientHome = () => {
             </CardFooter>
           </Card>
         )}
-        {/* Completed Jobs Card */}
-        {(loading || jobs.filter(job => job.status === 'Completed').length > 0) && (
+        {/* Completed Jobs Card - Work Orders Only */}
+        {(loading || jobs.filter(job => job.status === 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length > 0) && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Completed Jobs</CardTitle>
@@ -512,10 +512,10 @@ const ClientHome = () => {
               ) : (
                 <>
                   <div className="text-3xl font-bold">
-                    {jobs.filter(job => job.status === 'Completed').length}
+                    {jobs.filter(job => job.status === 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    In the last 30 days
+                    Work orders completed
                   </p>
                 </>
               )}
@@ -523,39 +523,6 @@ const ClientHome = () => {
             <CardFooter>
               <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs')}>
                 View completed jobs <ArrowRight size={16} className="ml-1" />
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {/* Upcoming Services Card */}
-        {(loading || upcomingServices.length > 0) && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Upcoming Services</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <>
-                  <Skeleton className="h-8 w-16 mb-2" />
-                  <Skeleton className="h-4 w-24" />
-                </>
-              ) : (
-                <>
-                  <div className="text-3xl font-bold">
-                    {upcomingServices.length}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Next: {upcomingServices.length > 0 ?
-                      new Date(upcomingServices[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
-                      'None scheduled'}
-                  </p>
-                </>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button variant="link" className="p-0" onClick={() => navigate('/client/schedule')}>
-                View schedule <ArrowRight size={16} className="ml-1" />
               </Button>
             </CardFooter>
           </Card>
