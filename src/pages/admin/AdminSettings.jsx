@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/UI/card';
 import { Input } from '@/components/UI/input';
 import { Button } from '@/components/UI/button';
 import { Label } from '@/components/UI/label';
+import axios from 'axios';
+import { API_URL } from '@/lib/apiConfig';
 
 const mockSettings = {
   company: 'MH IT Solutions',
@@ -26,24 +28,74 @@ const timezones = [
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState(mockSettings);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load settings from backend on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/api/admin/settings`);
+        if (response.data && response.data.success) {
+          setSettings({ ...mockSettings, ...response.data.settings });
+        }
+      } catch (error) {
+        console.error('Error loading admin settings:', error);
+        // Use mock settings as fallback
+        setSettings(mockSettings);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   const handleChange = (e) => {
     setSettings({ ...settings, [e.target.name]: e.target.value });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
+
+    try {
+      const response = await axios.put(`${API_URL}/api/admin/settings`, settings);
+
+      if (response.data && response.data.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        throw new Error('Failed to save settings');
+      }
+    } catch (error) {
+      console.error('Error saving admin settings:', error);
+      alert('Failed to save settings. Please try again.');
+    } finally {
       setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    }, 1000);
+    }
   };
+
+
+
+  if (loading) {
+    return (
+      <div className="max-w-xl mx-auto space-y-8">
+        <h1 className="text-3xl font-bold mb-2">Admin Settings</h1>
+        <p className="text-muted-foreground mb-6">Loading settings...</p>
+        <Card>
+          <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-8">
@@ -95,34 +147,6 @@ const AdminSettings = () => {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
-            {saved && <span className="ml-4 text-green-600 text-sm">Saved!</span>}
-          </CardFooter>
-        </form>
-      </Card>
-
-      <Card>
-        <form onSubmit={handleSave}>
-          <CardHeader>
-            <CardTitle>Password</CardTitle>
-            <CardDescription>Change your admin account password</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="password">New Password</Label>
-              <Input id="password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={saving} />
-            </div>
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input id="confirmPassword" name="confirmPassword" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} disabled={saving} />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full" disabled={saving || !password || password !== confirmPassword}>
-              {saving ? 'Saving...' : 'Change Password'}
-            </Button>
-            {password && confirmPassword && password !== confirmPassword && (
-              <span className="ml-4 text-red-600 text-sm">Passwords do not match</span>
-            )}
             {saved && <span className="ml-4 text-green-600 text-sm">Saved!</span>}
           </CardFooter>
         </form>

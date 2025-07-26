@@ -11,7 +11,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/components/UI/dropdown-menu'
-import { Menu } from 'lucide-react'
+import { Menu, Settings } from 'lucide-react'
 import ClientSidebar from '../UI/client/ClientSidebar'
 import ClientLinkingNotification from '../ClientLinkingNotification'
 import ClientAssignmentGuard from '../ClientAssignmentGuard'
@@ -137,6 +137,9 @@ const ClientLayout = () => {
                             <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => navigate('/client/settings')}>
+                                    Settings
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={handleLogout}>
                                     Logout
                                 </DropdownMenuItem>

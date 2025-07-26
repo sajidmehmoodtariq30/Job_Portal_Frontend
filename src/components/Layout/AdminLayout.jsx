@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/UI/dropdown-menu'
-import { Menu } from 'lucide-react'
+import { Menu, Settings } from 'lucide-react'
 import AdminSidebar from '../UI/admin/AdminSidebar.jsx'
 import axios from "axios"
 import logo from '../../assets/logo.png'
@@ -42,20 +42,20 @@ const AdminLayout = () => {
       handleAdminLogout('User initiated logout from admin layout');
     }
   }
-  
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-30 bg-gray-900/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar Component */}
       <AdminSidebar sidebarOpen={sidebarOpen} />
-      
+
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Top navigation */}
@@ -68,25 +68,25 @@ const AdminLayout = () => {
           >
             <Menu />
           </button>
-          
+
           {/* Logo - hidden on small screens */}
           <div className="hidden lg:flex items-center">
             <img src={logo} alt="Job Portal Logo" className="h-8 w-auto" />
           </div>
-          
+
           {/* Page title - mobile responsive */}
           <div className="lg:hidden">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href || 
-                              (item.href !== '/admin' && location.pathname.startsWith(item.href))
-              
+              const isActive = location.pathname === item.href ||
+                (item.href !== '/admin' && location.pathname.startsWith(item.href))
+
               if (isActive) {
                 return <h1 key={item.name} className="text-lg font-medium">{item.name}</h1>
               }
               return null
             })}
           </div>
-          
+
           {/* User menu */}
           <div className="flex items-center">
             <DropdownMenu>
@@ -103,6 +103,9 @@ const AdminLayout = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/admin/settings')}>
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   Logout
                 </DropdownMenuItem>
@@ -110,7 +113,7 @@ const AdminLayout = () => {
             </DropdownMenu>
           </div>
         </header>
-          {/* Main content area */}
+        {/* Main content area */}
         <main className="flex-1 overflow-auto p-4 lg:p-6 admin-content">
           <Outlet />
         </main>
