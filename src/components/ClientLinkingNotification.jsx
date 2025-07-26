@@ -49,49 +49,49 @@ const ClientLinkingNotification = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 max-w-md">
-      <Alert className="border-amber-200 bg-amber-50">
-        <AlertTriangle className="h-4 w-4 text-amber-600" />
-        <AlertDescription className="pr-8">
-          <div className="space-y-2">
-            <div className="font-medium text-amber-800">
+    <div className="fixed bottom-4 left-4 z-30 max-w-sm">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg shadow-md p-3 transition-all duration-300">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-amber-800 text-sm mb-1">
               Client Not Linked
             </div>
-            <div className="text-sm text-amber-700">
-              Your account is not currently linked to any client. Please contact your administrator to assign you to a client to access full functionality.
+            <div className="text-xs text-amber-700 mb-2">
+              Contact admin to assign client access
             </div>
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-1">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="text-amber-700 border-amber-300 hover:bg-amber-100"
+                className="text-amber-700 border-amber-300 hover:bg-amber-100 h-6 px-2 text-xs"
               >
                 {isRefreshing ? (
                   <>
-                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                    Checking...
+                    <RefreshCw className="h-2 w-2 mr-1 animate-spin" />
+                    Checking
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Check Again
+                    <RefreshCw className="h-2 w-2 mr-1" />
+                    Refresh
                   </>
                 )}
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleDismiss}
+                className="h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
+              >
+                <X className="h-2 w-2" />
+              </Button>
             </div>
           </div>
-        </AlertDescription>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDismiss}
-          className="absolute top-2 right-2 h-6 w-6 p-0 text-amber-600 hover:bg-amber-100"
-        >
-          <X className="h-3 w-3" />
-        </Button>
-      </Alert>
+        </div>
+      </div>
     </div>
   );
 };

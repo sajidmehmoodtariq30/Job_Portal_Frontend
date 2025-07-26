@@ -2,6 +2,19 @@ import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from './alert';
 
 export const Toast = ({ toast, onDismiss }) => {
+  const [isVisible, setIsVisible] = React.useState(true);
+
+  // Auto-dismiss after 5 seconds for non-critical toasts
+  React.useEffect(() => {
+    if (toast.variant !== 'destructive') {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+        setTimeout(() => onDismiss(toast.id), 300);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.id, toast.variant, onDismiss]);
+
   const getVariantClass = (variant) => {
     switch (variant) {
       case 'destructive':
@@ -15,15 +28,20 @@ export const Toast = ({ toast, onDismiss }) => {
 
   return (
     <div 
-      className={`fixed top-4 right-4 z-50 w-96 p-4 border rounded-lg shadow-lg transition-all duration-300 ${getVariantClass(toast.variant)}`}
-      onClick={() => onDismiss(toast.id)}
+      className={`w-80 p-3 border rounded-lg shadow-md transition-all duration-300 ${getVariantClass(toast.variant)} ${
+        isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'
+      }`}
+      onClick={() => {
+        setIsVisible(false);
+        setTimeout(() => onDismiss(toast.id), 300);
+      }}
       style={{ cursor: 'pointer' }}
     >
       {toast.title && (
-        <div className="font-semibold mb-1">{toast.title}</div>
+        <div className="font-medium text-sm mb-1">{toast.title}</div>
       )}
       {toast.description && (
-        <div className="text-sm opacity-90">{toast.description}</div>
+        <div className="text-xs opacity-90">{toast.description}</div>
       )}
     </div>
   );
@@ -31,13 +49,13 @@ export const Toast = ({ toast, onDismiss }) => {
 
 export const ToastContainer = ({ toasts, onDismiss }) => {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="fixed bottom-4 right-4 z-40 space-y-2 max-w-sm">
       {toasts.map((toast, index) => (
         <div
           key={toast.id}
           style={{ 
-            transform: `translateY(${index * 80}px)`,
-            zIndex: 50 - index
+            transform: `translateY(${index * -90}px)`,
+            zIndex: 40 - index
           }}
         >
           <Toast toast={toast} onDismiss={onDismiss} />
