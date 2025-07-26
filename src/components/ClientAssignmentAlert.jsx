@@ -106,7 +106,7 @@ const ClientAssignmentAlert = ({ userName, userEmail, onRefresh }) => {
             </Button>
           </div>          <div className="text-center text-sm text-gray-500 pt-4 border-t">
             <p>If you believe this is an error, please contact your system administrator.</p>
-            <p className="mt-1">Access is checked automatically every 5 minutes.</p>
+            <p className="mt-1">Access is checked automatically in the background.</p>
           </div>
         </CardContent>
       </Card>

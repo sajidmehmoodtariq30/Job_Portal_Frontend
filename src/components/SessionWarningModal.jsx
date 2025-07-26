@@ -29,8 +29,8 @@ const SessionWarningModal = () => {
       }
     };
 
-    // Check every 15 minutes when close to expiry
-    const interval = setInterval(checkSessionWarning, 900000);
+    // Check every 30 seconds when close to expiry (more frequent but non-blocking)
+    const interval = setInterval(checkSessionWarning, 30000);
     checkSessionWarning(); // Check immediately
 
     return () => clearInterval(interval);
@@ -77,46 +77,44 @@ const SessionWarningModal = () => {
     return null;
   }
 
+  // Show as non-blocking toast notification instead of modal
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-orange-600">
-            <AlertTriangle size={20} />
-            Session Expiring Soon
-          </DialogTitle>
-          <DialogDescription>
-            Your session will expire soon due to inactivity.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex flex-col items-center py-6">
-          <div className="flex items-center gap-2 text-2xl font-mono font-bold text-red-500 mb-2">
-            <Clock size={24} />
-            {formatTime(timeRemaining)}
+    <div className="fixed bottom-4 right-4 z-40 max-w-sm">
+      <div className="bg-orange-50 border border-orange-200 rounded-lg shadow-lg p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-orange-800 mb-1">
+              Session Expiring
+            </div>
+            <div className="text-sm text-orange-700 mb-3">
+              <div className="flex items-center gap-2 font-mono font-bold mb-1">
+                <Clock size={16} />
+                {formatTime(timeRemaining)}
+              </div>
+              Auto-logout when timer reaches zero
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                size="sm"
+                onClick={handleExtendSession}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                Stay Logged In
+              </Button>
+              <Button 
+                size="sm"
+                variant="outline" 
+                onClick={handleLogoutNow}
+                className="text-orange-700 border-orange-300 hover:bg-orange-100"
+              >
+                Logout
+              </Button>
+            </div>
           </div>
-          <p className="text-sm text-gray-500 text-center">
-            You will be automatically logged out when the timer reaches zero.
-          </p>
         </div>
-
-        <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleLogoutNow}
-            className="w-full sm:w-auto"
-          >
-            Logout Now
-          </Button>
-          <Button 
-            onClick={handleExtendSession}
-            className="w-full sm:w-auto"
-          >
-            Stay Logged In
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 

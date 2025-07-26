@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { API_URL } from '@/lib/apiConfig';
+import backgroundValidationService from '@/services/BackgroundValidationService';
 
 const NotificationContext = createContext({});
 
@@ -149,16 +150,23 @@ export const NotificationProvider = ({ children }) => {  const [notifications, s
       }
     };
 
-    // Poll every 15 minutes for notifications (reduced from 5 minutes to prevent interruptions)
-    const interval = setInterval(() => {
+    // Use background service for notification polling
+    const backgroundPollNotifications = () => {
       if (!isPaused) {
-        pollNotifications();
+        backgroundValidationService.queueValidation(
+          'notifications',
+          pollNotifications,
+          { force: false }
+        );
       }
-    }, 900000); // 15 minutes instead of 5 minutes
+    };
+
+    // Poll every 30 minutes for notifications using background service
+    const interval = setInterval(backgroundPollNotifications, 1800000);
     setIsConnected(true);
 
-    // Poll immediately on mount
-    pollNotifications();
+    // Poll immediately on mount using background service
+    backgroundPollNotifications();
 
     return () => {
       clearInterval(interval);

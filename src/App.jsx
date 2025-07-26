@@ -43,6 +43,7 @@ import { AdminProtectedRoute, ClientProtectedRoute } from './components/Protecte
 import TokenHandler from './components/TokenHandler';
 import SessionWarningModal from './components/SessionWarningModal';
 import ClientLinkingNotification from './components/ClientLinkingNotification';
+import SilentNotificationManager from './components/SilentNotificationManager';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -106,8 +107,10 @@ function App() {
 
               {/* Default Redirects */}
               <Route path="*" element={<Navigate to="/login" replace />} />            </Routes>
+            <SilentNotificationManager />
             <SessionWarningModal />
-            <ClientLinkingNotification />              <ToastContainer toasts={toasts} onDismiss={dismiss} />
+            <ClientLinkingNotification />
+            <ToastContainer toasts={toasts} onDismiss={dismiss} />
             </JobProvider>
           </NotificationProvider>
         </PermissionsProvider>
