@@ -19,7 +19,7 @@ import ClientAssignmentProvider from '@/context/ClientAssignmentContext'
 import { usePermissionsRefresh, useVisibilityRefresh, useFocusRefresh } from '@/hooks/usePermissionsRefresh'
 import { usePermissionsUpdateListener } from '@/utils/realTimeUpdates'
 import setupAuthInterceptor, { addClientUuidHeader, removeClientUuidHeader } from '@/utils/authInterceptor'
-import logo from '../../assets/logo.jpg'
+import logo from '../../assets/logo.png'
 
 const ClientLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false)

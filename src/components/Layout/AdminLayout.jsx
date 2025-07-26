@@ -14,7 +14,7 @@ import {
 import { Menu } from 'lucide-react'
 import AdminSidebar from '../UI/admin/AdminSidebar.jsx'
 import axios from "axios"
-import logo from '../../assets/logo.jpg'
+import logo from '../../assets/logo.png'
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)

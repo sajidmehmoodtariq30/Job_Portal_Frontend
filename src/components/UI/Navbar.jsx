@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Search, CheckCircle, Calendar, Briefcase, Clock, Filter, ChevronRight, User, Lock, BellRing, FileText, Settings } from 'lucide-react';
-import logo from '../../assets/logo.jpg';
+import logo from '../../assets/logo.png';
 
 
 const Navbar = () => {

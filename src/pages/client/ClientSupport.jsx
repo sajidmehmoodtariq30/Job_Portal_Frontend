@@ -6,7 +6,7 @@ import { Input } from '@/components/UI/input';
 import { Textarea } from '@/components/UI/textarea';
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
-import logo from '@/assets/logo.jpg';
+import logo from '@/assets/logo.png';
 
 const SUPPORT_EMAIL = 'Support@mygcce.com.au';
 const SUPPORT_PHONE = '07 5573 2111';

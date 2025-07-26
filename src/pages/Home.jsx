@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from "react-router-dom";
 import DashboardImg from "@/assets/Dashboard.jpg"
-import logo from "@/assets/logo.jpg"
+import logo from "@/assets/logo.png"
 import { Search, BellRing, FileText, Calendar } from 'lucide-react';
 
 export default function CustomerPortal() {
@@ -60,12 +60,11 @@ export default function CustomerPortal() {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="w-full bg-gradient-to-b from-gray-900/90 to-gray-800/80 text-white">
+      <section className="w-full text-white" style={{ backgroundColor: 'var(--color-gray-900)' }}>
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="flex flex-col md:flex-row items-center w-full">
             <div className="w-full md:w-1/2 mb-8 md:mb-0 pr-0 md:pr-8">
               <div className="flex items-center space-x-4 mb-8">
-                <img src={logo} alt="Commercial Electricians Australia" className="h-16 w-auto" />
                 <h1 className="text-2xl font-bold">Commercial Electricians Australia</h1>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 leading-tight">National Leader in Electrical Solutions</h2>
@@ -288,7 +287,7 @@ export default function CustomerPortal() {
       </section>
 
       {/* CTA Section */}
-      <section className="w-full bg-gray-900 text-white py-16">
+      <section className="w-full text-white py-16" style={{ backgroundColor: 'var(--color-gray-900)' }}>
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="w-full md:w-1/2 mb-8 md:mb-0">
