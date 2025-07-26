@@ -8,21 +8,26 @@ import {
   RefreshCw,
   Search,
   Filter,
-  X
+  X,
+  Eye,
+  BriefcaseIcon
 } from 'lucide-react';
 import { Button } from "@/components/UI/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
+import { Badge } from "@/components/UI/badge";
 import PermissionProtectedClientPage from '@/components/client/PermissionProtectedClientPage';
 import { PERMISSIONS } from '@/context/PermissionsContext';
 import { useSession } from '@/context/SessionContext';
+import { useNavigate } from 'react-router-dom';
 import { API_URL } from '@/lib/apiConfig';
 
 const SiteManagement = () => {
   const { user } = useSession();
+  const navigate = useNavigate();
   const [sites, setSites] = useState([]);
+  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [totalSites, setTotalSites] = useState(0);
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -130,19 +135,94 @@ const SiteManagement = () => {
       console.log('🏢 CHILD COMPANIES:', filteredSites.filter(site => site.parent_company_uuid).length);
       
       setSites(filteredSites);
-      setTotalSites(filteredSites.length);
       
     } catch (error) {
       console.error('❌ Error fetching company sites:', error);
       setError(`Failed to fetch sites: ${error.message}`);
       setSites([]);
-      setTotalSites(0);
     } finally {
       setLoading(false);
     }
   };
 
-  // Constants for site limiting
+  // Fetch jobs to calculate job counts per site
+  const fetchJobs = async () => {
+    if (!clientUuid) {
+      console.error('No client UUID available for fetching jobs');
+      return;
+    }
+
+    try {
+      console.log('📊 Fetching jobs for job counts...');
+      
+      const response = await fetch(`${API_URL}/fetch/jobs/client/${clientUuid}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch jobs');
+      
+      const data = await response.json();
+      setJobs(data || []);
+      
+    } catch (error) {
+      console.error('❌ Error fetching jobs:', error);
+      // Don't set error state for jobs, just log it
+    }
+  };
+
+  // Function to get job counts for a site
+  const getJobCounts = (site) => {
+    const siteJobs = jobs.filter(job => {
+      // Match by site name or address
+      const jobSiteName = job.location_name || job.site_name || '';
+      const jobAddress = job.location_address || job.job_address || '';
+      
+      return jobSiteName.toLowerCase().includes(site.name?.toLowerCase() || '') ||
+             jobAddress.toLowerCase().includes(site.name?.toLowerCase() || '') ||
+             jobAddress.toLowerCase().includes(site.address?.toLowerCase() || '');
+    });
+
+    // Exclude unsuccessful jobs
+    const validJobs = siteJobs.filter(job => {
+      const status = job.status?.toLowerCase() || '';
+      return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
+    });
+
+    // Count by status
+    const workOrders = validJobs.filter(job => {
+      const status = job.status?.toLowerCase() || '';
+      return status === 'work order' || status === 'workorder' || status === 'work-order';
+    }).length;
+
+    const quotes = validJobs.filter(job => {
+      const status = job.status?.toLowerCase() || '';
+      return status === 'quote';
+    }).length;
+
+    const completed = validJobs.filter(job => {
+      const status = job.status?.toLowerCase() || '';
+      return status === 'completed' || status === 'complete';
+    }).length;
+
+    return {
+      total: validJobs.length,
+      workOrders,
+      quotes,
+      completed
+    };
+  };
+
+  // Handle viewing jobs for a site
+  const handleViewJobs = (site) => {
+    navigate('/client/jobs', { 
+      state: { 
+        siteFilter: site.name,
+        returnToSites: true 
+      } 
+    });
+  };
   const SITE_DISPLAY_LIMIT = 80;
 
   // Filter and search logic
@@ -199,7 +279,6 @@ const SiteManagement = () => {
   const isSearchActive = searchTerm.trim() || selectedState || selectedJobCountRange;
   const actualDisplayedCount = filteredSites.length;
   const totalCount = sites.length;
-  const isLimited = !isSearchActive && totalCount > SITE_DISPLAY_LIMIT;
   
   // For display purposes, ALWAYS hide the real total when it's above 80
   // Also limit the displayed count to never exceed 80
@@ -228,12 +307,17 @@ const SiteManagement = () => {
 
   // Initial load
   useEffect(() => {
-    fetchSitesFromCompanies();
+    const loadData = async () => {
+      await fetchSitesFromCompanies();
+      await fetchJobs();
+    };
+    loadData();
   }, [clientUuid]);
   
   // Refresh handler
-  const handleRefresh = () => {
-    fetchSitesFromCompanies();
+  const handleRefresh = async () => {
+    await fetchSitesFromCompanies();
+    await fetchJobs();
   };
 
   if (loading) {
@@ -401,41 +485,80 @@ const SiteManagement = () => {
           )}
         </div>        {/* Sites Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSites.map((site) => (
-            <Card key={site.uuid || site.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="space-y-3">                  {/* Site Name */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <Building className="h-5 w-5 text-primary flex-shrink-0" />
-                      <h3 className="font-semibold text-lg text-gray-900 truncate">
-                        {site.name || 'Unnamed Site'}
-                      </h3>
+          {filteredSites.map((site) => {
+            const jobCounts = getJobCounts(site);
+            
+            return (
+              <Card key={site.uuid || site.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-4">
+                  <div className="space-y-4">
+                    {/* Site Name - Blue styling */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Building className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                        <h3 className="font-semibold text-lg text-blue-600 truncate">
+                          {site.name || 'Unnamed Site'}
+                        </h3>
+                      </div>
                     </div>
-                  </div>
+                    
+                    {/* Job Count Summary */}
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <BriefcaseIcon className="h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">{jobCounts.total} Total Jobs</span>
+                    </div>
+                    
+                    {/* Job Status Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                        Work Orders: {jobCounts.workOrders}
+                      </Badge>
+                      <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
+                        Quotes: {jobCounts.quotes}
+                      </Badge>
+                      <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                        Completed: {jobCounts.completed}
+                      </Badge>
+                    </div>
+                      
                     {/* Site Address */}
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
-                    <div className="text-sm text-gray-600 leading-relaxed min-w-0 flex-1">
-                      {site.address && (
-                        <div className="break-words">{site.address}</div>
-                      )}
-                      {(site.suburb || site.city || site.state || site.postcode) && (
-                        <div className="break-words">
-                          {[site.suburb, site.city, site.state, site.postcode]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </div>
-                      )}
-                      {!site.address && !site.suburb && !site.city && (
-                        <span className="text-gray-400 italic">No address provided</span>
-                      )}
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-gray-500 mt-1 flex-shrink-0" />
+                      <div className="text-sm text-gray-600 leading-relaxed min-w-0 flex-1">
+                        {site.address && (
+                          <div className="break-words">{site.address}</div>
+                        )}
+                        {(site.suburb || site.city || site.state || site.postcode) && (
+                          <div className="break-words">
+                            {[site.suburb, site.city, site.state, site.postcode]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </div>
+                        )}
+                        {!site.address && !site.suburb && !site.city && (
+                          <span className="text-gray-400 italic">No address provided</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* View Jobs Button */}
+                    <div className="pt-2 border-t border-gray-100">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewJobs(site)}
+                        className="w-full flex items-center justify-center gap-2"
+                        disabled={jobCounts.total === 0}
+                      >
+                        <Eye className="h-4 w-4" />
+                        View Jobs {jobCounts.total > 0 && `(${jobCounts.total})`}
+                      </Button>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Empty State */}
