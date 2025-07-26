@@ -17,7 +17,10 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Activity
+  Activity,
+  Plus,
+  BriefcaseIcon,
+  ClockIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "../../components/UI/button";
@@ -54,12 +57,31 @@ import { API_URL, API_ENDPOINTS } from '@/lib/apiConfig';
 import { getWelcomeMessage } from '@/utils/clientUtils';
 import { useNotifications } from '@/context/NotificationContext';
 import { useClientAssignment } from '@/context/ClientAssignmentContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/UI/dialog";
+import { Input } from "@/components/UI/input";
+import { Label } from "@/components/UI/label";
+import { Textarea } from "@/components/UI/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/UI/select";
+import { useToast } from "@/hooks/use-toast"
 
 const ClientHome = () => {
   const navigate = useNavigate();
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
   const { hasValidAssignment } = useClientAssignment();
-  
+  const { toast } = useToast();
+
   // State variables - all at the top
   const [dashboardData, setDashboardData] = useState({
     stats: {},
@@ -74,6 +96,28 @@ const ClientHome = () => {
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome back');
   const [clientName, setClientName] = useState('');
   const [showAllUpdates, setShowAllUpdates] = useState(false);
+
+  // Job request states
+  const [isNewJobDialogOpen, setIsNewJobDialogOpen] = useState(false);
+  const [requestStep, setRequestStep] = useState('selection'); // 'selection', 'form'
+  const [requestType, setRequestType] = useState(''); // 'quote', 'job', 'order'
+  const [newJobFile, setNewJobFile] = useState(null);
+  const [sites, setSites] = useState([]);
+  const [siteSearchTerm, setSiteSearchTerm] = useState('');
+  const [sitesLoading, setSitesLoading] = useState(false);
+  const [newRequest, setNewRequest] = useState({
+    basic_description: '',
+    site_uuid: '',
+    description: '',
+    site_contact_name: '',
+    site_contact_number: '',
+    email: '',
+    purchase_order_number: '',
+    work_start_date: '',
+    work_completion_date: '',
+    job_name: '',
+    type: ''
+  });
 
   // Get client data from localStorage
   const getClientData = () => {
@@ -95,9 +139,9 @@ const ClientHome = () => {
   // Mock data function
   const loadMockData = useCallback(() => {
     console.warn('⚠️ DASHBOARD: Using mock data (DEVELOPMENT ONLY)');
-    
+
     localStorage.setItem('using_mock_dashboard_data', 'true');
-    
+
     const mockData = {
       stats: {
         activeJobs: 2,
@@ -178,69 +222,69 @@ const ClientHome = () => {
         }
       ],
       recentActivity: [
-        { 
-          id: 1, 
-          type: 'job_status_update', 
-          title: 'Job Update - In Progress', 
-          description: 'JOB-2025-0423', 
-          date: '2025-04-15', 
+        {
+          id: 1,
+          type: 'job_status_update',
+          title: 'Job Update - In Progress',
+          description: 'JOB-2025-0423',
+          date: '2025-04-15',
           site_name: 'SkinKandy Australia',
           status: 'In Progress',
           jobNumber: 'JOB-2025-0423',
-          clientId: clientId 
+          clientId: clientId
         },
-        { 
-          id: 2, 
-          type: 'job_status_update', 
-          title: 'Job Update - Quote', 
-          description: 'QUOTE-2025-0421', 
-          date: '2025-04-18', 
+        {
+          id: 2,
+          type: 'job_status_update',
+          title: 'Job Update - Quote',
+          description: 'QUOTE-2025-0421',
+          date: '2025-04-18',
           site_name: 'SkinKandy Carousel',
           status: 'Quote',
           jobNumber: 'QUOTE-2025-0421',
-          clientId: clientId 
+          clientId: clientId
         },
-        { 
-          id: 3, 
-          type: 'job_status_update', 
-          title: 'Job Update - Completed', 
-          description: 'JOB-2025-0418', 
-          date: '2025-04-12', 
+        {
+          id: 3,
+          type: 'job_status_update',
+          title: 'Job Update - Completed',
+          description: 'JOB-2025-0418',
+          date: '2025-04-12',
           site_name: 'SkinKandy Bendigo',
           status: 'Completed',
           jobNumber: 'JOB-2025-0418',
-          clientId: clientId 
+          clientId: clientId
         },
-        { 
-          id: 4, 
-          type: 'document_uploaded', 
-          title: 'Document Uploaded', 
-          description: 'Network Diagram.pdf', 
-          date: '2025-04-11', 
-          clientId: clientId 
+        {
+          id: 4,
+          type: 'document_uploaded',
+          title: 'Document Uploaded',
+          description: 'Network Diagram.pdf',
+          date: '2025-04-11',
+          clientId: clientId
         },
-        { 
-          id: 5, 
-          type: 'invoice_paid', 
-          title: 'Invoice Paid', 
-          description: 'INV-2025-0056', 
-          date: '2025-04-08', 
-          clientId: clientId 
+        {
+          id: 5,
+          type: 'invoice_paid',
+          title: 'Invoice Paid',
+          description: 'INV-2025-0056',
+          date: '2025-04-08',
+          clientId: clientId
         },
-        { 
-          id: 6, 
-          type: 'service_scheduled', 
-          title: 'Service Scheduled', 
-          description: 'Network Maintenance', 
-          date: '2025-04-07', 
-          clientId: clientId 
+        {
+          id: 6,
+          type: 'service_scheduled',
+          title: 'Service Scheduled',
+          description: 'Network Maintenance',
+          date: '2025-04-07',
+          clientId: clientId
         }
       ]
     };
 
     setDashboardData(mockData);
     setLastUpdated(new Date());
-    
+
     console.warn('⚠️ DASHBOARD: Mock data loaded for client:', clientId);
   }, [clientId]);
 
@@ -259,7 +303,7 @@ const ClientHome = () => {
       if (!clientId || !hasValidAssignment) {
         throw new Error('No valid client assignment found');
       }
-      
+
       console.log(`🔄 DASHBOARD: Fetching dashboard data for client: ${clientId}`);
       const response = await axios.get(`${API_URL}/fetch/dashboard-stats/${clientId}`);
       console.log('📊 DASHBOARD: Data received:', response.data);
@@ -270,7 +314,7 @@ const ClientHome = () => {
     } catch (err) {
       console.error('❌ DASHBOARD: Error fetching dashboard data:', err);
       setError('Failed to load dashboard data. Please try refreshing.');
-      
+
       // Use mock data in development environment
       if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
         console.warn('⚠️ DASHBOARD: Using mock data for development purposes only');
@@ -348,11 +392,11 @@ const ClientHome = () => {
 
   // Navigate to jobs page with filters
   const handleJobClick = (job) => {
-    navigate('/client/jobs', { 
-      state: { 
+    navigate('/client/jobs', {
+      state: {
         filterByJobNumber: job.jobNumber,
-        filterByStatus: job.status 
-      } 
+        filterByStatus: job.status
+      }
     });
   };
 
@@ -368,6 +412,245 @@ const ClientHome = () => {
       default: return <AlertCircle className="text-gray-500" />;
     }
   };
+
+  // Job request functions
+  const handleRequestTypeSelect = (type) => {
+    setRequestType(type);
+    setRequestStep('form');
+    setNewRequest(prev => ({ ...prev, type }));
+
+    // Fetch sites when moving to form step
+    if (type === 'quote' || type === 'job') {
+      fetchSites();
+    }
+  };
+
+  const fetchSites = async () => {
+    setSitesLoading(true);
+    try {
+      if (!clientId) {
+        console.warn('No clientId available for fetching sites');
+        return;
+      }
+
+      console.log('Fetching sites for client:', clientId);
+
+      // Try multiple endpoints to find sites
+      const endpoints = [
+        `${API_URL}/api/clients/${clientId}/sites`,
+        `${API_URL}/fetch/clients/${clientId}/sites`,
+        `${API_URL}/api/sites/clients/${clientId}`
+      ];
+
+      let sitesData = [];
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log('Trying endpoint:', endpoint);
+
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'Content-Type': 'application/json',
+              'x-client-uuid': clientId
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Sites response:', data);
+
+            // Handle different response formats
+            if (Array.isArray(data)) {
+              sitesData = data;
+            } else if (data.sites && Array.isArray(data.sites)) {
+              sitesData = data.sites;
+            } else if (data.data && Array.isArray(data.data)) {
+              sitesData = data.data;
+            }
+
+            if (sitesData.length > 0) {
+              console.log(`Successfully fetched ${sitesData.length} sites from ${endpoint}`);
+              break;
+            }
+          } else {
+            console.warn(`Endpoint ${endpoint} returned status:`, response.status);
+          }
+        } catch (endpointError) {
+          console.warn(`Error with endpoint ${endpoint}:`, endpointError.message);
+          lastError = endpointError;
+        }
+      }
+
+      // If no sites found, create mock sites for development
+      if (sitesData.length === 0) {
+        console.warn('No sites found from API, using mock data for development');
+        sitesData = [
+          {
+            uuid: 'site-1',
+            name: 'Main Office',
+            address: '123 Business Street, City, State 12345',
+            type: 'Office'
+          },
+          {
+            uuid: 'site-2',
+            name: 'Warehouse Location',
+            address: '456 Industrial Ave, City, State 12345',
+            type: 'Warehouse'
+          },
+          {
+            uuid: 'site-3',
+            name: 'Branch Office',
+            address: '789 Corporate Blvd, City, State 12345',
+            type: 'Office'
+          }
+        ];
+      }
+
+      setSites(sitesData);
+      console.log('Final sites set:', sitesData);
+
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+      toast({
+        title: 'Warning',
+        description: 'Could not load sites. Using default options.',
+        variant: 'default'
+      });
+
+      // Set mock sites as fallback
+      setSites([
+        {
+          uuid: 'site-default',
+          name: 'Default Site',
+          address: 'Main Location',
+          type: 'Office'
+        }
+      ]);
+    } finally {
+      setSitesLoading(false);
+    }
+  };
+
+  const handleNewJobFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        toast({ title: 'Error', description: 'File size must be less than 10MB', variant: 'destructive' });
+        return;
+      }
+      setNewJobFile(file);
+    }
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const formData = new FormData();
+
+      if (newJobFile) {
+        formData.append('file', newJobFile);
+      }
+
+      const selectedSite = sites.find(site => site.uuid === newRequest.site_uuid);
+
+      if (requestType === 'order') {
+        formData.append('basic_description', newRequest.basic_description);
+        formData.append('type', 'order');
+      } else {
+        Object.keys(newRequest).forEach(key => {
+          if (newRequest[key] && key !== 'site_uuid') {
+            formData.append(key, newRequest[key]);
+          }
+        });
+
+        if (selectedSite) {
+          formData.append('job_address', selectedSite.address || selectedSite.name);
+          formData.append('location_address', selectedSite.address || selectedSite.name);
+          formData.append('site_name', selectedSite.name);
+        }
+      }
+
+      formData.append('clientId', clientId);
+      formData.append('userId', clientId);
+
+      const requestPayload = {};
+      for (let [key, value] of formData.entries()) {
+        requestPayload[key] = value;
+      }
+
+      const response = await fetch(`${API_URL}/fetch/jobs/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+          'x-client-uuid': clientId
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      if (!response.ok) throw new Error('Failed to submit request');
+
+      resetRequestFlow();
+      setIsNewJobDialogOpen(false);
+
+      toast({
+        title: 'Success',
+        description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully`
+      });
+
+      // Refresh dashboard data
+      fetchDashboardData(true);
+
+    } catch (error) {
+      console.error('Error submitting request:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit request',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const resetRequestFlow = () => {
+    setRequestStep('selection');
+    setRequestType('');
+    setNewRequest({
+      basic_description: '',
+      site_uuid: '',
+      description: '',
+      site_contact_name: '',
+      site_contact_number: '',
+      email: '',
+      purchase_order_number: '',
+      work_start_date: '',
+      work_completion_date: '',
+      job_name: '',
+      type: ''
+    });
+    setNewJobFile(null);
+    setSiteSearchTerm('');
+    setSitesLoading(false);
+  };
+
+  // Filter sites based on search term
+  // Filter sites based on search term with enhanced search functionality
+  const filteredSites = (Array.isArray(sites) ? sites : []).filter(site => {
+    if (!siteSearchTerm) return true;
+
+    const searchTerm = siteSearchTerm.toLowerCase();
+    const name = site.name?.toLowerCase() || '';
+    const address = site.address?.toLowerCase() || '';
+    const type = site.type?.toLowerCase() || '';
+
+    // Search in name, address, and type
+    return name.includes(searchTerm) ||
+      address.includes(searchTerm) ||
+      type.includes(searchTerm);
+  });
 
   // Early return if not assigned to a client
   if (!hasValidAssignment || !clientId) {
@@ -401,13 +684,13 @@ const ClientHome = () => {
   console.log('ClientHome: Quotes data:', quotes);
   console.log('ClientHome: Quotes count from array:', quotes?.length || 0);
   console.log('ClientHome: Stats data:', stats);
-  
+
   // Debug: Log all unique statuses found in jobs
   const uniqueStatuses = [...new Set(jobs.map(job => job.status))];
   console.log('ClientHome: Unique job statuses found:', uniqueStatuses);
-  
+
   const quotesCount = quotes?.length || stats?.pendingQuotes || stats?.quotes || 0;
-  
+
   console.log('ClientHome: Final quotes count:', quotesCount);
 
   // Filter recent activity to show relevant updates
@@ -431,6 +714,287 @@ const ClientHome = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Request New Job Button */}
+          <Dialog open={isNewJobDialogOpen} onOpenChange={(open) => {
+            setIsNewJobDialogOpen(open);
+            if (!open) resetRequestFlow();
+          }}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Request Job
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {requestStep === 'selection' ? 'Request New Job' : `New ${requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request`}
+                </DialogTitle>
+              </DialogHeader>
+
+              {requestStep === 'selection' ? (
+                <div className="space-y-4">
+                  <p className="text-muted-foreground">What type of request would you like to submit?</p>
+                  <div className="grid grid-cols-1 gap-4">
+                    <Button
+                      variant="outline"
+                      className="h-auto p-6 flex flex-col items-start space-y-2"
+                      onClick={() => handleRequestTypeSelect('quote')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        <span className="font-semibold">Request Quote</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">
+                        Get a detailed quote for your project or service requirements
+                      </p>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="h-auto p-6 flex flex-col items-start space-y-2"
+                      onClick={() => handleRequestTypeSelect('job')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <BriefcaseIcon className="h-5 w-5" />
+                        <span className="font-semibold">Request Work Order</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">
+                        Submit a detailed work order for scheduled services
+                      </p>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="h-auto p-6 flex flex-col items-start space-y-2"
+                      onClick={() => handleRequestTypeSelect('order')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <ClockIcon className="h-5 w-5" />
+                        <span className="font-semibold">Quick Order</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground text-left">
+                        Submit a simple order with basic description
+                      </p>
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleRequestSubmit} className="space-y-4">
+                  {requestType === 'order' ? (
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="basic_description">Description *</Label>
+                        <Textarea
+                          id="basic_description"
+                          placeholder="Describe what you need..."
+                          value={newRequest.basic_description}
+                          onChange={(e) => setNewRequest(prev => ({ ...prev, basic_description: e.target.value }))}
+                          required
+                          rows={4}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="file">Attach File (Optional)</Label>
+                        <Input
+                          id="file"
+                          type="file"
+                          onChange={handleNewJobFileChange}
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Max file size: 10MB. Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="job_name">Job Name *</Label>
+                        <Input
+                          id="job_name"
+                          placeholder="Enter job name"
+                          value={newRequest.job_name}
+                          onChange={(e) => setNewRequest(prev => ({ ...prev, job_name: e.target.value }))}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="site_uuid">Site *</Label>
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <Input
+                              placeholder="Search sites..."
+                              value={siteSearchTerm}
+                              onChange={(e) => setSiteSearchTerm(e.target.value)}
+                              className="pr-8"
+                            />
+                            {sitesLoading && (
+                              <Loader2 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
+                          <Select
+                            value={newRequest.site_uuid}
+                            onValueChange={(value) => setNewRequest(prev => ({ ...prev, site_uuid: value }))}
+                            required
+                            disabled={sitesLoading}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={sitesLoading ? "Loading sites..." : "Select a site"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sitesLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span className="text-sm text-muted-foreground">Loading sites...</span>
+                                </div>
+                              ) : filteredSites.length > 0 ? (
+                                filteredSites.map(site => (
+                                  <SelectItem key={site.uuid} value={site.uuid}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{site.name}</span>
+                                      {site.address && (
+                                        <span className="text-xs text-muted-foreground">{site.address}</span>
+                                      )}
+                                      {site.type && (
+                                        <span className="text-xs text-blue-600">{site.type}</span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="flex items-center justify-center p-4">
+                                  <span className="text-sm text-muted-foreground">
+                                    {siteSearchTerm ? 'No sites match your search' : 'No sites available'}
+                                  </span>
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {filteredSites.length > 0 && siteSearchTerm && (
+                            <p className="text-xs text-muted-foreground">
+                              Showing {filteredSites.length} of {sites.length} sites
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="description">Description *</Label>
+                        <Textarea
+                          id="description"
+                          placeholder="Detailed description of work required"
+                          value={newRequest.description}
+                          onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))}
+                          required
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="site_contact_name">Site Contact Name</Label>
+                          <Input
+                            id="site_contact_name"
+                            placeholder="Contact person"
+                            value={newRequest.site_contact_name}
+                            onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_name: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="site_contact_number">Contact Number</Label>
+                          <Input
+                            id="site_contact_number"
+                            placeholder="Phone number"
+                            value={newRequest.site_contact_number}
+                            onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_number: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="Contact email"
+                          value={newRequest.email}
+                          onChange={(e) => setNewRequest(prev => ({ ...prev, email: e.target.value }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="purchase_order_number">Purchase Order Number</Label>
+                        <Input
+                          id="purchase_order_number"
+                          placeholder="PO Number (if applicable)"
+                          value={newRequest.purchase_order_number}
+                          onChange={(e) => setNewRequest(prev => ({ ...prev, purchase_order_number: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="work_start_date">Preferred Start Date</Label>
+                          <Input
+                            id="work_start_date"
+                            type="date"
+                            value={newRequest.work_start_date}
+                            onChange={(e) => setNewRequest(prev => ({ ...prev, work_start_date: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="work_completion_date">Required Completion Date</Label>
+                          <Input
+                            id="work_completion_date"
+                            type="date"
+                            value={newRequest.work_completion_date}
+                            onChange={(e) => setNewRequest(prev => ({ ...prev, work_completion_date: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="file">Attach File (Optional)</Label>
+                        <Input
+                          id="file"
+                          type="file"
+                          onChange={handleNewJobFileChange}
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Max file size: 10MB. Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (requestStep === 'form') {
+                          setRequestStep('selection');
+                        } else {
+                          setIsNewJobDialogOpen(false);
+                          resetRequestFlow();
+                        }
+                      }}
+                    >
+                      {requestStep === 'form' ? 'Back' : 'Cancel'}
+                    </Button>
+                    <Button type="submit">
+                      Submit {requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="relative">
@@ -545,11 +1109,11 @@ const ClientHome = () => {
                 </>
               ) : (
                 <>
-                  <div className="text-3xl font-bold">
+                  <div className="text-5xl font-bold">
                     {jobs.filter(job => job.status !== 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {jobs.filter(job => (job.status === 'In Progress' || job.status === 'Work Order') && (job.type === 'Work Order' || job.status === 'Work Order')).length} in progress
+                                    
                   </p>
                 </>
               )}
@@ -575,7 +1139,7 @@ const ClientHome = () => {
               </>
             ) : (
               <>
-                <div className="text-3xl font-bold text-orange-600">
+                <div className="text-5xl font-bold text-black">
                   {quotesCount}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -609,7 +1173,7 @@ const ClientHome = () => {
                     {jobs.filter(job => job.status === 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Work orders completed
+                    Completed Jobs
                   </p>
                 </>
               )}
@@ -716,8 +1280,8 @@ const ClientHome = () => {
                 ) : (
                   <div className="space-y-5">
                     {displayedActivity.map(activity => (
-                      <div 
-                        key={activity.id} 
+                      <div
+                        key={activity.id}
                         className="flex items-start gap-4 pb-5 border-b last:border-0 last:pb-0 cursor-pointer hover:bg-muted/50 p-2 rounded-md -m-2"
                         onClick={() => {
                           if (activity.type === 'job_status_update' && activity.jobNumber) {
@@ -747,8 +1311,8 @@ const ClientHome = () => {
               </CardContent>
               {recentActivity.length > 5 && (
                 <CardFooter>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     onClick={() => setShowAllUpdates(!showAllUpdates)}
                   >
