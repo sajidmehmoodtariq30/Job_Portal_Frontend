@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/UI/card';
 import { Button } from '../../components/UI/button';
 import { Badge } from '../../components/UI/badge';
@@ -33,27 +34,30 @@ import {
   MessageSquareIcon,
   StickyNoteIcon,
   SearchIcon,
-  FilterIcon
+  FilterIcon,
+  GridIcon,
+  ListIcon
 } from 'lucide-react';
 
 const ClientJobs = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [isNewJobDialogOpen, setIsNewJobDialogOpen] = useState(false);
   const [isJobDetailsDialogOpen, setIsJobDetailsDialogOpen] = useState(false);
-  const [newJobFile, setNewJobFile] = useState(null);  const [detailsJobFile, setDetailsJobFile] = useState(null);
+  const [newJobFile, setNewJobFile] = useState(null);
   const [uploadError, setUploadError] = useState('');
   const [isUploading, setIsUploading] = useState(false);  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-    // Search and filter states
+  // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [siteFilter, setSiteFilter] = useState('all'); // New site filter
   const [filteredJobs, setFilteredJobs] = useState([]);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [siteFilter, setSiteFilter] = useState(''); // Site filter from Sites page
   
   // Request flow states
   const [requestStep, setRequestStep] = useState('selection'); // 'selection', 'form'
@@ -82,26 +86,13 @@ const { toast } = useToast();
     type: '' // quote, job, order
   });
   
-  // Keep old newJob state for compatibility (if needed elsewhere)
-  const [newJob, setNewJob] = useState({
-    date: new Date().toISOString().split('T')[0], // Default to today
-    job_description: '',
-    work_done_description: '',
-    location_uuid: '',
-    category_uuid: '',
-    status: 'Quote' // Default status
-  });  useEffect(() => {
-    console.log('🔄 ClientJobs useEffect - hasValidAssignment:', hasValidAssignment);
-    if (hasValidAssignment) {
-      console.log('✅ Client assignment is valid, fetching data...');
-      fetchJobs();
-      fetchCategories();
-      fetchLocations();
-      fetchSites(); // Now using backend endpoint, so we can fetch immediately
-    } else {
-      console.log('⏳ Waiting for valid client assignment...');
+  // Handle site filter from navigation state (coming from Sites page)
+  useEffect(() => {
+    if (location.state?.siteFilter) {
+      setSiteFilter(location.state.siteFilter);
+      setSearchTerm(location.state.siteFilter); // Also set as search term for better UX
     }
-  }, [hasValidAssignment]);
+  }, [location.state]);
 
   // Debug sites state changes
   useEffect(() => {
@@ -163,25 +154,25 @@ const { toast } = useToast();
       });
     }
 
-    // Apply site filter
-    if (siteFilter !== 'all') {
+    // Apply site filter (from Sites page navigation)
+    if (siteFilter) {
       filtered = filtered.filter(job => {
-        const jobAddress = job.location_address || job.job_address || '';
-        const jobSiteName = getSiteName(job);
-        
-        // Find the selected site
-        const selectedSite = sites.find(site => site.uuid === siteFilter || site.id === siteFilter);
-        if (!selectedSite) return false;
-        
-        // Match by address or site name
-        return jobAddress.toLowerCase().includes(selectedSite.address?.toLowerCase() || '') ||
-               jobAddress.toLowerCase().includes(selectedSite.name?.toLowerCase() || '') ||
-               jobSiteName.toLowerCase().includes(selectedSite.name?.toLowerCase() || '');
+        const jobSiteName = getSiteName(job).toLowerCase();
+        return jobSiteName.includes(siteFilter.toLowerCase());
       });
     }
 
+    // Sort by newest first (highest job number)
+    filtered.sort((a, b) => {
+      const jobNumA = parseInt(a.generated_job_id || a.job_number || '0');
+      const jobNumB = parseInt(b.generated_job_id || b.job_number || '0');
+      return jobNumB - jobNumA; // Descending order (newest first)
+    });
+
     setFilteredJobs(filtered);
-  }, [jobs, searchTerm, statusFilter, siteFilter, sites]);const fetchJobs = async () => {
+  }, [jobs, searchTerm, statusFilter, siteFilter, getSiteName]);
+
+  const fetchJobs = useCallback(async () => {
     try {
       const clientId = getClientId();
       const response = await fetch(`${API_URL}/fetch/jobs/client/${clientId}`, {
@@ -193,51 +184,15 @@ const { toast } = useToast();
       
       const data = await response.json();
       setJobs(data || []);
-    } catch (error) {
+    } catch {
       setError('Failed to load jobs');
       toast({ title: 'Error', description: 'Failed to load jobs', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  };  const fetchCategories = async () => {
-    try {
-      const clientId = getClientId();
-      const response = await fetch(`${API_URL}/api/categories`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientId || undefined
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch categories');
-      const data = await response.json();
-      setCategories(data || []);
-    } catch (error) {
-      console.error('Failed to fetch categories:', error);
-    }
-  };  const fetchLocations = async () => {
-    try {
-      const clientId = getClientId();
-      console.log('🔍 Fetching locations - Client ID:', clientId);
-      
-      if (!clientId) {
-        console.error('No client ID available for fetching locations');
-        return;
-      }
-      
-      console.log('📍 Making request to:', `${API_URL}/fetch/locations/client/${clientId}`);
-      const response = await fetch(`${API_URL}/fetch/locations/client/${clientId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientId
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch locations');
-      const data = await response.json();
-      setLocations(data || []);
-    } catch (error) {
-      console.error('Failed to fetch locations:', error);
-    }
-  };  const fetchSites = async () => {
+  }, [getClientId, toast]);
+
+  const fetchSites = useCallback(async () => {
     try {
       const clientId = getClientId();
       console.log('🔍 Fetching sites from jobs - Client ID:', clientId);
@@ -260,56 +215,48 @@ const { toast } = useToast();
       
       setSites(data.sites || []);
       console.log('🏢 Sites state updated:', data.sites || []);
-    } catch (error) {
-      console.error('Failed to fetch sites from jobs:', error);
+    } catch {
+      console.error('Failed to fetch sites from jobs:');
       setSites([]); // Ensure sites is always an array
     }
-  };
+  }, [getClientId]);
 
-  const handleCreateJob = async (e) => {
-    e.preventDefault();
-    
-    try {
-      const clientId = getClientId();
-      const formData = new FormData();
-      
-      // Add job data
-      Object.keys(newJob).forEach(key => {
-        formData.append(key, newJob[key]);      });
-      formData.append('clientId', clientId);
-      formData.append('userId', clientId); // Add userId for backend compatibility
-        // Add file if selected
-      if (newJobFile) {
-        formData.append('file', newJobFile);
-      }      const response = await fetch(`${API_URL}/fetch/jobs/create`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientId
-        },
-        body: formData
-      });if (!response.ok) throw new Error('Failed to create job');
-
-      const data = await response.json();
-      setJobs(prev => [data.data, ...prev]);
-        // Reset form
-      setNewJob({
-        date: new Date().toISOString().split('T')[0], // Default to today
-        job_description: '',
-        work_done_description: '',
-        location_uuid: '',
-        category_uuid: '',
-        status: 'Quote' // Default status
-      });
-      setNewJobFile(null);
-      setIsNewJobDialogOpen(false);
-      
-      toast({ title: 'Success', description: 'Job request submitted successfully' });    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to submit job request', variant: 'destructive' });
+  // Helper function to get site name for a job
+  const getSiteName = useCallback((job) => {
+    if (!job) return 'Site';
+    if (job.location_name || job.site_name) return job.location_name || job.site_name;
+    if (job.location_uuid && sites.length > 0) {
+      const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
+      if (matchingSite) return matchingSite.name;
     }
-  };
+    if (job.location_address && sites.length > 0) {
+      const matchingSite = sites.find(site =>
+        site.address === job.location_address ||
+        site.name?.toLowerCase().includes(job.location_address?.toLowerCase())
+      );
+      if (matchingSite) return matchingSite.name;
+    }
+    if (job.job_address) {
+      const addressParts = job.job_address.split(',');
+      if (addressParts.length > 0) {
+        const siteName = addressParts[0].trim();
+        if (siteName && siteName.length > 2) return siteName;
+      }
+    }
+    if (job.geo_city) return job.geo_city;
+    return job.location_address || job.job_address || 'Site';
+  }, [sites]);
 
-  // New request flow handlers
+  useEffect(() => {
+    console.log('🔄 ClientJobs useEffect - hasValidAssignment:', hasValidAssignment);
+    if (hasValidAssignment) {
+      console.log('✅ Client assignment is valid, fetching data...');
+      fetchJobs();
+      fetchSites(); // Now using backend endpoint, so we can fetch immediately
+    } else {
+      console.log('⏳ Waiting for valid client assignment...');
+    }
+  }, [hasValidAssignment, fetchJobs, fetchSites]);
   const handleRequestTypeSelect = (type) => {
     setRequestType(type);
     setRequestStep('form');
@@ -418,7 +365,7 @@ const { toast } = useToast();
       setIsNewJobDialogOpen(false);
       
       toast({ title: 'Success', description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` });
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to submit request', variant: 'destructive' });
     }
   };
@@ -511,7 +458,7 @@ const { toast } = useToast();
       
       // Reset file input
       e.target.value = '';
-    } catch (error) {
+    } catch {
       setUploadError('Failed to upload file');
       toast({ title: 'Error', description: 'Failed to upload file', variant: 'destructive' });
     } finally {
@@ -551,7 +498,7 @@ const { toast } = useToast();
       await fetchAttachments(selectedJob.uuid);
 
       toast({ title: 'Success', description: 'Attachment deleted successfully' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to delete attachment', variant: 'destructive' });
     }  };
 
@@ -655,57 +602,6 @@ const { toast } = useToast();
       default: return 'bg-blue-100 text-blue-800';
     }
   };
-  // Helper function to get site name for a job
-  const getSiteName = (job) => {
-    // Check if job exists
-    if (!job) {
-      return 'Site';
-    }
-    
-    // First, check if the job already has a site name
-    if (job.location_name || job.site_name) {
-      return job.location_name || job.site_name;
-    }
-    
-    // Try to find matching site by UUID
-    if (job.location_uuid && sites.length > 0) {
-      const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
-      if (matchingSite) {
-        return matchingSite.name;
-      }
-    }
-      // Try to find matching site by address
-    if (job.location_address && sites.length > 0) {
-      const matchingSite = sites.find(site => 
-        site.address === job.location_address || 
-        site.name?.toLowerCase().includes(job.location_address?.toLowerCase())
-      );
-      if (matchingSite) {
-        return matchingSite.name;
-      }
-    }
-    
-    // For ServiceM8 data, extract location from job_address
-    if (job.job_address) {
-      // Try to extract a meaningful site name from the address
-      const addressParts = job.job_address.split(',');
-      if (addressParts.length > 0) {
-        // Use the first part as site name (usually building/location name)
-        const siteName = addressParts[0].trim();
-        if (siteName && siteName.length > 2) {
-          return siteName;
-        }
-      }
-    }
-    
-    // Try geo components for site name
-    if (job.geo_city) {
-      return job.geo_city;
-    }
-
-    // Fallback to job address or generic site name
-    return job.location_address || job.job_address || 'Site';
-  };
 
   if (loading) {
     return (
@@ -732,10 +628,34 @@ const { toast } = useToast();
   return (
     <ClientAssignmentGuard>
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Jobs</h1>
-            <p className="text-gray-600 mt-2">View & Manage all your jobs. </p>
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-4">
+            {siteFilter && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSiteFilter('');
+                  setSearchTerm('');
+                  navigate('/client/sites');
+                }}
+                className="flex items-center gap-2"
+              >
+                ← Back to Sites
+              </Button>
+            )}
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {siteFilter ? `Jobs for ${siteFilter}` : 'Jobs'}
+              </h1>
+              <p className="text-gray-600 mt-2">
+                {siteFilter 
+                  ? `Viewing all job history for ${siteFilter} (excluding unsuccessful jobs)`
+                  : 'View & Manage all your jobs.'
+                }
+              </p>
+            </div>
           </div>
           
           <Dialog open={isNewJobDialogOpen} onOpenChange={(open) => {
@@ -998,6 +918,71 @@ const { toast } = useToast();
             </DialogContent>
           </Dialog></div>
 
+        {/* Status Bar - Similar to Admin Jobs Page */}
+        <div className="mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card 
+              className={`cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
+              onClick={() => setStatusFilter('all')}
+            >
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-gray-900">
+                  {jobs.filter(job => {
+                    const status = job.status?.toLowerCase() || '';
+                    return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
+                  }).length}
+                </div>
+                <div className="text-sm text-gray-600">All Jobs</div>
+              </CardContent>
+            </Card>
+            
+            <Card 
+              className={`cursor-pointer transition-all ${statusFilter === 'quotes' ? 'ring-2 ring-orange-500 bg-orange-50' : 'hover:shadow-md'}`}
+              onClick={() => setStatusFilter('quotes')}
+            >
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {jobs.filter(job => {
+                    const status = job.status?.toLowerCase() || '';
+                    return status === 'quote';
+                  }).length}
+                </div>
+                <div className="text-sm text-gray-600">Quotes</div>
+              </CardContent>
+            </Card>
+            
+            <Card 
+              className={`cursor-pointer transition-all ${statusFilter === 'workorders' ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
+              onClick={() => setStatusFilter('workorders')}
+            >
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {jobs.filter(job => {
+                    const status = job.status?.toLowerCase() || '';
+                    return status === 'work order' || status === 'workorder' || status === 'work-order';
+                  }).length}
+                </div>
+                <div className="text-sm text-gray-600">Work Orders</div>
+              </CardContent>
+            </Card>
+            
+            <Card 
+              className={`cursor-pointer transition-all ${statusFilter === 'completed' ? 'ring-2 ring-green-500 bg-green-50' : 'hover:shadow-md'}`}
+              onClick={() => setStatusFilter('completed')}
+            >
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {jobs.filter(job => {
+                    const status = job.status?.toLowerCase() || '';
+                    return status === 'completed' || status === 'complete';
+                  }).length}
+                </div>
+                <div className="text-sm text-gray-600">Completed</div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
         {/* Search and Filter Section */}
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -1012,13 +997,14 @@ const { toast } = useToast();
                 className="pl-10"
               />
             </div>
-              {/* Status Filter */}
+            {/* Status Filter */}
             <div className="flex items-center gap-2">
               <FilterIcon className="h-4 w-4 text-gray-600" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>                <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                   <SelectItem value="all">All Jobs</SelectItem>
                   <SelectItem value="site">Site</SelectItem>
                   <SelectItem value="workorders">Work Orders</SelectItem>
@@ -1026,55 +1012,28 @@ const { toast } = useToast();
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-            </div>            {/* Site Filter */}
+            </div>
+
+            {/* View Mode Toggle */}
             <div className="flex items-center gap-2">
-              <MapPinIcon className="h-4 w-4 text-gray-600" />
-              <SearchableSelect
-                value={siteFilter}
-                onValueChange={setSiteFilter}
-                placeholder="Filter by site"
-                searchPlaceholder="Search sites..."
-                className="w-64"
-                displayKey="name"
-                valueKey="value"
-                searchKeys={['name', 'address']}
-                items={[
-                  { value: 'all', name: 'All Sites', address: '' },
-                  ...sites.map((site) => {
-                    // Count jobs for this site
-                    const jobCount = jobs.filter(job => {
-                      const jobAddress = job.location_address || job.job_address || '';
-                      const jobSiteName = getSiteName(job);
-                      return jobAddress.toLowerCase().includes(site.address?.toLowerCase() || '') ||
-                             jobAddress.toLowerCase().includes(site.name?.toLowerCase() || '') ||
-                             jobSiteName.toLowerCase().includes(site.name?.toLowerCase() || '');
-                    }).length;
-                    
-                    return {
-                      value: site.uuid || site.id,
-                      name: site.name,
-                      address: site.address || '',
-                      jobCount: jobCount
-                    };
-                  })
-                ]}
-                renderItem={(item) => (
-                  <div className="flex justify-between items-center w-full">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{item.name}</span>
-                      {item.address && <span className="text-xs text-gray-500">{item.address}</span>}
-                    </div>
-                    {item.jobCount !== undefined && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        {item.jobCount}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              />
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <GridIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <ListIcon className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-            {/* Results Summary */}          <div className="flex items-center justify-between text-sm text-gray-600">
+
+          {/* Results Summary */}          <div className="flex items-center justify-between text-sm text-gray-600">
             <p>
               Showing {filteredJobs.length} of {jobs.filter(job => {
                 const status = job.status?.toLowerCase() || '';
@@ -1088,18 +1047,14 @@ const { toast } = useToast();
                 statusFilter === 'completed' ? 'Completed' :
                 statusFilter
               }"`}
-              {siteFilter !== 'all' && ` at "${
-                sites.find(site => site.uuid === siteFilter || site.id === siteFilter)?.name || 'Selected Site'
-              }"`}
             </p>
-            {(searchTerm || statusFilter !== 'all' || siteFilter !== 'all') && (
+            {(searchTerm || statusFilter !== 'all') && (
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('all');
-                  setSiteFilter('all');
                 }}
               >
                 Clear filters
@@ -1129,7 +1084,6 @@ const { toast } = useToast();
                     onClick={() => {
                       setSearchTerm('');
                       setStatusFilter('all');
-                      setSiteFilter('all');
                     }}
                   >
                     Clear filters
@@ -1137,7 +1091,8 @@ const { toast } = useToast();
                 </>
               )}
             </CardContent>
-          </Card>        ) : (          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">            {filteredJobs.filter(job => job && job.uuid).map((job) => {
+          </Card>        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">            {filteredJobs.filter(job => job && job.uuid).map((job) => {
               // Debug log to check job data
               console.log('Job data:', job);
               console.log('PO Number:', job.purchase_order_number);
@@ -1202,6 +1157,70 @@ const { toast } = useToast();
               );
             })}
           </div>
+        ) : (
+          /* List View */
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="py-3 px-4 text-left">Job Number</th>
+                      <th className="py-3 px-4 text-left">Site Name</th>
+                      <th className="py-3 px-4 text-left">Description</th>
+                      <th className="py-3 px-4 text-left">Status</th>
+                      <th className="py-3 px-4 text-left">Created Date</th>
+                      <th className="py-3 px-4 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredJobs.filter(job => job && job.uuid).map((job) => (
+                      <tr key={job.uuid} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                            {job.generated_job_id || job.job_number || job.uuid?.substring(0, 8) || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="text-sm text-blue-600 font-medium">
+                            {getSiteName(job)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="max-w-xs">
+                            <div className="font-medium line-clamp-1">
+                              {job.customfield_job_name || job.job_name || job.name || 'New Job'}
+                            </div>
+                            <div className="text-gray-600 text-xs line-clamp-2">
+                              {job.job_description || job.description || 'No description available'}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge className={getStatusColor(job.status)}>
+                            {job.status || 'Active'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">
+                          {formatDate(job.date || job.created_date || job.createdAt)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewJobDetails(job)}
+                          >
+                            <EyeIcon className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Job Details Dialog */}
