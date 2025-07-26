@@ -400,6 +400,16 @@ const ClientHome = () => {
     });
   };
 
+  // Navigate to jobs page with specific filters
+  const navigateToJobsWithFilter = (filterType, filterValue, additionalFilters = {}) => {
+    const state = {
+      [filterType]: filterValue,
+      ...additionalFilters
+    };
+
+    navigate('/client/jobs', { state });
+  };
+
   // Get activity icon
   const getActivityIcon = (type) => {
     switch (type) {
@@ -410,6 +420,30 @@ const ClientHome = () => {
       case 'invoice_paid': return <BarChart3 className="text-green-500" />;
       case 'service_scheduled': return <Calendar className="text-purple-500" />;
       default: return <AlertCircle className="text-gray-500" />;
+    }
+  };
+
+  // Get status badge color
+  const getStatusBadgeVariant = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'quote': return 'secondary';
+      case 'work order': return 'default';
+      case 'in progress': return 'default';
+      case 'completed': return 'default';
+      case 'complete': return 'default';
+      default: return 'outline';
+    }
+  };
+
+  // Get status color for text
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'quote': return 'text-orange-600';
+      case 'work order': return 'text-blue-600';
+      case 'in progress': return 'text-blue-600';
+      case 'completed': return 'text-green-600';
+      case 'complete': return 'text-green-600';
+      default: return 'text-gray-600';
     }
   };
 
@@ -1113,13 +1147,17 @@ const ClientHome = () => {
                     {jobs.filter(job => job.status !== 'Completed' && (job.type === 'Work Order' || job.status === 'Work Order')).length}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                                    
+
                   </p>
                 </>
               )}
             </CardContent>
             <CardFooter>
-              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs', { state: { filterByStatus: 'Work Order', filterByType: 'Work Order' } })}>
+              <Button
+                variant="link"
+                className="p-0 hover:text-primary transition-colors"
+                onClick={() => navigateToJobsWithFilter('filterByType', 'Work Order', { filterByStatus: 'In Progress' })}
+              >
                 View all jobs <ArrowRight size={16} className="ml-1" />
               </Button>
             </CardFooter>
@@ -1149,7 +1187,11 @@ const ClientHome = () => {
             )}
           </CardContent>
           <CardFooter>
-            <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs', { state: { filterByStatus: 'Quote' } })}>
+            <Button
+              variant="link"
+              className="p-0 hover:text-primary transition-colors"
+              onClick={() => navigateToJobsWithFilter('filterByStatus', 'Quote')}
+            >
               View all quotes <ArrowRight size={16} className="ml-1" />
             </Button>
           </CardFooter>
@@ -1179,7 +1221,11 @@ const ClientHome = () => {
               )}
             </CardContent>
             <CardFooter>
-              <Button variant="link" className="p-0" onClick={() => navigate('/client/jobs', { state: { filterByStatus: 'Completed', filterByType: 'Work Order' } })}>
+              <Button
+                variant="link"
+                className="p-0 hover:text-primary transition-colors"
+                onClick={() => navigateToJobsWithFilter('filterByStatus', 'Completed', { filterByType: 'Work Order' })}
+              >
                 View completed jobs <ArrowRight size={16} className="ml-1" />
               </Button>
             </CardFooter>
@@ -1293,9 +1339,21 @@ const ClientHome = () => {
                           {getActivityIcon(activity.type)}
                         </div>
                         <div className="flex-1">
-                          <h4 className="text-sm font-medium">{activity.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-medium">
+                              {activity.type === 'job_status_update'
+                                ? 'Job Update - '
+                                : activity.title
+                              }
+                            </h4>
+                            {activity.type === 'job_status_update' && activity.status && (
+                              <span className={`text-sm font-medium ${getStatusColor(activity.status)}`}>
+                                {activity.status}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">
-                            {activity.type === 'job_status_update' ? activity.description : activity.description}
+                            {activity.type === 'job_status_update' ? activity.jobNumber : activity.description}
                           </p>
                           {activity.site_name && (
                             <p className="text-xs text-muted-foreground mt-1">{activity.site_name}</p>

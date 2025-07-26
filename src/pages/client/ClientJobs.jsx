@@ -86,11 +86,36 @@ const { toast } = useToast();
     type: '' // quote, job, order
   });
   
-  // Handle site filter from navigation state (coming from Sites page)
+  // Handle filters from navigation state (coming from Dashboard or Sites page)
   useEffect(() => {
     if (location.state?.siteFilter) {
       setSiteFilter(location.state.siteFilter);
       setSearchTerm(location.state.siteFilter); // Also set as search term for better UX
+    }
+    
+    // Handle dashboard navigation filters
+    if (location.state?.filterByStatus) {
+      const status = location.state.filterByStatus.toLowerCase();
+      switch (status) {
+        case 'quote':
+          setStatusFilter('quotes');
+          break;
+        case 'work order':
+        case 'in progress':
+          setStatusFilter('workorders');
+          break;
+        case 'completed':
+        case 'complete':
+          setStatusFilter('completed');
+          break;
+        default:
+          setStatusFilter('all');
+      }
+    }
+    
+    // Handle job number filter (for specific job navigation)
+    if (location.state?.filterByJobNumber) {
+      setSearchTerm(location.state.filterByJobNumber);
     }
   }, [location.state]);
 
@@ -100,6 +125,32 @@ const { toast } = useToast();
     if (sites.length > 0) {
       console.log('📍 First site:', sites[0]);
     }
+  }, [sites]);
+
+  // Helper function to get site name for a job
+  const getSiteName = useCallback((job) => {
+    if (!job) return 'Site';
+    if (job.location_name || job.site_name) return job.location_name || job.site_name;
+    if (job.location_uuid && sites.length > 0) {
+      const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
+      if (matchingSite) return matchingSite.name;
+    }
+    if (job.location_address && sites.length > 0) {
+      const matchingSite = sites.find(site =>
+        site.address === job.location_address ||
+        site.name?.toLowerCase().includes(job.location_address?.toLowerCase())
+      );
+      if (matchingSite) return matchingSite.name;
+    }
+    if (job.job_address) {
+      const addressParts = job.job_address.split(',');
+      if (addressParts.length > 0) {
+        const siteName = addressParts[0].trim();
+        if (siteName && siteName.length > 2) return siteName;
+      }
+    }
+    if (job.geo_city) return job.geo_city;
+    return job.location_address || job.job_address || 'Site';
   }, [sites]);
 
   // Filter jobs based on search term and status filter
@@ -220,32 +271,6 @@ const { toast } = useToast();
       setSites([]); // Ensure sites is always an array
     }
   }, [getClientId]);
-
-  // Helper function to get site name for a job
-  const getSiteName = useCallback((job) => {
-    if (!job) return 'Site';
-    if (job.location_name || job.site_name) return job.location_name || job.site_name;
-    if (job.location_uuid && sites.length > 0) {
-      const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
-      if (matchingSite) return matchingSite.name;
-    }
-    if (job.location_address && sites.length > 0) {
-      const matchingSite = sites.find(site =>
-        site.address === job.location_address ||
-        site.name?.toLowerCase().includes(job.location_address?.toLowerCase())
-      );
-      if (matchingSite) return matchingSite.name;
-    }
-    if (job.job_address) {
-      const addressParts = job.job_address.split(',');
-      if (addressParts.length > 0) {
-        const siteName = addressParts[0].trim();
-        if (siteName && siteName.length > 2) return siteName;
-      }
-    }
-    if (job.geo_city) return job.geo_city;
-    return job.location_address || job.job_address || 'Site';
-  }, [sites]);
 
   useEffect(() => {
     console.log('🔄 ClientJobs useEffect - hasValidAssignment:', hasValidAssignment);
