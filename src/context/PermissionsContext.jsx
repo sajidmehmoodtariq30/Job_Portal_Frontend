@@ -84,20 +84,26 @@ export const PermissionsProvider = ({ children }) => {
       }
 
       // Fetch permissions from API
-      const response = await axios.get(API_ENDPOINTS.USERS.GET_PERMISSIONS(userId));
-      
-      if (response.data?.success) {
-        const permissions = response.data.data.permissions || [];
-        setUserPermissions(Array.isArray(permissions) ? permissions : []);
+      try {
+        const response = await axios.get(API_ENDPOINTS.USERS.GET_PERMISSIONS(userId));
         
-        // Also update localStorage for offline fallback
-        const updatedUserData = {
-          ...parsedUser,
-          permissions: permissions
-        };
-        localStorage.setItem('user_data', JSON.stringify(updatedUserData));
-      } else {
-        // Fallback to localStorage if API fails
+        if (response.data?.success) {
+          const permissions = response.data.data.permissions || [];
+          setUserPermissions(Array.isArray(permissions) ? permissions : []);
+          
+          // Also update localStorage for offline fallback
+          const updatedUserData = {
+            ...parsedUser,
+            permissions: permissions
+          };
+          localStorage.setItem('user_data', JSON.stringify(updatedUserData));
+        } else {
+          throw new Error('API response not successful');
+        }
+      } catch (error) {
+        console.error('Error loading user permissions from API:', error);
+        
+        // Fallback to localStorage
         const permissions = parsedUser.permissions || [];
         setUserPermissions(Array.isArray(permissions) ? permissions : []);
       }
