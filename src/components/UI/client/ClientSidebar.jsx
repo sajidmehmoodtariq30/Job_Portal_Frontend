@@ -1,40 +1,25 @@
 // src/components/UI/client/ClientSidebar.jsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard,
   Briefcase,
-  FileText,
   LifeBuoy,
   Settings,
   Building,
-  MapPin
+  MapPin,
+  Users
 } from 'lucide-react';
 
 const ClientSidebar = ({ sidebarOpen }) => {
-  const location = useLocation();  const [clientName, setClientName] = useState('Client Portal');
-    // Fetch client name on component mount
-  useEffect(() => {
-    const fetchClientName = () => {
-      const clientData = localStorage.getItem('client_data');
-      if (clientData) {
-        try {
-          const parsedData = JSON.parse(clientData);
-          setClientName(parsedData.name || 'Client Portal');
-        } catch (error) {
-          console.error('Error parsing client data in sidebar:', error);
-          setClientName('Client Portal');
-        }
-      }
-    };
-    
-    fetchClientName();
-  }, []);
+  const location = useLocation();
+
   const navigation = [
     { name: 'Dashboard', href: '/client', icon: <LayoutDashboard className="h-5 w-5" /> },
     { name: 'Jobs', href: '/client/jobs', icon: <Briefcase className="h-5 w-5" /> },
     { name: 'Sites', href: '/client/sites', icon: <MapPin className="h-5 w-5" /> },
+    { name: 'User Management', href: '/client/users', icon: <Users className="h-5 w-5" /> },
     { name: 'Support', href: '/client/support', icon: <LifeBuoy className="h-5 w-5" /> },
     { name: 'Settings', href: '/client/settings', icon: <Settings className="h-5 w-5" /> }
   ];

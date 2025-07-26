@@ -51,6 +51,8 @@ export const API_ENDPOINTS = {  AUTH: {
   },    USERS: {
     FETCH_ALL: buildApiEndpoint('api/users'),
     CREATE: buildApiEndpoint('api/users'),
+    CREATE_BY_CLIENT: buildApiEndpoint('api/users/client-create'), // New endpoint for client-created users
+    GET_BY_CLIENT: (clientUuid) => buildApiEndpoint(`api/users/client/${clientUuid}`), // New endpoint to get users by client
     UPDATE: (id) => buildApiEndpoint(`api/users/${id}`),
     DELETE: (id) => buildApiEndpoint(`api/users/${id}`),
     UPDATE_STATUS: (id) => buildApiEndpoint(`api/users/${id}/status`),
@@ -101,20 +103,6 @@ export const API_ENDPOINTS = {  AUTH: {
   NOTIFICATIONS: {
     GET_SETTINGS: buildApiEndpoint('api/notifications/settings'),
     UPDATE_SETTINGS: buildApiEndpoint('api/notifications/settings')
-  },
-  USERS: {
-    FETCH_ALL: buildApiEndpoint('api/users'),
-    CREATE: buildApiEndpoint('api/users'),
-    UPDATE: (userId) => buildApiEndpoint(`api/users/${userId}`),
-    DELETE: (userId) => buildApiEndpoint(`api/users/${userId}`),
-    UPDATE_STATUS: (userId) => buildApiEndpoint(`api/users/${userId}/status`),
-    UPDATE_PERMISSIONS: (userId) => buildApiEndpoint(`api/users/${userId}/permissions`),
-    GET_PERMISSIONS: (userId) => buildApiEndpoint(`api/users/${userId}/permissions`),
-    GET_PASSWORD: (userId) => buildApiEndpoint(`api/users/${userId}/password`),
-    UPDATE_PASSWORD: (userId) => buildApiEndpoint(`api/users/${userId}/password`),
-    RESEND_SETUP: (userId) => buildApiEndpoint(`api/users/${userId}/resend-setup`),
-    GET_CLIENT_SITES: (userId) => buildApiEndpoint(`api/users/${userId}/client-sites`),
-    RESET_PASSWORD: (userId) => buildApiEndpoint(`api/users/${userId}/reset-password`)
   },  NOTES: {
     GET_BY_JOB: (jobId) => buildApiEndpoint(`api/notes/${jobId}`),
     CREATE: buildApiEndpoint('api/notes'),
