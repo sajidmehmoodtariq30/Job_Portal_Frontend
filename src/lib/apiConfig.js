@@ -60,7 +60,8 @@ export const API_ENDPOINTS = {  AUTH: {
     UPDATE_PASSWORD: (id) => buildApiEndpoint(`api/users/${id}/password`),
     RESEND_SETUP: (id) => buildApiEndpoint(`api/users/${id}/resend-setup`),
     GET_CLIENT_NAME: (uuid) => buildApiEndpoint(`api/users/client-name/${uuid}`), // Add client name endpoint
-    GET_CLIENT_SITES: (id) => buildApiEndpoint(`api/users/${id}/client-sites`) // Add client sites endpoint
+    GET_CLIENT_SITES: (id) => buildApiEndpoint(`api/users/${id}/client-sites`), // Add client sites endpoint
+    GET_PERMISSIONS: (userId) => buildApiEndpoint(`api/users/${userId}/permissions`) // Add user permissions endpoint
   },  SITES: {
     // HIERARCHICAL COMPANY ENDPOINTS (ServiceM8 Companies API)
     GET_ALL: (clientId) => buildApiEndpoint(`api/clients/${clientId}/sites`), // Client-specific hierarchical sites

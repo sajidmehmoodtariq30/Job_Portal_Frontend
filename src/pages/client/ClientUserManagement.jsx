@@ -41,6 +41,42 @@ const ClientUserManagement = () => {
     { value: 'basic', label: 'Basic', description: 'View-only access to jobs and schedules' }
   ];
 
+  // Fetch users for current client
+  const fetchUsers = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const clientData = JSON.parse(localStorage.getItem('client_data') || localStorage.getItem('user_data') || '{}');
+      const clientUuid = clientData.assignedClientUuid || clientData.uuid || clientData.userUuid;
+      
+      if (!clientUuid) {
+        throw new Error('No client UUID found');
+      }
+
+      const response = await fetch(API_ENDPOINTS.USERS.GET_BY_CLIENT(clientUuid), {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'x-client-uuid': clientUuid
+        }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setUsers(data.data || []);
+      } else {
+        throw new Error(data.message || 'Failed to fetch users');
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load users",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   // Get current client info
   useEffect(() => {
     const getClientInfo = () => {
@@ -67,37 +103,6 @@ const ClientUserManagement = () => {
     getClientInfo();
     fetchUsers();
   }, [toast, fetchUsers]);
-
-  // Fetch users for current client
-  const fetchUsers = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      const clientData = JSON.parse(localStorage.getItem('client_data') || localStorage.getItem('user_data') || '{}');
-      const clientUuid = clientData.assignedClientUuid || clientData.uuid || clientData.userUuid;
-      
-      if (!clientUuid) {
-        throw new Error('No client UUID found');
-      }
-
-      const response = await fetch(API_ENDPOINTS.USERS.GET_BY_CLIENT(clientUuid));
-      const data = await response.json();
-      
-      if (data.success) {
-        setUsers(data.data || []);
-      } else {
-        throw new Error(data.message || 'Failed to fetch users');
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load users",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
 
   // Handle create user
   const handleCreateUser = async (e) => {
