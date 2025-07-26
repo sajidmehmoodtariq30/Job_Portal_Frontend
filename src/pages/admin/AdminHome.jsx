@@ -63,7 +63,9 @@ import { format, subDays } from 'date-fns'
 // Default color scheme for charts
 const COLORS = {
   'Quote': '#8884d8',
+  'Quotes': '#8884d8', // Handle plural form
   'Work Order': '#82ca9d',
+  'Work Orders': '#82ca9d', // Handle plural form
   'In Progress': '#ffc658',
   'Completed': '#0088FE',
 }
@@ -151,11 +153,41 @@ const AdminHome = () => {
           'Completed': 0
         }
         
-        jobsData.forEach(job => {
-          if (job.status in statusCounts) {
-            statusCounts[job.status]++
+        // Debug: Log all jobs and their statuses
+        console.log('AdminHome: All jobs data:', jobsData);
+        console.log('AdminHome: Jobs count:', jobsData.length);
+        
+        // Debug: Log all unique statuses found in jobs
+        const uniqueStatuses = [...new Set(jobsData.map(job => job.status))];
+        console.log('AdminHome: Unique job statuses found:', uniqueStatuses);
+        
+        jobsData.forEach((job, index) => {
+          console.log(`AdminHome: Job ${index + 1}:`, {
+            uuid: job.uuid,
+            status: job.status,
+            description: job.job_description || job.description,
+            client: job.client_name || job.company_name
+          });
+          
+          // Handle both singular and plural forms, and normalize status values
+          let normalizedStatus = job.status;
+          
+          // Map common ServiceM8 status variations to our expected values
+          if (job.status === 'Quotes') {
+            normalizedStatus = 'Quote';
+          } else if (job.status === 'Work Orders') {
+            normalizedStatus = 'Work Order';
+          }
+          
+          if (normalizedStatus in statusCounts) {
+            statusCounts[normalizedStatus]++
+            console.log(`AdminHome: Counted job with status "${job.status}" as "${normalizedStatus}"`);
+          } else {
+            console.log(`AdminHome: Unknown status found: "${job.status}" -> normalized to: "${normalizedStatus}"`);
           }
         })
+        
+        console.log('AdminHome: Final status counts:', statusCounts);
         
         const formattedStatusData = Object.keys(statusCounts).map(status => ({
           name: status,

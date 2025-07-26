@@ -393,10 +393,22 @@ const ClientHome = () => {
   }
 
   // Extract data from the dashboard data object for easier use
-  const { stats, jobs, upcomingServices, recentActivity } = dashboardData;
+  const { stats, jobs, quotes, upcomingServices, recentActivity } = dashboardData;
 
-  // Calculate quotes count
-  const quotesCount = jobs.filter(job => job.status === 'Quote').length || stats.quotes || 0;
+  // Calculate quotes count - use the quotes array from backend, fallback to stats
+  console.log('ClientHome: All jobs data:', jobs);
+  console.log('ClientHome: Jobs count:', jobs.length);
+  console.log('ClientHome: Quotes data:', quotes);
+  console.log('ClientHome: Quotes count from array:', quotes?.length || 0);
+  console.log('ClientHome: Stats data:', stats);
+  
+  // Debug: Log all unique statuses found in jobs
+  const uniqueStatuses = [...new Set(jobs.map(job => job.status))];
+  console.log('ClientHome: Unique job statuses found:', uniqueStatuses);
+  
+  const quotesCount = quotes?.length || stats?.pendingQuotes || stats?.quotes || 0;
+  
+  console.log('ClientHome: Final quotes count:', quotesCount);
 
   // Filter recent activity to show relevant updates
   const displayedActivity = showAllUpdates ? recentActivity : recentActivity.slice(0, 5);
