@@ -37,7 +37,7 @@ const Footer = () => {
                   <div className="p-2 rounded-lg bg-gray-800 group-hover:bg-blue-600/20 transition-colors">
                     <MapPin size={20} />
                   </div>
-                  <span>Gold Coast, Australia</span>
+                  <span>Head Office: Gold Coast, Australia</span>
                 </a>
                 <a href="tel:0755732111" 
                    className="flex items-center space-x-3 text-gray-400 hover:text-white transition-colors group">
