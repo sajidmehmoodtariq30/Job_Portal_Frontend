@@ -6,7 +6,7 @@ import { Badge } from '../../components/UI/badge';
 import { Input } from '../../components/UI/input';
 import { Label } from '../../components/UI/label';
 import { Textarea } from '../../components/UI/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/UI/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/UI/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/UI/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/UI/select';
 import SearchableSelect from '../../components/UI/SearchableSelect';
@@ -19,11 +19,11 @@ import ClientAssignmentGuard from '../../components/ClientAssignmentGuard';
 import { API_URL, API_ENDPOINTS } from '../../lib/apiConfig';
 import ChatRoom from '../../components/UI/client/ChatRoom';
 import NotesTab from '../../components/UI/NotesTab';
-import { 
-  PlusIcon, 
-  CalendarIcon, 
-  MapPinIcon, 
-  BriefcaseIcon, 
+import {
+  PlusIcon,
+  CalendarIcon,
+  MapPinIcon,
+  BriefcaseIcon,
   DollarSignIcon,
   ClockIcon,
   EyeIcon,
@@ -50,7 +50,7 @@ const ClientJobs = () => {
   const [isJobDetailsDialogOpen, setIsJobDetailsDialogOpen] = useState(false);
   const [newJobFile, setNewJobFile] = useState(null);
   const [uploadError, setUploadError] = useState('');
-  const [isUploading, setIsUploading] = useState(false);  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isUploading, setIsUploading] = useState(false); const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,21 +58,21 @@ const ClientJobs = () => {
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [siteFilter, setSiteFilter] = useState(''); // Site filter from Sites page
-  
+
   // Request flow states
   const [requestStep, setRequestStep] = useState('selection'); // 'selection', 'form'
   const [requestType, setRequestType] = useState(''); // 'quote', 'job', 'order'
   const [sites, setSites] = useState([]);
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
 
-const { toast } = useToast();
+  const { toast } = useToast();
   const { getClientId, hasValidAssignment } = useClientAssignment();
-  
+
   // Updated form state for new request flow
   const [newRequest, setNewRequest] = useState({
     // For Order (basic info)
     basic_description: '',
-    
+
     // For Quote/Job (detailed form)
     site_uuid: '',
     description: '',
@@ -85,14 +85,14 @@ const { toast } = useToast();
     job_name: '',
     type: '' // quote, job, order
   });
-  
+
   // Handle filters from navigation state (coming from Dashboard or Sites page)
   useEffect(() => {
     if (location.state?.siteFilter) {
       setSiteFilter(location.state.siteFilter);
       setSearchTerm(location.state.siteFilter); // Also set as search term for better UX
     }
-    
+
     // Handle dashboard navigation filters
     if (location.state?.filterByStatus) {
       const status = location.state.filterByStatus.toLowerCase();
@@ -112,7 +112,7 @@ const { toast } = useToast();
           setStatusFilter('all');
       }
     }
-    
+
     // Handle job number filter (for specific job navigation)
     if (location.state?.filterByJobNumber) {
       setSearchTerm(location.state.filterByJobNumber);
@@ -159,13 +159,13 @@ const { toast } = useToast();
       setFilteredJobs([]);
       return;
     }
-    
+
     let filtered = jobs.filter(job => job && job.uuid); // Filter out null/undefined jobs
 
     // Apply search filter
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(job => 
+      filtered = filtered.filter(job =>
         (job.job_name?.toLowerCase() || '').includes(search) ||
         (job.name?.toLowerCase() || '').includes(search) ||
         (job.job_description?.toLowerCase() || '').includes(search) ||
@@ -180,12 +180,12 @@ const { toast } = useToast();
     if (statusFilter !== 'all') {
       filtered = filtered.filter(job => {
         const status = job.status?.toLowerCase() || '';
-        
+
         // Always exclude unsuccessful jobs
         if (status === 'unsuccessful' || status === 'cancelled' || status === 'rejected') {
           return false;
         }
-          switch (statusFilter) {
+        switch (statusFilter) {
           case 'workorders':
             return status === 'work order' || status === 'workorder' || status === 'work-order';
           case 'quotes':
@@ -195,7 +195,8 @@ const { toast } = useToast();
           default:
             return true;
         }
-      });    } else {
+      });
+    } else {
       // Even for "all", exclude unsuccessful jobs
       filtered = filtered.filter(job => {
         const status = job.status?.toLowerCase() || '';
@@ -229,8 +230,8 @@ const { toast } = useToast();
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
-        if (!response.ok) throw new Error('Failed to fetch jobs');
-      
+      if (!response.ok) throw new Error('Failed to fetch jobs');
+
       const data = await response.json();
       setJobs(data || []);
     } catch {
@@ -245,12 +246,12 @@ const { toast } = useToast();
     try {
       const clientId = getClientId();
       console.log('🔍 Fetching sites for client - Client ID:', clientId);
-      
+
       if (!clientId) {
         console.error('No client ID available for fetching sites');
         return;
       }
-      
+
       // Try multiple endpoints to get sites
       const endpoints = [
         API_ENDPOINTS.SITES.GET_ALL(clientId),
@@ -264,18 +265,18 @@ const { toast } = useToast();
       for (const endpoint of endpoints) {
         try {
           console.log('🔍 Trying endpoint:', endpoint);
-          
+
           const response = await fetch(endpoint, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
               'x-client-uuid': clientId
             }
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             console.log('🏢 Sites response from', endpoint, ':', data);
-            
+
             // Handle different response formats
             if (Array.isArray(data)) {
               sitesData = data;
@@ -284,7 +285,7 @@ const { toast } = useToast();
             } else if (data.data && Array.isArray(data.data)) {
               sitesData = data.data;
             }
-            
+
             if (sitesData.length > 0) {
               console.log(`✅ Successfully fetched ${sitesData.length} sites from ${endpoint}`);
               break;
@@ -322,12 +323,12 @@ const { toast } = useToast();
           }
         ];
       }
-      
+
       setSites(sitesData);
       console.log('🏢 Final sites state updated:', sitesData);
     } catch (error) {
       console.error('❌ Failed to fetch sites:', error);
-      
+
       // Set mock sites as fallback
       const mockSites = [
         {
@@ -337,7 +338,7 @@ const { toast } = useToast();
           type: 'Office'
         }
       ];
-      
+
       setSites(mockSites);
       console.log('🏢 Using fallback mock sites:', mockSites);
     }
@@ -369,7 +370,7 @@ const { toast } = useToast();
       job_name: '',
       type: type
     });
-    
+
     // Fetch sites when moving to form step for quote or job requests
     if (type === 'quote' || type === 'job') {
       console.log('🔄 Fetching sites for job creation form...');
@@ -378,17 +379,17 @@ const { toast } = useToast();
   };
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       const clientId = getClientId();
       const formData = new FormData();
-      
+
       // Find the selected site to get its address
       let selectedSite = null;
       if (newRequest.site_uuid) {
         selectedSite = sites.find(site => site.uuid === newRequest.site_uuid || site.id === newRequest.site_uuid);
       }
-      
+
       // Add request data based on type
       if (requestType === 'order') {
         formData.append('type', 'order');
@@ -405,7 +406,7 @@ const { toast } = useToast();
             formData.append(key, newRequest[key]);
           }
         });
-        
+
         // Add site address information instead of site_uuid
         if (selectedSite) {
           formData.append('job_address', selectedSite.address || selectedSite.name);
@@ -413,23 +414,23 @@ const { toast } = useToast();
           // Also add site name for reference
           formData.append('site_name', selectedSite.name);
         }
-      }      formData.append('clientId', clientId);
+      } formData.append('clientId', clientId);
       formData.append('userId', clientId); // Add userId for backend compatibility
-      
+
       // Debug: Log site information being sent
       if (selectedSite) {
         console.log('🏢 Selected site for job request:', selectedSite);
         console.log('📍 Site address being sent:', selectedSite.address || selectedSite.name);
       }
-      
+
       // Create JSON payload instead of FormData for now (TODO: Add file upload later)
       const requestPayload = {};
-      
+
       // Convert FormData to JSON object
       for (let [key, value] of formData.entries()) {
         requestPayload[key] = value;
       }
-      
+
       console.log('📤 Sending job request payload:', requestPayload);
 
       const response = await fetch(`${API_URL}/fetch/jobs/create`, {
@@ -446,7 +447,7 @@ const { toast } = useToast();
 
       const data = await response.json();
       setJobs(prev => [data.data, ...prev]);
-      
+
       // Reset everything
       setNewRequest({
         basic_description: '',
@@ -465,7 +466,7 @@ const { toast } = useToast();
       setRequestStep('selection');
       setRequestType('');
       setIsNewJobDialogOpen(false);
-      
+
       toast({ title: 'Success', description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` });
     } catch {
       toast({ title: 'Error', description: 'Failed to submit request', variant: 'destructive' });
@@ -491,11 +492,11 @@ const { toast } = useToast();
     setNewJobFile(null);
     setSiteSearchTerm('');
   };  // Filter sites based on search term
-  const filteredSites = (Array.isArray(sites) ? sites : []).filter(site => 
+  const filteredSites = (Array.isArray(sites) ? sites : []).filter(site =>
     site.name?.toLowerCase().includes(siteSearchTerm.toLowerCase()) ||
     site.address?.toLowerCase().includes(siteSearchTerm.toLowerCase())
   );
-  
+
   // Debug logging for sites
   console.log('🏢 Sites state:', sites);
   console.log('🔍 Filtered sites:', filteredSites);
@@ -521,7 +522,7 @@ const { toast } = useToast();
     if (file.size > 10 * 1024 * 1024) {
       setUploadError('File size must be less than 10MB');
       return;
-    }    setIsUploading(true);
+    } setIsUploading(true);
     setUploadError('');
 
     try {
@@ -538,16 +539,17 @@ const { toast } = useToast();
         body: formData
       });
 
-      if (!response.ok) throw new Error('Upload failed');      const data = await response.json();
-      
+      if (!response.ok) throw new Error('Upload failed'); const data = await response.json();
+
       // Update the selected job with new attachment
       setSelectedJob(prev => ({
         ...prev,
-        attachments: [...(prev.attachments || []), data.data]      }));
+        attachments: [...(prev.attachments || []), data.data]
+      }));
 
       // Update jobs list
-      setJobs(prev => prev.map(job => 
-        job.uuid === selectedJob.uuid 
+      setJobs(prev => prev.map(job =>
+        job.uuid === selectedJob.uuid
           ? { ...job, attachments: [...(job.attachments || []), data.data] }
           : job
       ));      // Trigger refresh
@@ -557,7 +559,7 @@ const { toast } = useToast();
       await fetchAttachments(selectedJob.uuid);
 
       toast({ title: 'Success', description: 'File uploaded successfully' });
-      
+
       // Reset file input
       e.target.value = '';
     } catch {
@@ -573,7 +575,7 @@ const { toast } = useToast();
     try {
       const clientId = getClientId();
       const response = await fetch(
-        `${API_URL}/api/attachments/${attachmentId}`, 
+        `${API_URL}/api/attachments/${attachmentId}`,
         {
           method: 'DELETE',
           headers: {
@@ -586,11 +588,12 @@ const { toast } = useToast();
       if (!response.ok) throw new Error('Failed to delete attachment');      // Update selected job
       setSelectedJob(prev => ({
         ...prev,
-        attachments: prev.attachments.filter(att => (att.id || att._id) !== attachmentId)      }));
+        attachments: prev.attachments.filter(att => (att.id || att._id) !== attachmentId)
+      }));
 
       // Update jobs list
-      setJobs(prev => prev.map(job => 
-        job.uuid === selectedJob.uuid 
+      setJobs(prev => prev.map(job =>
+        job.uuid === selectedJob.uuid
           ? { ...job, attachments: job.attachments.filter(att => (att.id || att._id) !== attachmentId) }
           : job
       ));// Trigger refresh
@@ -602,7 +605,8 @@ const { toast } = useToast();
       toast({ title: 'Success', description: 'Attachment deleted successfully' });
     } catch {
       toast({ title: 'Error', description: 'Failed to delete attachment', variant: 'destructive' });
-    }  };
+    }
+  };
 
   // Function to refresh a specific job's data including attachments and notes
   const refreshJobData = async (jobId) => {
@@ -626,11 +630,12 @@ const { toast } = useToast();
         if (refreshedJob) {
           setSelectedJob(refreshedJob);
           // Also update the job in the jobs list
-          setJobs(prev => prev.map(job => 
+          setJobs(prev => prev.map(job =>
             job.uuid === jobId ? refreshedJob : job
           ));
         }
-      }    } catch (error) {
+      }
+    } catch (error) {
       console.error('Error refreshing job data:', error);
     }
   };
@@ -653,8 +658,8 @@ const { toast } = useToast();
         if (result.success && result.data) {
           // Update the selected job with attachments
           setSelectedJob(prev => prev ? { ...prev, attachments: result.data } : null);
-            // Also update the job in the jobs list
-          setJobs(prev => prev.map(job => 
+          // Also update the job in the jobs list
+          setJobs(prev => prev.map(job =>
             job.uuid === jobId ? { ...job, attachments: result.data } : job
           ));
         }
@@ -752,14 +757,14 @@ const { toast } = useToast();
                 {siteFilter ? `Jobs for ${siteFilter}` : 'Jobs'}
               </h1>
               <p className="text-gray-600 mt-2">
-                {siteFilter 
+                {siteFilter
                   ? `Viewing all job history for ${siteFilter} (excluding unsuccessful jobs)`
                   : 'View & Manage all your jobs.'
                 }
               </p>
             </div>
           </div>
-          
+
           <Dialog open={isNewJobDialogOpen} onOpenChange={(open) => {
             setIsNewJobDialogOpen(open);
             if (!open) resetRequestFlow();
@@ -774,10 +779,10 @@ const { toast } = useToast();
                 <DialogTitle>
                   {requestStep === 'selection' ? 'Select Request Type' : `New ${requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request`}
                 </DialogTitle>
-              </DialogHeader>              
+              </DialogHeader>
               {requestStep === 'selection' && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-6">
-                  <Card 
+                  <Card
                     className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-500"
                     onClick={() => handleRequestTypeSelect('quote')}
                   >
@@ -789,8 +794,8 @@ const { toast } = useToast();
                       <p className="text-gray-600 text-sm">Request a detailed quote for your project</p>
                     </CardContent>
                   </Card>
-                  
-                  <Card 
+
+                  <Card
                     className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-green-500"
                     onClick={() => handleRequestTypeSelect('job')}
                   >
@@ -802,8 +807,8 @@ const { toast } = useToast();
                       <p className="text-gray-600 text-sm">Submit a new job request with full details</p>
                     </CardContent>
                   </Card>
-                  
-                  <Card 
+
+                  <Card
                     className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-orange-500"
                     onClick={() => handleRequestTypeSelect('order')}
                   >
@@ -848,9 +853,9 @@ const { toast } = useToast();
                   </div>
 
                   <div className="flex justify-end gap-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => setRequestStep('selection')}
                     >
                       Back
@@ -871,8 +876,8 @@ const { toast } = useToast();
                         onChange={(e) => setSiteSearchTerm(e.target.value)}
                         className="w-full"
                       />                      {filteredSites.length > 0 ? (
-                        <Select 
-                          value={newRequest.site_uuid} 
+                        <Select
+                          value={newRequest.site_uuid}
                           onValueChange={(value) => setNewRequest(prev => ({ ...prev, site_uuid: value }))}
                         >
                           <SelectTrigger>
@@ -920,7 +925,7 @@ const { toast } = useToast();
                         placeholder="Contact person name"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="site_contact_number">Site Contact Number</Label>
                       <Input
@@ -943,7 +948,7 @@ const { toast } = useToast();
                         placeholder="email@example.com"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="purchase_order_number">Purchase Order Number</Label>
                       <Input
@@ -965,7 +970,7 @@ const { toast } = useToast();
                         onChange={(e) => setNewRequest(prev => ({ ...prev, work_start_date: e.target.value }))}
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="work_completion_date">Work Request Completion Date</Label>
                       <Input
@@ -1006,9 +1011,9 @@ const { toast } = useToast();
                   </div>
 
                   <div className="flex justify-end gap-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => setRequestStep('selection')}
                     >
                       Back
@@ -1023,7 +1028,7 @@ const { toast } = useToast();
         {/* Status Bar - Similar to Admin Jobs Page */}
         <div className="mb-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card 
+            <Card
               className={`cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
               onClick={() => setStatusFilter('all')}
             >
@@ -1037,8 +1042,8 @@ const { toast } = useToast();
                 <div className="text-sm text-gray-600">All Jobs</div>
               </CardContent>
             </Card>
-            
-            <Card 
+
+            <Card
               className={`cursor-pointer transition-all ${statusFilter === 'quotes' ? 'ring-2 ring-orange-500 bg-orange-50' : 'hover:shadow-md'}`}
               onClick={() => setStatusFilter('quotes')}
             >
@@ -1052,8 +1057,8 @@ const { toast } = useToast();
                 <div className="text-sm text-gray-600">Quotes</div>
               </CardContent>
             </Card>
-            
-            <Card 
+
+            <Card
               className={`cursor-pointer transition-all ${statusFilter === 'workorders' ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
               onClick={() => setStatusFilter('workorders')}
             >
@@ -1067,8 +1072,8 @@ const { toast } = useToast();
                 <div className="text-sm text-gray-600">Work Orders</div>
               </CardContent>
             </Card>
-            
-            <Card 
+
+            <Card
               className={`cursor-pointer transition-all ${statusFilter === 'completed' ? 'ring-2 ring-green-500 bg-green-50' : 'hover:shadow-md'}`}
               onClick={() => setStatusFilter('completed')}
             >
@@ -1141,17 +1146,16 @@ const { toast } = useToast();
                 return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
               }).length} jobs
               {searchTerm && ` matching "${searchTerm}"`}
-              {statusFilter !== 'all' && ` with status "${
-                statusFilter === 'workorders' ? 'Work Orders' :
+              {statusFilter !== 'all' && ` with status "${statusFilter === 'workorders' ? 'Work Orders' :
                 statusFilter === 'quotes' ? 'Quotes' :
-                statusFilter === 'completed' ? 'Completed' :
-                statusFilter
-              }"`}
+                  statusFilter === 'completed' ? 'Completed' :
+                    statusFilter
+                }"`}
             </p>
             {(searchTerm || statusFilter !== 'all') && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('all');
@@ -1179,7 +1183,7 @@ const { toast } = useToast();
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">No jobs match your criteria</h3>
                   <p className="text-gray-600 mb-4">
                     {searchTerm ? `No jobs found matching "${searchTerm}"` : 'No jobs found with the selected filters'}
-                  </p>                  <Button 
+                  </p>                  <Button
                     variant="outline"
                     onClick={() => {
                       setSearchTerm('');
@@ -1191,73 +1195,73 @@ const { toast } = useToast();
                 </>
               )}
             </CardContent>
-          </Card>        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">            {filteredJobs.filter(job => job && job.uuid).map((job) => {
+          </Card>) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">            {filteredJobs.filter(job => job && job.uuid).map((job) => {
               // Debug log to check job data
               console.log('Job data:', job);
               console.log('PO Number:', job.purchase_order_number);
-              
+
               return (
-              <Card key={job.uuid} className="hover:shadow-lg transition-shadow"><CardHeader className="pb-3">
+                <Card key={job.uuid} className="hover:shadow-lg transition-shadow"><CardHeader className="pb-3">
                   {/* Site Name prominently at top */}
                   <div className="text-sm text-blue-600 font-medium mb-1">
                     {getSiteName(job)}
                   </div>
                   <div className="flex justify-between items-start">                    <CardTitle className="text-lg font-semibold line-clamp-2">
-                      {job.customfield_job_name || job.job_name || job.name || job.job_description?.substring(0, 40) + '...' || `Job #${job.generated_job_id || job.job_number}` || 'New Job'}
-                    </CardTitle>
+                    {job.customfield_job_name || job.job_name || job.name || job.job_description?.substring(0, 40) + '...' || `Job #${job.generated_job_id || job.job_number}` || 'New Job'}
+                  </CardTitle>
                     <Badge className={getStatusColor(job.status)}>
                       {job.status || 'Active'}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Job Description */}
-                  <p className="text-gray-600 line-clamp-3 text-sm">
-                    {job.job_description || job.description || 'No description available'}
-                  </p>
-                  
-                  <div className="space-y-2 text-sm">
-                    {/* Site Location */}
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MapPinIcon className="h-4 w-4 flex-shrink-0" />
-                      <span className="line-clamp-1">{job.location_address || job.job_address || 'Location not specified'}</span>
-                    </div>                    {/* PO Number (always show for debugging) */}
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <FileIcon className="h-4 w-4 flex-shrink-0" />
-                      <span>PO: {job.purchase_order_number || job.po_number || 'Not specified'}</span>
-                    </div>
-                    
-                    {/* Job Number */}
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <BriefcaseIcon className="h-4 w-4 flex-shrink-0" />
-                      <span>Job: {job.generated_job_id || job.job_number || job.uuid?.substring(0, 8) || 'N/A'}</span>
-                    </div>
-                    
-                    {/* Created Date */}
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <CalendarIcon className="h-4 w-4 flex-shrink-0" />
-                      <span>Created {formatDate(job.date || job.created_date || job.createdAt)}</span>
-                    </div>
-                  </div>
+                  <CardContent className="space-y-4">
+                    {/* Job Description */}
+                    <p className="text-gray-600 line-clamp-3 text-sm">
+                      {job.job_description || job.description || 'No description available'}
+                    </p>
 
-                  <Separator />
+                    <div className="space-y-2 text-sm">
+                      {/* Site Location */}
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                        <span className="line-clamp-1">{job.location_address || job.job_address || 'Location not specified'}</span>
+                      </div>                    {/* PO Number (always show for debugging) */}
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <FileIcon className="h-4 w-4 flex-shrink-0" />
+                        <span>PO: {job.purchase_order_number || job.po_number || 'Not specified'}</span>
+                      </div>
 
-                  <div className="flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewJobDetails(job)}
-                    >
-                      <EyeIcon className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>                </CardContent>
-              </Card>
+                      {/* Job Number */}
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <BriefcaseIcon className="h-4 w-4 flex-shrink-0" />
+                        <span>Job: {job.generated_job_id || job.job_number || job.uuid?.substring(0, 8) || 'N/A'}</span>
+                      </div>
+
+                      {/* Created Date */}
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <CalendarIcon className="h-4 w-4 flex-shrink-0" />
+                        <span>Created {formatDate(job.date || job.created_date || job.createdAt)}</span>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewJobDetails(job)}
+                      >
+                        <EyeIcon className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                    </div>                </CardContent>
+                </Card>
               );
             })}
-          </div>
-        ) : (
+            </div>
+          ) : (
           /* List View */
           <Card>
             <CardContent className="p-0">
@@ -1324,141 +1328,173 @@ const { toast } = useToast();
         )}
 
         {/* Job Details Dialog */}
-        <Dialog open={isJobDetailsDialogOpen} onOpenChange={setIsJobDetailsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">
-                <div className="space-y-1">
-                  <div className="text-sm text-blue-600 font-medium">
-                    {getSiteName(selectedJob)}
-                  </div>
-                  <div>
-                    {selectedJob?.job_name || selectedJob?.title || selectedJob?.name || 'Job Details'}
-                  </div>
-                </div>
-              </DialogTitle>
-            </DialogHeader>
+        {selectedJob && (
+          <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
+            <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
+              <DialogHeader className="border-b pb-3 md:pb-4">
+                <DialogTitle className="text-lg md:text-2xl font-bold truncate">
+                  Job by Client
+                </DialogTitle>
+                <DialogDescription className="text-xs md:text-sm">
+                  {selectedJob.job_description || selectedJob.description || 'No description available'}
+                </DialogDescription>
+              </DialogHeader>
 
-            {selectedJob && (              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="notes">
-                    <div className="flex items-center gap-2">
-                      <StickyNoteIcon className="h-4 w-4" />
+              <Tabs defaultValue="details" className="mt-3 md:mt-4">
+                <TabsList className="w-full flex-wrap gap-1">
+                  <TabsTrigger value="details" className="text-xs md:text-base flex-1 md:flex-none">Details</TabsTrigger>
+                  <TabsTrigger value="notes" className="text-xs md:text-base flex-1 md:flex-none">
+                    <div className="flex items-center justify-center">
+                      <StickyNoteIcon className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                       Notes
                     </div>
                   </TabsTrigger>
-                  <TabsTrigger value="chat">
-                    <div className="flex items-center gap-2">
-                      <MessageSquareIcon className="h-4 w-4" />
+                  <TabsTrigger value="chat" className="relative text-xs md:text-base flex-1 md:flex-none">
+                    <div className="flex items-center justify-center">
+                      <MessageSquareIcon className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                       Chat
                     </div>
                   </TabsTrigger>
-                  <TabsTrigger value="attachments">
-                    Attachments ({selectedJob.attachments?.length || 0})
-                  </TabsTrigger>
+                  <TabsTrigger value="attachments" className="text-xs md:text-base flex-1 md:flex-none">Attachments</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="details" className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Job Information</h3>                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <MapPinIcon className="h-4 w-4 text-gray-500" />
-                            <span>{selectedJob.location_address || selectedJob.job_address || 'Location not specified'}</span>
-                          </div>
-                          
-                          {/* Job Number */}
-                          <div className="flex items-center gap-2">
-                            <BriefcaseIcon className="h-4 w-4 text-gray-500" />
-                            <span>Job: {selectedJob.generated_job_id || selectedJob.job_number || selectedJob.uuid?.substring(0, 8) || 'N/A'}</span>
-                          </div>
-                          
-                          {/* PO Number (if available) */}
-                          {(selectedJob.purchase_order_number || selectedJob.po_number) && (
-                            <div className="flex items-center gap-2">
-                              <FileIcon className="h-4 w-4 text-gray-500" />
-                              <span>PO: {selectedJob.purchase_order_number || selectedJob.po_number}</span>
-                            </div>
-                          )}
-                          
-                          {/* Total Amount (if available) */}
-                          {(selectedJob.total_amount || selectedJob.salary) && (
-                            <div className="flex items-center gap-2">
-                              <DollarSignIcon className="h-4 w-4 text-gray-500" />
-                              <span>{formatSalary(selectedJob.total_amount || selectedJob.salary)}</span>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center gap-2">
-                            <CalendarIcon className="h-4 w-4 text-gray-500" />
-                            <span>Created {formatDate(selectedJob.date || selectedJob.created_date || selectedJob.createdAt)}</span>
-                          </div>
-                        </div>
-                      </div><div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Category</h3>
-                        <Badge variant="secondary">{selectedJob.category || 'General'}</Badge>
-                      </div>
+                <TabsContent value="details" className="p-0 mt-3 md:mt-4">
+                  <div className="grid gap-3 md:gap-5">
 
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Status</h3>
-                        <Badge className={getStatusColor(selectedJob.status)}>
-                          {selectedJob.status || 'Active'}
-                        </Badge>
+                    <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                      <Label className="font-bold text-xs md:text-sm">Job Description</Label>
+                      <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
+                        <p className="text-xs md:text-sm whitespace-pre-wrap">
+                          {selectedJob.job_description || selectedJob.description || 'No description available'}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="space-y-4">                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-                        <div className="max-h-32 overflow-y-auto bg-gray-50 p-3 rounded-lg border">
-                          <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                            {selectedJob.job_description || selectedJob.description || 'No description available'}
-                          </p>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+                      <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                        <Label className="font-bold text-xs md:text-sm">Status</Label>
+                        <span className={`px-2 py-1 rounded text-xs inline-block ${selectedJob.status === 'Quote'
+                          ? 'bg-orange-100 text-orange-800'
+                          : selectedJob.status === 'Work Order'
+                            ? 'bg-blue-100 text-blue-800'
+                            : selectedJob.status === 'In Progress'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                          {selectedJob.status || 'Active'}
+                        </span>
                       </div>
+                      <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                        <Label className="font-bold text-xs md:text-sm">Active</Label>
+                        <p className="text-xs md:text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                      </div>
+                    </div>
 
-                      {selectedJob.requirements && (
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">Requirements</h3>
-                          <p className="text-gray-700 text-sm leading-relaxed">
-                            {selectedJob.requirements}
-                          </p>
-                        </div>
-                      )}                      {selectedJob.benefits && (
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">Benefits</h3>
-                          <div className="bg-gray-50 p-3 rounded-lg border">
-                            <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                              {selectedJob.benefits}
-                            </p>
-                          </div>
-                        </div>                      )}
-
-                      {/* Location Details */}
-                      {(selectedJob.geo_street || selectedJob.geo_city) && (
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">Location Details</h3>
-                          <div className="bg-gray-50 p-3 rounded-lg border">                            <div className="grid grid-cols-1 gap-1 text-sm text-gray-700">
-                              {selectedJob.geo_street && (
-                                <p key="street"><span className="font-medium">Street:</span> {selectedJob.geo_number ? `${selectedJob.geo_number} ${selectedJob.geo_street}` : selectedJob.geo_street}</p>
-                              )}
-                              {selectedJob.geo_city && <p key="city"><span className="font-medium">City:</span> {selectedJob.geo_city}</p>}
-                              {selectedJob.geo_state && <p key="state"><span className="font-medium">State:</span> {selectedJob.geo_state}</p>}
-                              {selectedJob.geo_postcode && <p key="postcode"><span className="font-medium">Postcode:</span> {selectedJob.geo_postcode}</p>}
-                            </div>
-                          </div>
-                        </div>
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Service Location</Label>
+                      <p className="text-xs md:text-sm break-words">
+                        {selectedJob.location_address || selectedJob.job_address || 'Location not specified'}
+                      </p>
+                      {selectedJob.location_uuid && (
+                        <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
                       )}
                     </div>
+
+                    {/* Site/Location Information Section */}
+                    {(selectedJob.site_name || selectedJob.location_name || selectedJob.job_address || selectedJob.geo_street || selectedJob.billing_address) && (
+                      <div className="space-y-1 md:space-y-2 border border-blue-100 rounded-lg p-3 md:p-4 bg-blue-50">
+                        <Label className="font-bold text-xs md:text-sm text-blue-800">Location Information</Label>
+                        <div className="bg-white p-2 rounded border">
+                          <div className="grid grid-cols-1 gap-2 text-xs md:text-sm">
+                            {(selectedJob.site_name || selectedJob.location_name) && (
+                              <p>
+                                <span className="font-semibold">Site Name:</span>{' '}
+                                {selectedJob.site_name || selectedJob.location_name}
+                              </p>
+                            )}
+                            {selectedJob.job_address && (
+                              <p>
+                                <span className="font-semibold">Job Address:</span>{' '}
+                                {selectedJob.job_address.replace(/\n/g, ', ').trim()}
+                              </p>
+                            )}
+                            {selectedJob.billing_address && selectedJob.billing_address !== selectedJob.job_address && (
+                              <p>
+                                <span className="font-semibold">Billing Address:</span>{' '}
+                                {selectedJob.billing_address.replace(/\n/g, ', ').trim()}
+                              </p>
+                            )}
+                            {(selectedJob.geo_street || selectedJob.geo_city) && (
+                              <p>
+                                <span className="font-semibold">Street Address:</span>{' '}
+                                {[selectedJob.geo_number, selectedJob.geo_street, selectedJob.geo_city, selectedJob.geo_state, selectedJob.geo_postcode].filter(Boolean).join(', ')}
+                              </p>
+                            )}
+                            {selectedJob.location_uuid && (
+                              <p>
+                                <span className="font-semibold">Location UUID:</span>{' '}
+                                <span className="font-mono text-xs bg-gray-100 px-1 rounded">
+                                  {selectedJob.location_uuid}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 md:gap-5">
+                      <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                        <Label className="font-bold text-xs md:text-sm">Created Date</Label>
+                        <p className="text-xs md:text-sm">{formatDate(selectedJob.date || selectedJob.created_date || selectedJob.createdAt)}</p>
+                      </div>
+                      <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                        <Label className="font-bold text-xs md:text-sm">Edit Date</Label>
+                        <p className="text-xs md:text-sm">{selectedJob.edit_date || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                      <Label className="font-bold text-xs md:text-sm">Location Details</Label>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                          <p><span className="font-semibold">Street:</span> {selectedJob.geo_number && selectedJob.geo_street ? `${selectedJob.geo_number} ${selectedJob.geo_street}` : selectedJob.geo_street || 'N/A'}</p>
+                          <p><span className="font-semibold">City:</span> {selectedJob.geo_city || 'N/A'}</p>
+                          <p><span className="font-semibold">State:</span> {selectedJob.geo_state || 'N/A'}</p>
+                          <p><span className="font-semibold">Postcode:</span> {selectedJob.geo_postcode || 'N/A'}</p>
+                          <p><span className="font-semibold">Country:</span> {selectedJob.geo_country || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
+                      <Label className="font-bold text-xs md:text-sm">Payment Details</Label>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs md:text-sm">
+                          <p><span className="font-semibold">Amount:</span> ${selectedJob.payment_amount || '0.00'}</p>
+                          <p><span className="font-semibold">Method:</span> {selectedJob.payment_method || 'N/A'}</p>
+                          <p><span className="font-semibold">Date:</span> {selectedJob.payment_date && selectedJob.payment_date !== '0000-00-00 00:00:00' ? formatDate(selectedJob.payment_date) : 'N/A'}</p>
+                          <p><span className="font-semibold">Status:</span> {selectedJob.payment_processed ? 'Processed' : 'Not Processed'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedJob.purchase_order_number && (
+                      <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                        <Label className="font-bold text-xs md:text-sm">Purchase Order Number</Label>
+                        <p className="text-xs md:text-sm break-words">{selectedJob.purchase_order_number}</p>
+                      </div>
+                    )}
                   </div>
-                </TabsContent>                <TabsContent value="notes" className="space-y-4">
-                  <NotesTab 
-                    jobId={selectedJob.uuid || selectedJob.id} 
-                    userType="client" 
+                </TabsContent>                <TabsContent value="notes" className="p-0 mt-6">
+                  <NotesTab
+                    jobId={selectedJob.uuid || selectedJob.id}
+                    userType="client"
                     refreshTrigger={refreshTrigger}
                   />
                 </TabsContent>
 
-                <TabsContent value="chat" className="space-y-4">
+                <TabsContent value="chat" className="p-0 mt-6">
                   <ChatRoom jobId={selectedJob.uuid || selectedJob.id} />
                 </TabsContent>
 
@@ -1500,7 +1536,7 @@ const { toast } = useToast();
                     <div className="text-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
                       <p className="text-sm text-gray-600">Uploading...</p>
-                    </div>                  )}
+                    </div>)}
 
                   {attachmentsLoading && (
                     <div className="text-center py-4">
@@ -1513,35 +1549,35 @@ const { toast } = useToast();
                     <div className="space-y-2">
                       <h4 className="font-medium text-gray-900">Uploaded Files</h4>
                       <ScrollArea className="max-h-60">                        <div className="space-y-2">                          {selectedJob.attachments && selectedJob.attachments.length > 0 ? selectedJob.attachments.map((attachment, index) => (
-                            <div
-                              key={attachment.id || attachment._id || `attachment-${index}`}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <FileIcon className="h-5 w-5 text-gray-500" />                                <div>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {attachment.fileName || attachment.originalName || attachment.filename || 'Unknown file'}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {attachment.fileSize ? `${Math.round(attachment.fileSize / 1024)}KB` : attachment.size ? `${Math.round(attachment.size / 1024)}KB` : 'File size unknown'}
-                                  </p>
-                                </div>
-                              </div>                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteAttachment(attachment.id || attachment._id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2Icon className="h-4 w-4" />
-                              </Button>
+                        <div
+                          key={attachment.id || attachment._id || `attachment-${index}`}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileIcon className="h-5 w-5 text-gray-500" />                                <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {attachment.fileName || attachment.originalName || attachment.filename || 'Unknown file'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {attachment.fileSize ? `${Math.round(attachment.fileSize / 1024)}KB` : attachment.size ? `${Math.round(attachment.size / 1024)}KB` : 'File size unknown'}
+                              </p>
                             </div>
-                          )) : (
-                            <div className="text-center py-4">
-                              <FileIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                              <p className="text-gray-500 text-sm">No attachments</p>
-                            </div>
-                          )}
+                          </div>                              <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteAttachment(attachment.id || attachment._id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2Icon className="h-4 w-4" />
+                          </Button>
                         </div>
+                      )) : (
+                        <div className="text-center py-4">
+                          <FileIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-500 text-sm">No attachments</p>
+                        </div>
+                      )}
+                      </div>
                       </ScrollArea>                    </div>
                   )}
 
@@ -1554,9 +1590,9 @@ const { toast } = useToast();
                   )}
                 </TabsContent>
               </Tabs>
-            )}
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </ClientAssignmentGuard>
   );
