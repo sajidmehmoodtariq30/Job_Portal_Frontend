@@ -20,7 +20,8 @@ import {
   Activity,
   Plus,
   BriefcaseIcon,
-  ClockIcon
+  ClockIcon,
+  FileIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "../../components/UI/button";
@@ -79,7 +80,7 @@ import { useToast } from "@/hooks/use-toast"
 const ClientHome = () => {
   const navigate = useNavigate();
   const { notifications: contextNotifications, unreadCount, clearAll, markAsRead } = useNotifications();
-  const { hasValidAssignment } = useClientAssignment();
+  const { hasValidAssignment, getClientId } = useClientAssignment();
   const { toast } = useToast();
 
   // State variables - all at the top
@@ -102,6 +103,7 @@ const ClientHome = () => {
   const [requestStep, setRequestStep] = useState('selection'); // 'selection', 'form'
   const [requestType, setRequestType] = useState(''); // 'quote', 'job', 'order'
   const [newJobFile, setNewJobFile] = useState(null);
+  const [uploadError, setUploadError] = useState('');
   const [sites, setSites] = useState([]);
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [sitesLoading, setSitesLoading] = useState(false);
@@ -571,10 +573,12 @@ const ClientHome = () => {
   const handleNewJobFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        toast({ title: 'Error', description: 'File size must be less than 10MB', variant: 'destructive' });
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError('File size must be less than 10MB');
         return;
       }
+      setUploadError('');
       setNewJobFile(file);
     }
   };
@@ -583,38 +587,95 @@ const ClientHome = () => {
     e.preventDefault();
 
     try {
-      const formData = new FormData();
+      const clientId = getClientId();
 
-      if (newJobFile) {
-        formData.append('file', newJobFile);
+      // Find the selected site to get its information
+      let selectedSite = null;
+      if (newRequest.site_uuid) {
+        selectedSite = sites.find(site => site.uuid === newRequest.site_uuid || site.id === newRequest.site_uuid);
       }
 
-      const selectedSite = sites.find(site => site.uuid === newRequest.site_uuid);
+      console.log('🏢 Selected site for job request:', selectedSite);
 
+      // Create proper ServiceM8 job payload with correct field mappings
+      const requestPayload = {
+        clientId: clientId,
+        userId: clientId,
+        type: requestType,
+        
+        // Basic job information
+        job_name: newRequest.job_name,
+        job_description: newRequest.description, // ServiceM8 uses job_description not description
+        description: newRequest.description, // Keep both for compatibility
+        
+        // ServiceM8 company/site information
+        company_uuid: selectedSite?.uuid || clientId, // Link to the site/company
+        company_name: selectedSite?.name || '', // Company name field in ServiceM8
+        
+        // ServiceM8 location fields - these are critical for proper display
+        location_uuid: selectedSite?.uuid || '',
+        location_name: selectedSite?.name || '',
+        location_address: selectedSite?.address || '',
+        job_address: selectedSite?.address || '', // Fallback field
+        
+        // ServiceM8 site-specific fields
+        site_name: selectedSite?.name || '',
+        site_address: selectedSite?.address || '',
+        
+        // ServiceM8 contact information - map to proper ServiceM8 contact fields
+        primary_contact_name: newRequest.site_contact_name,
+        primary_contact_phone: newRequest.site_contact_number,
+        primary_contact_email: newRequest.email,
+        
+        // Additional contact fields that ServiceM8 uses
+        contact_first_name: newRequest.site_contact_name?.split(' ')[0] || '',
+        contact_last_name: newRequest.site_contact_name?.split(' ').slice(1).join(' ') || '',
+        contact_phone: newRequest.site_contact_number,
+        contact_mobile: newRequest.site_contact_number,
+        contact_email: newRequest.email,
+        
+        // Legacy contact fields for compatibility
+        site_contact_name: newRequest.site_contact_name,
+        site_contact_number: newRequest.site_contact_number,
+        email: newRequest.email,
+        
+        // Purchase order and project information
+        purchase_order_number: newRequest.purchase_order_number,
+        po_number: newRequest.purchase_order_number, // ServiceM8 PO field
+        
+        // Date fields
+        work_start_date: newRequest.work_start_date,
+        work_completion_date: newRequest.work_completion_date,
+        date: new Date().toISOString().split('T')[0], // Job creation date
+        
+        // ServiceM8 status and workflow
+        status: 'Work Order', // Set appropriate ServiceM8 status
+        job_status: 'Work Order',
+        active: 1, // Required by ServiceM8
+        
+        // Geographic information if available
+        geo_street: selectedSite?.address?.split(',')[0] || '',
+        geo_city: selectedSite?.city || '',
+        geo_state: selectedSite?.state || '',
+        geo_postcode: selectedSite?.postcode || '',
+        
+        // Additional ServiceM8 fields for better integration
+        created_by_staff_uuid: clientId,
+        billing_address: selectedSite?.address || '',
+        
+        // Custom fields that might be used by ServiceM8
+        customfield_site_name: selectedSite?.name || '',
+        customfield_company_name: selectedSite?.name || ''
+      };
+
+      // Add basic description for order type
       if (requestType === 'order') {
-        formData.append('basic_description', newRequest.basic_description);
-        formData.append('type', 'order');
-      } else {
-        Object.keys(newRequest).forEach(key => {
-          if (newRequest[key] && key !== 'site_uuid') {
-            formData.append(key, newRequest[key]);
-          }
-        });
-
-        if (selectedSite) {
-          formData.append('job_address', selectedSite.address || selectedSite.name);
-          formData.append('location_address', selectedSite.address || selectedSite.name);
-          formData.append('site_name', selectedSite.name);
-        }
+        requestPayload.job_description = newRequest.basic_description;
+        requestPayload.description = newRequest.basic_description;
+        requestPayload.job_name = newRequest.basic_description;
       }
 
-      formData.append('clientId', clientId);
-      formData.append('userId', clientId);
-
-      const requestPayload = {};
-      for (let [key, value] of formData.entries()) {
-        requestPayload[key] = value;
-      }
+      console.log('📤 Sending ServiceM8 job request payload:', requestPayload);
 
       const response = await fetch(`${API_URL}/fetch/jobs/create`, {
         method: 'POST',
@@ -626,9 +687,32 @@ const ClientHome = () => {
         body: JSON.stringify(requestPayload)
       });
 
-      if (!response.ok) throw new Error('Failed to submit request');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Job creation failed:', errorData);
+        throw new Error(errorData.message || 'Failed to submit request');
+      }
 
-      resetRequestFlow();
+      const data = await response.json();
+      console.log('✅ Job created successfully:', data);
+
+      // Reset everything
+      setNewRequest({
+        basic_description: '',
+        site_uuid: '',
+        description: '',
+        site_contact_name: '',
+        site_contact_number: '',
+        email: '',
+        purchase_order_number: '',
+        work_start_date: '',
+        work_completion_date: '',
+        job_name: '',
+        type: ''
+      });
+      setNewJobFile(null);
+      setRequestStep('selection');
+      setRequestType('');
       setIsNewJobDialogOpen(false);
 
       toast({
@@ -640,10 +724,10 @@ const ClientHome = () => {
       fetchDashboardData(true);
 
     } catch (error) {
-      console.error('Error submitting request:', error);
+      console.error('❌ Failed to submit job request:', error);
       toast({
         title: 'Error',
-        description: 'Failed to submit request',
+        description: `Failed to submit request: ${error.message}`,
         variant: 'destructive'
       });
     }
@@ -762,267 +846,250 @@ const ClientHome = () => {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {requestStep === 'selection' ? 'Request New Job' : `New ${requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request`}
+                  {requestStep === 'selection' ? 'Select Request Type' : `New ${requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request`}
                 </DialogTitle>
               </DialogHeader>
-
-              {requestStep === 'selection' ? (
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">What type of request would you like to submit?</p>
-                  <div className="grid grid-cols-1 gap-4">
-                    <Button
-                      variant="outline"
-                      className="h-auto p-6 flex flex-col items-start space-y-2"
-                      onClick={() => handleRequestTypeSelect('quote')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        <span className="font-semibold">Request Quote</span>
+              {requestStep === 'selection' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-6">
+                  <Card
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-blue-500"
+                    onClick={() => handleRequestTypeSelect('quote')}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FileIcon className="h-6 w-6 text-blue-600" />
                       </div>
-                      <p className="text-sm text-muted-foreground text-left">
-                        Get a detailed quote for your project or service requirements
-                      </p>
-                    </Button>
+                      <h3 className="font-semibold text-lg mb-2">Quote</h3>
+                      <p className="text-gray-600 text-sm">Request a detailed quote for your project</p>
+                    </CardContent>
+                  </Card>
 
-                    <Button
-                      variant="outline"
-                      className="h-auto p-6 flex flex-col items-start space-y-2"
-                      onClick={() => handleRequestTypeSelect('job')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <BriefcaseIcon className="h-5 w-5" />
-                        <span className="font-semibold">Request Work Order</span>
+                  <Card
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-green-500"
+                    onClick={() => handleRequestTypeSelect('job')}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <BriefcaseIcon className="h-6 w-6 text-green-600" />
                       </div>
-                      <p className="text-sm text-muted-foreground text-left">
-                        Submit a detailed work order for scheduled services
-                      </p>
-                    </Button>
+                      <h3 className="font-semibold text-lg mb-2">Job</h3>
+                      <p className="text-gray-600 text-sm">Submit a new job request with full details</p>
+                    </CardContent>
+                  </Card>
 
-                    <Button
-                      variant="outline"
-                      className="h-auto p-6 flex flex-col items-start space-y-2"
-                      onClick={() => handleRequestTypeSelect('order')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <ClockIcon className="h-5 w-5" />
-                        <span className="font-semibold">Quick Order</span>
+                  <Card
+                    className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-orange-500"
+                    onClick={() => handleRequestTypeSelect('order')}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ClockIcon className="h-6 w-6 text-orange-600" />
                       </div>
-                      <p className="text-sm text-muted-foreground text-left">
-                        Submit a simple order with basic description
-                      </p>
-                    </Button>
-                  </div>
+                      <h3 className="font-semibold text-lg mb-2">Order</h3>
+                      <p className="text-gray-600 text-sm">Quick order with basic information</p>
+                    </CardContent>
+                  </Card>
                 </div>
-              ) : (
-                <form onSubmit={handleRequestSubmit} className="space-y-4">
-                  {requestType === 'order' ? (
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="basic_description">Description *</Label>
-                        <Textarea
-                          id="basic_description"
-                          placeholder="Describe what you need..."
-                          value={newRequest.basic_description}
-                          onChange={(e) => setNewRequest(prev => ({ ...prev, basic_description: e.target.value }))}
-                          required
-                          rows={4}
-                        />
-                      </div>
+              )}
 
-                      <div>
-                        <Label htmlFor="file">Attach File (Optional)</Label>
-                        <Input
-                          id="file"
-                          type="file"
-                          onChange={handleNewJobFileChange}
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max file size: 10MB. Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="job_name">Job Name *</Label>
-                        <Input
-                          id="job_name"
-                          placeholder="Enter job name"
-                          value={newRequest.job_name}
-                          onChange={(e) => setNewRequest(prev => ({ ...prev, job_name: e.target.value }))}
-                          required
-                        />
-                      </div>
+              {requestStep === 'form' && requestType === 'order' && (
+                <form onSubmit={handleRequestSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="basic_description">How can we help? *</Label>
+                    <Textarea
+                      id="basic_description"
+                      value={newRequest.basic_description}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, basic_description: e.target.value }))}
+                      rows={4}
+                      required
+                      placeholder="Describe what you need help with..."
+                    />
+                  </div>
 
-                      <div>
-                        <Label htmlFor="site_uuid">Site *</Label>
-                        <div className="space-y-2">
-                          <div className="relative">
-                            <Input
-                              placeholder="Search sites..."
-                              value={siteSearchTerm}
-                              onChange={(e) => setSiteSearchTerm(e.target.value)}
-                              className="pr-8"
-                            />
-                            {sitesLoading && (
-                              <Loader2 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                            )}
-                          </div>
-                          <Select
-                            value={newRequest.site_uuid}
-                            onValueChange={(value) => setNewRequest(prev => ({ ...prev, site_uuid: value }))}
-                            required
-                            disabled={sitesLoading}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={sitesLoading ? "Loading sites..." : "Select a site"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {sitesLoading ? (
-                                <div className="flex items-center justify-center p-4">
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  <span className="text-sm text-muted-foreground">Loading sites...</span>
-                                </div>
-                              ) : filteredSites.length > 0 ? (
-                                filteredSites.map(site => (
-                                  <SelectItem key={site.uuid} value={site.uuid}>
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{site.name}</span>
-                                      {site.address && (
-                                        <span className="text-xs text-muted-foreground">{site.address}</span>
-                                      )}
-                                      {site.type && (
-                                        <span className="text-xs text-blue-600">{site.type}</span>
-                                      )}
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <div className="flex items-center justify-center p-4">
-                                  <span className="text-sm text-muted-foreground">
-                                    {siteSearchTerm ? 'No sites match your search' : 'No sites available'}
-                                  </span>
-                                </div>
-                              )}
-                            </SelectContent>
-                          </Select>
-                          {filteredSites.length > 0 && siteSearchTerm && (
-                            <p className="text-xs text-muted-foreground">
-                              Showing {filteredSites.length} of {sites.length} sites
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="order-file">Attach Files (Optional)</Label>
+                    <Input
+                      id="order-file"
+                      type="file"
+                      onChange={handleNewJobFileChange}
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                    />
+                    {newJobFile && (
+                      <p className="text-sm text-green-600">
+                        Selected: {newJobFile.name}
+                      </p>
+                    )}
+                  </div>
 
-                      <div>
-                        <Label htmlFor="description">Description *</Label>
-                        <Textarea
-                          id="description"
-                          placeholder="Detailed description of work required"
-                          value={newRequest.description}
-                          onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))}
-                          required
-                          rows={4}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="site_contact_name">Site Contact Name</Label>
-                          <Input
-                            id="site_contact_name"
-                            placeholder="Contact person"
-                            value={newRequest.site_contact_name}
-                            onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_name: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="site_contact_number">Contact Number</Label>
-                          <Input
-                            id="site_contact_number"
-                            placeholder="Phone number"
-                            value={newRequest.site_contact_number}
-                            onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_number: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="Contact email"
-                          value={newRequest.email}
-                          onChange={(e) => setNewRequest(prev => ({ ...prev, email: e.target.value }))}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="purchase_order_number">Purchase Order Number</Label>
-                        <Input
-                          id="purchase_order_number"
-                          placeholder="PO Number (if applicable)"
-                          value={newRequest.purchase_order_number}
-                          onChange={(e) => setNewRequest(prev => ({ ...prev, purchase_order_number: e.target.value }))}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="work_start_date">Preferred Start Date</Label>
-                          <Input
-                            id="work_start_date"
-                            type="date"
-                            value={newRequest.work_start_date}
-                            onChange={(e) => setNewRequest(prev => ({ ...prev, work_start_date: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="work_completion_date">Required Completion Date</Label>
-                          <Input
-                            id="work_completion_date"
-                            type="date"
-                            value={newRequest.work_completion_date}
-                            onChange={(e) => setNewRequest(prev => ({ ...prev, work_completion_date: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="file">Attach File (Optional)</Label>
-                        <Input
-                          id="file"
-                          type="file"
-                          onChange={handleNewJobFileChange}
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max file size: 10MB. Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between pt-4">
+                  <div className="flex justify-end gap-2 pt-4">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        if (requestStep === 'form') {
-                          setRequestStep('selection');
-                        } else {
-                          setIsNewJobDialogOpen(false);
-                          resetRequestFlow();
-                        }
-                      }}
+                      onClick={() => setRequestStep('selection')}
                     >
-                      {requestStep === 'form' ? 'Back' : 'Cancel'}
+                      Back
                     </Button>
-                    <Button type="submit">
-                      Submit {requestType.charAt(0).toUpperCase() + requestType.slice(1)} Request
+                    <Button type="submit">Submit Order</Button>
+                  </div>
+                </form>
+              )}
+
+              {requestStep === 'form' && (requestType === 'quote' || requestType === 'job') && (
+                <form onSubmit={handleRequestSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="site_uuid">Site *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Search sites..."
+                        value={siteSearchTerm}
+                        onChange={(e) => setSiteSearchTerm(e.target.value)}
+                        className="w-full"
+                      />
+                      {filteredSites.length > 0 ? (
+                        <Select
+                          value={newRequest.site_uuid}
+                          onValueChange={(value) => setNewRequest(prev => ({ ...prev, site_uuid: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select site" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredSites.map((site, index) => (
+                              <SelectItem key={site.uuid || site._id || `site-${index}`} value={site.uuid || site._id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{site.name}</span>
+                                  {site.address && <span className="text-sm text-gray-500">{site.address}</span>}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="flex items-center justify-center p-3 border border-gray-200 rounded-md bg-gray-50">
+                          <p className="text-gray-500 text-sm">
+                            {siteSearchTerm ? 'No sites found matching search' : 'No sites available'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">How can we help? *</Label>
+                    <Textarea
+                      id="description"
+                      value={newRequest.description}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, description: e.target.value }))}
+                      rows={4}
+                      required
+                      placeholder="Describe the work needed..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="site_contact_name">Site Contact Name</Label>
+                      <Input
+                        id="site_contact_name"
+                        value={newRequest.site_contact_name}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_name: e.target.value }))}
+                        placeholder="Contact person name"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="site_contact_number">Site Contact Number</Label>
+                      <Input
+                        id="site_contact_number"
+                        value={newRequest.site_contact_number}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, site_contact_number: e.target.value }))}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newRequest.email}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="purchase_order_number">Purchase Order Number</Label>
+                      <Input
+                        id="purchase_order_number"
+                        value={newRequest.purchase_order_number}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, purchase_order_number: e.target.value }))}
+                        placeholder="PO Number"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="work_start_date">Work Request Start Date</Label>
+                      <Input
+                        id="work_start_date"
+                        type="date"
+                        value={newRequest.work_start_date}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, work_start_date: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="work_completion_date">Work Request Completion Date</Label>
+                      <Input
+                        id="work_completion_date"
+                        type="date"
+                        value={newRequest.work_completion_date}
+                        onChange={(e) => setNewRequest(prev => ({ ...prev, work_completion_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="job_name">Job Name</Label>
+                    <Input
+                      id="job_name"
+                      value={newRequest.job_name}
+                      onChange={(e) => setNewRequest(prev => ({ ...prev, job_name: e.target.value }))}
+                      placeholder="Name for this job"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="request-file">Attach Files (Optional)</Label>
+                    <Input
+                      id="request-file"
+                      type="file"
+                      onChange={handleNewJobFileChange}
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                    />
+                    {newJobFile && (
+                      <p className="text-sm text-green-600">
+                        Selected: {newJobFile.name}
+                      </p>
+                    )}
+                    {uploadError && (
+                      <p className="text-sm text-red-600">{uploadError}</p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setRequestStep('selection')}
+                    >
+                      Back
                     </Button>
+                    <Button type="submit">Submit {requestType.charAt(0).toUpperCase() + requestType.slice(1)}</Button>
                   </div>
                 </form>
               )}

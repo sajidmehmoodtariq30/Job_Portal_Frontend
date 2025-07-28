@@ -39,6 +39,17 @@ import {
   ListIcon
 } from 'lucide-react';
 
+// Import new attachment system
+import { getAttachmentSystemName } from '../../config/attachmentConfig';
+import { 
+  uploadAttachment, 
+  getJobAttachments, 
+  triggerDownload, 
+  deleteAttachment,
+  validateFile,
+  formatFileSize 
+} from '../../services/attachmentService';
+
 const ClientJobs = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -513,15 +524,15 @@ const ClientJobs = () => {
       let sitesData = data.sites || [];
       console.log('🏢 Raw sites data:', sitesData.length, sitesData);
 
-      // TEMPORARILY DISABLE FILTERING to see all sites
-      console.log('⚠️ TEMPORARILY NOT FILTERING SITES FOR DEBUGGING');
-      
-      // Apply the same filtering as ClientSites.jsx - exclude shops (DISABLED FOR DEBUG)
-      // const filteredSites = sitesData.filter(site => {
-      //   const hasShop = site.name && (site.name.includes('Shop') || site.name.includes('shop'));
-      //   return !hasShop;
-      // });
-      const filteredSites = sitesData; // Use all sites for now
+      // Apply the same filtering as ClientSites.jsx - exclude shops but keep ones that match our jobs
+      const filteredSites = sitesData.filter(site => {
+        // Keep sites that don't have "Shop" in name, OR sites that have "Shop" followed by numbers (like "Shop 129")
+        const hasShop = site.name && site.name.includes('Shop');
+        const hasShopWithNumber = site.name && /Shop\s+\d+/.test(site.name);
+        
+        // Keep if no "Shop" or if it's "Shop" with numbers
+        return !hasShop || hasShopWithNumber;
+      });
 
       // Sort sites like ClientSites.jsx
       filteredSites.sort((a, b) => {
@@ -589,56 +600,94 @@ const ClientJobs = () => {
 
     try {
       const clientId = getClientId();
-      const formData = new FormData();
 
-      // Find the selected site to get its address
+      // Find the selected site to get its information
       let selectedSite = null;
       if (newRequest.site_uuid) {
         selectedSite = sites.find(site => site.uuid === newRequest.site_uuid || site.id === newRequest.site_uuid);
       }
 
-      // Add request data based on type
+      console.log('🏢 Selected site for job request:', selectedSite);
+
+      // Create proper ServiceM8 job payload with correct field mappings
+      const requestPayload = {
+        clientId: clientId,
+        userId: clientId,
+        type: requestType,
+        
+        // Basic job information
+        job_name: newRequest.job_name,
+        job_description: newRequest.description, // ServiceM8 uses job_description not description
+        description: newRequest.description, // Keep both for compatibility
+        
+        // ServiceM8 company/site information
+        company_uuid: selectedSite?.uuid || clientId, // Link to the site/company
+        company_name: selectedSite?.name || '', // Company name field in ServiceM8
+        
+        // ServiceM8 location fields - these are critical for proper display
+        location_uuid: selectedSite?.uuid || '',
+        location_name: selectedSite?.name || '',
+        location_address: selectedSite?.address || '',
+        job_address: selectedSite?.address || '', // Fallback field
+        
+        // ServiceM8 site-specific fields
+        site_name: selectedSite?.name || '',
+        site_address: selectedSite?.address || '',
+        
+        // ServiceM8 contact information - map to proper ServiceM8 contact fields
+        primary_contact_name: newRequest.site_contact_name,
+        primary_contact_phone: newRequest.site_contact_number,
+        primary_contact_email: newRequest.email,
+        
+        // Additional contact fields that ServiceM8 uses
+        contact_first_name: newRequest.site_contact_name?.split(' ')[0] || '',
+        contact_last_name: newRequest.site_contact_name?.split(' ').slice(1).join(' ') || '',
+        contact_phone: newRequest.site_contact_number,
+        contact_mobile: newRequest.site_contact_number,
+        contact_email: newRequest.email,
+        
+        // Legacy contact fields for compatibility
+        site_contact_name: newRequest.site_contact_name,
+        site_contact_number: newRequest.site_contact_number,
+        email: newRequest.email,
+        
+        // Purchase order and project information
+        purchase_order_number: newRequest.purchase_order_number,
+        po_number: newRequest.purchase_order_number, // ServiceM8 PO field
+        
+        // Date fields
+        work_start_date: newRequest.work_start_date,
+        work_completion_date: newRequest.work_completion_date,
+        date: new Date().toISOString().split('T')[0], // Job creation date
+        
+        // ServiceM8 status and workflow
+        status: 'Work Order', // Set appropriate ServiceM8 status
+        job_status: 'Work Order',
+        active: 1, // Required by ServiceM8
+        
+        // Geographic information if available
+        geo_street: selectedSite?.address?.split(',')[0] || '',
+        geo_city: selectedSite?.city || '',
+        geo_state: selectedSite?.state || '',
+        geo_postcode: selectedSite?.postcode || '',
+        
+        // Additional ServiceM8 fields for better integration
+        created_by_staff_uuid: clientId,
+        billing_address: selectedSite?.address || '',
+        
+        // Custom fields that might be used by ServiceM8
+        customfield_site_name: selectedSite?.name || '',
+        customfield_company_name: selectedSite?.name || ''
+      };
+
+      // Add basic description for order type
       if (requestType === 'order') {
-        formData.append('type', 'order');
-        formData.append('description', newRequest.basic_description);
-        // Add site address if available
-        if (selectedSite?.address) {
-          formData.append('job_address', selectedSite.address);
-          formData.append('location_address', selectedSite.address);
-        }
-      } else {
-        // For quote and job - send all data but convert site_uuid to address
-        Object.keys(newRequest).forEach(key => {
-          if (newRequest[key] && key !== 'site_uuid') { // Skip site_uuid
-            formData.append(key, newRequest[key]);
-          }
-        });
-
-        // Add site address information instead of site_uuid
-        if (selectedSite) {
-          formData.append('job_address', selectedSite.address || selectedSite.name);
-          formData.append('location_address', selectedSite.address || selectedSite.name);
-          // Also add site name for reference
-          formData.append('site_name', selectedSite.name);
-        }
-      } formData.append('clientId', clientId);
-      formData.append('userId', clientId); // Add userId for backend compatibility
-
-      // Debug: Log site information being sent
-      if (selectedSite) {
-        console.log('🏢 Selected site for job request:', selectedSite);
-        console.log('📍 Site address being sent:', selectedSite.address || selectedSite.name);
+        requestPayload.job_description = newRequest.basic_description;
+        requestPayload.description = newRequest.basic_description;
+        requestPayload.job_name = newRequest.basic_description;
       }
 
-      // Create JSON payload instead of FormData for now (TODO: Add file upload later)
-      const requestPayload = {};
-
-      // Convert FormData to JSON object
-      for (let [key, value] of formData.entries()) {
-        requestPayload[key] = value;
-      }
-
-      console.log('📤 Sending job request payload:', requestPayload);
+      console.log('📤 Sending ServiceM8 job request payload:', requestPayload);
 
       const response = await fetch(`${API_URL}/fetch/jobs/create`, {
         method: 'POST',
@@ -650,9 +699,16 @@ const ClientJobs = () => {
         body: JSON.stringify(requestPayload)
       });
 
-      if (!response.ok) throw new Error('Failed to submit request');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Job creation failed:', errorData);
+        throw new Error(errorData.message || 'Failed to submit request');
+      }
 
       const data = await response.json();
+      console.log('✅ Job created successfully:', data);
+      
+      // Add the new job to the jobs list
       setJobs(prev => [data.data, ...prev]);
 
       // Reset everything
@@ -675,8 +731,9 @@ const ClientJobs = () => {
       setIsNewJobDialogOpen(false);
 
       toast({ title: 'Success', description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` });
-    } catch {
-      toast({ title: 'Error', description: 'Failed to submit request', variant: 'destructive' });
+    } catch (error) {
+      console.error('❌ Failed to submit job request:', error);
+      toast({ title: 'Error', description: `Failed to submit request: ${error.message}`, variant: 'destructive' });
     }
   };
 
@@ -741,53 +798,61 @@ const ClientJobs = () => {
     const file = e.target.files[0];
     if (!file || !selectedJob) return;
 
-    // Validate file size
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError('File size must be less than 10MB');
+    // Validate file using new service
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setUploadError(validation.errors[0]);
       return;
-    } setIsUploading(true);
+    }
+    
+    setIsUploading(true);
     setUploadError('');
 
     try {
-      const clientId = getClientId();
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch(`${API_URL}/api/attachments/upload/${selectedJob.uuid}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientId
-        },
-        body: formData
-      });
-
-      if (!response.ok) throw new Error('Upload failed'); const data = await response.json();
+      console.log(`📤 Uploading file via ${getAttachmentSystemName()}:`, file.name);
+      
+      // Use new attachment service
+      const result = await uploadAttachment(
+        selectedJob.uuid, 
+        file, 
+        'client', 
+        'Client User'
+      );
 
       // Update the selected job with new attachment
       setSelectedJob(prev => ({
         ...prev,
-        attachments: [...(prev.attachments || []), data.data]
+        attachments: [...(prev.attachments || []), result.data]
       }));
 
       // Update jobs list
       setJobs(prev => prev.map(job =>
         job.uuid === selectedJob.uuid
-          ? { ...job, attachments: [...(job.attachments || []), data.data] }
+          ? { ...job, attachments: [...(job.attachments || []), result.data] }
           : job
-      ));      // Trigger refresh
+      ));
+      
+      // Trigger refresh
       setRefreshTrigger(prev => prev + 1);
 
       // Refresh attachments to ensure we have the latest data
       await fetchAttachments(selectedJob.uuid);
 
-      toast({ title: 'Success', description: 'File uploaded successfully' });
+      toast({ 
+        title: 'Success', 
+        description: `File uploaded successfully via ${getAttachmentSystemName()}` 
+      });
 
       // Reset file input
       e.target.value = '';
-    } catch {
-      setUploadError('Failed to upload file');
-      toast({ title: 'Error', description: 'Failed to upload file', variant: 'destructive' });
+    } catch (error) {
+      console.error('File upload error:', error);
+      setUploadError(`Failed to upload file: ${error.message}`);
+      toast({ 
+        title: 'Error', 
+        description: `Upload failed via ${getAttachmentSystemName()}: ${error.message}`, 
+        variant: 'destructive' 
+      });
     } finally {
       setIsUploading(false);
     }
@@ -796,38 +861,41 @@ const ClientJobs = () => {
     if (!selectedJob) return;
 
     try {
-      const clientId = getClientId();
-      const response = await fetch(
-        `${API_URL}/api/attachments/${attachmentId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-            'x-client-uuid': clientId
-          }
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to delete attachment');      // Update selected job
+      console.log(`🗑️ Deleting attachment via ${getAttachmentSystemName()}:`, attachmentId);
+      
+      // Use new attachment service
+      await deleteAttachment(attachmentId);
+      
+      // Update selected job
       setSelectedJob(prev => ({
         ...prev,
-        attachments: prev.attachments.filter(att => (att.id || att._id) !== attachmentId)
+        attachments: prev.attachments.filter(att => (att.id || att.uuid || att._id) !== attachmentId)
       }));
 
       // Update jobs list
       setJobs(prev => prev.map(job =>
         job.uuid === selectedJob.uuid
-          ? { ...job, attachments: job.attachments.filter(att => (att.id || att._id) !== attachmentId) }
+          ? { ...job, attachments: job.attachments.filter(att => (att.id || att.uuid || att._id) !== attachmentId) }
           : job
-      ));// Trigger refresh
+      ));
+      
+      // Trigger refresh
       setRefreshTrigger(prev => prev + 1);
 
       // Refresh attachments to ensure we have the latest data
       await fetchAttachments(selectedJob.uuid);
 
-      toast({ title: 'Success', description: 'Attachment deleted successfully' });
-    } catch {
-      toast({ title: 'Error', description: 'Failed to delete attachment', variant: 'destructive' });
+      toast({ 
+        title: 'Success', 
+        description: `Attachment deleted successfully via ${getAttachmentSystemName()}` 
+      });
+    } catch (error) {
+      console.error('Delete attachment error:', error);
+      toast({ 
+        title: 'Error', 
+        description: `Failed to delete attachment: ${error.message}`, 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -862,33 +930,31 @@ const ClientJobs = () => {
       console.error('Error refreshing job data:', error);
     }
   };
+  
   // Fetch attachments for selected job
   const fetchAttachments = async (jobId) => {
     if (!jobId) return;
 
     try {
       setAttachmentsLoading(true);
-      const clientId = getClientId();
-      const response = await fetch(`${API_URL}/api/attachments/job/${jobId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'x-client-uuid': clientId
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          // Update the selected job with attachments
-          setSelectedJob(prev => prev ? { ...prev, attachments: result.data } : null);
-          // Also update the job in the jobs list
-          setJobs(prev => prev.map(job =>
-            job.uuid === jobId ? { ...job, attachments: result.data } : job
-          ));
-        }
-      }
+      
+      console.log(`📥 Fetching attachments via ${getAttachmentSystemName()} for job:`, jobId);
+      
+      // Use new attachment service
+      const attachments = await getJobAttachments(jobId);
+      
+      // Update the selected job with attachments
+      setSelectedJob(prev => prev ? { ...prev, attachments } : null);
+      
+      // Also update the job in the jobs list
+      setJobs(prev => prev.map(job =>
+        job.uuid === jobId ? { ...job, attachments } : job
+      ));
+      
+      console.log(`✅ Retrieved ${attachments.length} attachments via ${getAttachmentSystemName()}`);
+      
     } catch (error) {
-      console.error('Error fetching attachments:', error);
+      console.error(`❌ Error fetching attachments via ${getAttachmentSystemName()}:`, error);
     } finally {
       setAttachmentsLoading(false);
     }
@@ -1744,28 +1810,47 @@ const ClientJobs = () => {
                   {!attachmentsLoading && selectedJob.attachments?.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="font-medium text-gray-900">Uploaded Files</h4>
-                      <ScrollArea className="max-h-60">                        <div className="space-y-2">                          {selectedJob.attachments && selectedJob.attachments.length > 0 ? selectedJob.attachments.map((attachment, index) => (
+                      <ScrollArea className="max-h-60">
+                        <div className="space-y-2">
+                          {selectedJob.attachments && selectedJob.attachments.length > 0 ? selectedJob.attachments.map((attachment, index) => (
                         <div
                           key={attachment.id || attachment._id || `attachment-${index}`}
                           className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                         >
                           <div className="flex items-center gap-3">
-                            <FileIcon className="h-5 w-5 text-gray-500" />                                <div>
+                            <FileIcon className="h-5 w-5 text-gray-500" />
+                            <div>
                               <p className="text-sm font-medium text-gray-900">
                                 {attachment.fileName || attachment.originalName || attachment.filename || 'Unknown file'}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {attachment.fileSize ? `${Math.round(attachment.fileSize / 1024)}KB` : attachment.size ? `${Math.round(attachment.size / 1024)}KB` : 'File size unknown'}
+                                {formatFileSize(attachment.fileSize || attachment.size || 0)} • {getAttachmentSystemName()}
                               </p>
                             </div>
-                          </div>                              <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteAttachment(attachment.id || attachment._id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2Icon className="h-4 w-4" />
-                          </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => triggerDownload(
+                                attachment.id || attachment.uuid || attachment._id,
+                                attachment.fileName || attachment.originalName || attachment.filename || 'download'
+                              )}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="Download file"
+                            >
+                              <UploadIcon className="h-4 w-4 rotate-180" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteAttachment(attachment.id || attachment.uuid || attachment._id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete file"
+                            >
+                              <Trash2Icon className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       )) : (
                         <div className="text-center py-4">
@@ -1774,7 +1859,8 @@ const ClientJobs = () => {
                         </div>
                       )}
                       </div>
-                      </ScrollArea>                    </div>
+                      </ScrollArea>
+                    </div>
                   )}
 
                   {!attachmentsLoading && (!selectedJob.attachments || selectedJob.attachments.length === 0) && (
