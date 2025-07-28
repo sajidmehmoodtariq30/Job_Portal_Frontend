@@ -63,6 +63,8 @@ const ClientJobs = () => {
   const [uploadError, setUploadError] = useState('');
   const [isUploading, setIsUploading] = useState(false); const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -708,29 +710,82 @@ const ClientJobs = () => {
       const data = await response.json();
       console.log('✅ Job created successfully:', data);
       
-      // Add the new job to the jobs list
+      // Add the new job to the jobs list immediately
       setJobs(prev => [data.data, ...prev]);
 
-      // Reset everything
-      setNewRequest({
-        basic_description: '',
-        site_uuid: '',
-        description: '',
-        site_contact_name: '',
-        site_contact_number: '',
-        email: '',
-        purchase_order_number: '',
-        work_start_date: '',
-        work_completion_date: '',
-        job_name: '',
-        type: ''
-      });
-      setNewJobFile(null);
-      setRequestStep('selection');
-      setRequestType('');
-      setIsNewJobDialogOpen(false);
+      // Upload attachment if one was selected
+      if (newJobFile && data.data && data.data.uuid) {
+        try {
+          // Show upload progress dialog
+          setUploadProgress(true);
+          setUploadMessage(`Uploading ${newJobFile.name}...`);
+          
+          console.log(`📎 Uploading attachment for new job ${data.data.uuid}:`, newJobFile.name);
+          
+          const uploadResult = await uploadAttachment(
+            data.data.uuid,
+            newJobFile,
+            'client',
+            'Client User'
+          );
+          
+          console.log('✅ Attachment uploaded successfully:', uploadResult);
+          
+          // Update the job data with attachment information
+          setJobs(prev => prev.map(job => 
+            job.uuid === data.data.uuid 
+              ? { ...job, attachments: [uploadResult.data] }
+              : job
+          ));
+          
+          setUploadMessage('Attachment uploaded successfully!');
+          
+          // Wait a moment to show success message
+          setTimeout(() => {
+            setUploadProgress(false);
+            setUploadMessage('');
+            
+            // Reset form and close dialogs
+            resetRequestFlow();
+            setIsNewJobDialogOpen(false);
+            
+            toast({ 
+              title: 'Success', 
+              description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully with attachment` 
+            });
+          }, 1500);
+          
+        } catch (uploadError) {
+          console.error('❌ Failed to upload attachment:', uploadError);
+          setUploadMessage('Attachment upload failed');
+          
+          // Wait a moment to show error message
+          setTimeout(() => {
+            setUploadProgress(false);
+            setUploadMessage('');
+            
+            // Reset form and close dialogs even if upload failed
+            resetRequestFlow();
+            setIsNewJobDialogOpen(false);
+            
+            toast({ 
+              title: 'Partial Success', 
+              description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} created successfully, but attachment upload failed: ${uploadError.message}`,
+              variant: 'destructive'
+            });
+          }, 2000);
+        }
+      } else {
+        // No attachment to upload, close immediately
+        resetRequestFlow();
+        setIsNewJobDialogOpen(false);
+        
+        toast({ 
+          title: 'Success', 
+          description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` 
+        });
+      }
 
-      toast({ title: 'Success', description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` });
     } catch (error) {
       console.error('❌ Failed to submit job request:', error);
       toast({ title: 'Error', description: `Failed to submit request: ${error.message}`, variant: 'destructive' });
@@ -738,6 +793,8 @@ const ClientJobs = () => {
   };
 
   const resetRequestFlow = () => {
+    setUploadProgress(false);
+    setUploadMessage('Preparing upload...');
     setRequestStep('selection');
     setRequestType('');
     setNewRequest({
@@ -755,7 +812,10 @@ const ClientJobs = () => {
     });
     setNewJobFile(null);
     setSiteSearchTerm('');
-  };  // Filter sites based on search term
+    setIsNewJobDialogOpen(false);
+  };
+
+  // Filter sites based on search term
   const filteredSites = (Array.isArray(sites) ? sites : []).filter(site =>
     site.name?.toLowerCase().includes(siteSearchTerm.toLowerCase()) ||
     site.address?.toLowerCase().includes(siteSearchTerm.toLowerCase())
@@ -1313,6 +1373,19 @@ const ClientJobs = () => {
               )}
             </DialogContent>
           </Dialog></div>
+
+        {/* Upload Progress Dialog */}
+        <Dialog open={uploadProgress} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Uploading Attachment</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center space-y-4 py-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="text-sm text-gray-600 text-center">{uploadMessage}</p>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Status Filter Tabs - Admin Style */}
         <div className="mb-6">

@@ -8,64 +8,44 @@
  * Toggle between systems by changing USE_SERVICEM8_ATTACHMENTS
  */
 
-// Set to true to use ServiceM8 native attachments, false to use Upstash
-export const USE_SERVICEM8_ATTACHMENTS = true;
+// ServiceM8-only attachment system configuration
+export const USE_SERVICEM8_ATTACHMENTS = true;  // Always true now
 
-// API endpoint configurations
+// ServiceM8 API endpoint configuration
 export const ATTACHMENT_CONFIG = {
-  upstash: {
-    baseUrl: '/api/attachments',
-    upload: (jobId) => `/api/attachments/upload/${jobId}`,
-    download: (attachmentId) => `/api/attachments/download/${attachmentId}`,
-    list: (jobId) => `/api/attachments/job/${jobId}`,
-    delete: (attachmentId) => `/api/attachments/${attachmentId}`,
-    count: (jobId) => `/api/attachments/count/${jobId}`,
-    counts: () => `/api/attachments/counts`,
-    all: () => `/api/attachments/all`
-  },
-  servicem8: {
-    baseUrl: '/api/servicem8-attachments',
-    upload: (jobId) => `/api/servicem8-attachments/upload/${jobId}`,
-    download: (attachmentId) => `/api/servicem8-attachments/download/${attachmentId}`,
-    list: (jobId) => `/api/servicem8-attachments/job/${jobId}`,
-    delete: (attachmentId) => `/api/servicem8-attachments/${attachmentId}`,
-    count: (jobId) => `/api/servicem8-attachments/count/${jobId}`,
-    counts: () => `/api/servicem8-attachments/counts`,
-    all: () => `/api/servicem8-attachments/all`
-  }
+  baseUrl: '/api/servicem8-attachments',
+  upload: (jobId) => `/api/servicem8-attachments/upload/${jobId}`,
+  download: (attachmentId) => `/api/servicem8-attachments/download/${attachmentId}`,
+  list: (jobId) => `/api/servicem8-attachments/job/${jobId}`,
+  delete: (attachmentId) => `/api/servicem8-attachments/${attachmentId}`,
+  count: (jobId) => `/api/servicem8-attachments/count/${jobId}`,
+  counts: () => `/api/servicem8-attachments/counts`,
+  all: () => `/api/servicem8-attachments/all`
 };
 
-// Get current attachment endpoints based on configuration
+// Get attachment endpoints (ServiceM8 only)
 export const getAttachmentEndpoints = () => {
-  return USE_SERVICEM8_ATTACHMENTS ? ATTACHMENT_CONFIG.servicem8 : ATTACHMENT_CONFIG.upstash;
+  return ATTACHMENT_CONFIG;
 };
 
 // Helper function to get the attachment system name
 export const getAttachmentSystemName = () => {
-  return USE_SERVICEM8_ATTACHMENTS ? 'ServiceM8' : 'Upstash';
+  return 'ServiceM8';
 };
 
-// Migration status tracking
-export const MIGRATION_STATUS = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in_progress',
-  COMPLETED: 'completed',
-  FAILED: 'failed'
-};
-
-// Feature flags for gradual rollout
+// Feature flags for ServiceM8 attachments
 export const FEATURES = {
   // Enable ServiceM8 attachment previews
   SERVICEM8_PREVIEWS: true,
   
-  // Enable attachment system switching in UI
-  SYSTEM_SWITCHER: false,  // Set to true for testing
-  
-  // Enable migration tools
-  MIGRATION_TOOLS: false,
-  
   // Enable attachment analytics
-  ATTACHMENT_ANALYTICS: true
+  ATTACHMENT_ANALYTICS: true,
+  
+  // Enable automatic thumbnail generation
+  AUTO_THUMBNAILS: true,
+  
+  // Enable file type validation
+  FILE_TYPE_VALIDATION: true
 };
 
 export default {
@@ -73,6 +53,5 @@ export default {
   ATTACHMENT_CONFIG,
   getAttachmentEndpoints,
   getAttachmentSystemName,
-  MIGRATION_STATUS,
   FEATURES
 };

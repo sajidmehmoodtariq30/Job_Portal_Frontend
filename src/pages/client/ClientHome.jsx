@@ -76,6 +76,7 @@ import {
   SelectValue,
 } from "@/components/UI/select";
 import { useToast } from "@/hooks/use-toast"
+import { uploadAttachment } from '../../services/attachmentService';
 
 const ClientHome = () => {
   const navigate = useNavigate();
@@ -104,6 +105,8 @@ const ClientHome = () => {
   const [requestType, setRequestType] = useState(''); // 'quote', 'job', 'order'
   const [newJobFile, setNewJobFile] = useState(null);
   const [uploadError, setUploadError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('Preparing upload...');
   const [sites, setSites] = useState([]);
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [sitesLoading, setSitesLoading] = useState(false);
@@ -696,29 +699,64 @@ const ClientHome = () => {
       const data = await response.json();
       console.log('✅ Job created successfully:', data);
 
-      // Reset everything
-      setNewRequest({
-        basic_description: '',
-        site_uuid: '',
-        description: '',
-        site_contact_name: '',
-        site_contact_number: '',
-        email: '',
-        purchase_order_number: '',
-        work_start_date: '',
-        work_completion_date: '',
-        job_name: '',
-        type: ''
-      });
-      setNewJobFile(null);
-      setRequestStep('selection');
-      setRequestType('');
-      setIsNewJobDialogOpen(false);
-
+      // Show success message for job creation
       toast({
         title: 'Success',
         description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully`
       });
+
+      // Refresh dashboard data immediately
+      fetchDashboardData(true);
+
+      // Upload attachment if one was selected
+      if (newJobFile && data.data && data.data.uuid) {
+        try {
+          // Show upload progress dialog
+          setUploadProgress(true);
+          setUploadMessage('Uploading attachment...');
+          
+          console.log(`📎 Uploading attachment for new job ${data.data.uuid}:`, newJobFile.name);
+          
+          const uploadResult = await uploadAttachment(
+            data.data.uuid,
+            newJobFile,
+            'client',
+            'Client User'
+          );
+          
+          console.log('✅ Attachment uploaded successfully:', uploadResult);
+          
+          setUploadMessage('Upload completed successfully!');
+          
+          toast({
+            title: 'Success',
+            description: 'Attachment uploaded successfully'
+          });
+
+          // Close all dialogs after a brief delay
+          setTimeout(() => {
+            resetRequestFlow();
+          }, 1500);
+          
+        } catch (uploadError) {
+          console.error('❌ Failed to upload attachment:', uploadError);
+          setUploadMessage('Upload failed. Please try again.');
+          
+          toast({
+            title: 'Upload Error',
+            description: `Failed to upload attachment: ${uploadError.message}`,
+            variant: 'destructive'
+          });
+
+          // Close dialogs after showing error
+          setTimeout(() => {
+            resetRequestFlow();
+          }, 3000);
+        }
+      } else {
+        // No attachment, close immediately
+        resetRequestFlow();
+      }
 
       // Refresh dashboard data
       fetchDashboardData(true);
@@ -734,6 +772,8 @@ const ClientHome = () => {
   };
 
   const resetRequestFlow = () => {
+    setUploadProgress(false);
+    setUploadMessage('Preparing upload...');
     setRequestStep('selection');
     setRequestType('');
     setNewRequest({
@@ -752,6 +792,7 @@ const ClientHome = () => {
     setNewJobFile(null);
     setSiteSearchTerm('');
     setSitesLoading(false);
+    setIsNewJobDialogOpen(false);
   };
 
   // Filter sites based on search term
@@ -1093,6 +1134,19 @@ const ClientHome = () => {
                   </div>
                 </form>
               )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Upload Progress Dialog */}
+          <Dialog open={uploadProgress} onOpenChange={() => {}}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Uploading Attachment</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col items-center space-y-4 py-6">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p className="text-sm text-gray-600 text-center">{uploadMessage}</p>
+              </div>
             </DialogContent>
           </Dialog>
 

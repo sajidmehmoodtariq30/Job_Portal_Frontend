@@ -1,8 +1,8 @@
 /**
- * Attachment Service - Unified API for both Upstash and ServiceM8 attachments
+ * ServiceM8 Attachment Service
  * 
- * This service provides a consistent interface for attachment operations
- * regardless of the underlying storage system (Upstash or ServiceM8).
+ * This service provides a unified interface for ServiceM8 attachment operations.
+ * All attachments are stored natively in ServiceM8 and linked to jobs.
  */
 
 import { getAttachmentEndpoints, getAttachmentSystemName } from '../config/attachmentConfig';
@@ -15,6 +15,12 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const getAuthHeaders = () => {
   const token = localStorage.getItem('authToken');
   const clientId = localStorage.getItem('clientId') || localStorage.getItem('client_id');
+  
+  console.log('🔐 Auth headers for attachment request:', {
+    hasToken: !!token,
+    clientId: clientId || 'None',
+    system: getAttachmentSystemName()
+  });
   
   return {
     'Authorization': `Bearer ${token}`,
@@ -56,22 +62,40 @@ export const uploadAttachment = async (jobId, file, userType = 'client', userNam
       fileSize: file.size,
       jobId,
       userType,
-      endpoint: endpoints.upload(jobId)
+      endpoint: `${API_URL}${endpoints.upload(jobId)}`,
+      attachmentSystem: getAttachmentSystemName()
     });
+    
+    const headers = getAuthHeaders();
+    // Remove Content-Type to let browser set it with boundary for multipart/form-data
+    delete headers['Content-Type'];
     
     const response = await fetch(`${API_URL}${endpoints.upload(jobId)}`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: headers,
       body: formData
     });
     
-    const result = await handleResponse(response);
+    console.log(`📤 Upload response status: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Upload failed with status ${response.status}:`, errorText);
+      throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const result = await response.json();
     
     console.log(`✅ File uploaded successfully via ${getAttachmentSystemName()}:`, result);
     return result;
     
   } catch (error) {
-    console.error(`❌ Upload failed via ${getAttachmentSystemName()}:`, error);
+    console.error(`❌ Upload failed via ${getAttachmentSystemName()}:`, {
+      error: error.message,
+      stack: error.stack,
+      jobId,
+      fileName: file?.name
+    });
     throw error;
   }
 };
