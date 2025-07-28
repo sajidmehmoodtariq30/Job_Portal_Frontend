@@ -90,7 +90,8 @@ const ClientJobs = () => {
   useEffect(() => {
     if (location.state?.siteFilter) {
       setSiteFilter(location.state.siteFilter);
-      setSearchTerm(location.state.siteFilter); // Also set as search term for better UX
+      setSearchTerm(''); // Clear search term when site filter is applied
+      console.log('🔍 Site filter set from navigation:', location.state.siteFilter);
     }
 
     // Handle dashboard navigation filters
@@ -130,27 +131,131 @@ const ClientJobs = () => {
   // Helper function to get site name for a job
   const getSiteName = useCallback((job) => {
     if (!job) return 'Site';
-    if (job.location_name || job.site_name) return job.location_name || job.site_name;
-    if (job.location_uuid && sites.length > 0) {
-      const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
-      if (matchingSite) return matchingSite.name;
+
+    console.log('🔍 getSiteName called for job:', {
+      jobId: job.uuid || job.id,
+      location_name: job.location_name,
+      site_name: job.site_name,
+      location_address: job.location_address,
+      job_address: job.job_address,
+      location_uuid: job.location_uuid,
+      sitesAvailable: sites.length
+    });
+
+    // First, try to match with sites data using various job location fields
+    if (sites.length > 0) {
+      console.log('🏢 Available sites for matching:', sites.map(s => ({ uuid: s.uuid, name: s.name, address: s.address })));
+      
+      // Try to match by UUID first
+      if (job.location_uuid) {
+        const matchingSite = sites.find(site => site.uuid === job.location_uuid || site.id === job.location_uuid);
+        if (matchingSite && matchingSite.name) {
+          console.log('🎯 Found site by UUID:', matchingSite.name, 'for job:', job.uuid);
+          return matchingSite.name;
+        } else {
+          console.log('❌ No site found by UUID:', job.location_uuid);
+        }
+      }
+
+      // Try to match by comparing job's location data with site names and addresses
+      const jobLocationFields = [
+        job.location_name,
+        job.site_name,
+        job.location_address,
+        job.job_address,
+        job.billing_address
+      ].filter(Boolean);
+
+      console.log('🔍 Job location fields to match:', jobLocationFields);
+
+      for (const field of jobLocationFields) {
+        const matchingSite = sites.find(site => {
+          if (!site.name && !site.address) return false;
+          
+          // Try exact match with site name
+          if (site.name && site.name.toLowerCase() === field.toLowerCase()) {
+            return true;
+          }
+          
+          // Try exact match with site address
+          if (site.address && site.address.toLowerCase() === field.toLowerCase()) {
+            return true;
+          }
+          
+          // Try partial matches with site name
+          if (site.name && (
+            site.name.toLowerCase().includes(field.toLowerCase()) || 
+            field.toLowerCase().includes(site.name.toLowerCase())
+          )) {
+            return true;
+          }
+          
+          // Try partial matches with site address
+          if (site.address && (
+            site.address.toLowerCase().includes(field.toLowerCase()) || 
+            field.toLowerCase().includes(site.address.toLowerCase())
+          )) {
+            return true;
+          }
+          
+          return false;
+        });
+        
+        if (matchingSite && matchingSite.name) {
+          console.log('🎯 Found site by field match:', matchingSite.name, 'from field:', field, 'for job:', job.uuid);
+          return matchingSite.name;
+        } else {
+          console.log('❌ No site found for field:', field);
+        }
+      }
+      
+      console.log('❌ No site match found for job:', job.uuid, 'falling back to job fields');
+    } else {
+      console.log('⚠️ No sites available for matching, using job fields directly');
     }
-    if (job.location_address && sites.length > 0) {
-      const matchingSite = sites.find(site =>
-        site.address === job.location_address ||
-        site.name?.toLowerCase().includes(job.location_address?.toLowerCase())
-      );
-      if (matchingSite) return matchingSite.name;
+
+    // Fallback to direct job fields if no site match found
+    if (job.location_name) {
+      console.log('📍 Using job.location_name:', job.location_name);
+      return job.location_name;
     }
+    if (job.site_name) {
+      console.log('📍 Using job.site_name:', job.site_name);
+      return job.site_name;
+    }
+
+    // Try to extract site name from job_address
     if (job.job_address) {
       const addressParts = job.job_address.split(',');
       if (addressParts.length > 0) {
         const siteName = addressParts[0].trim();
-        if (siteName && siteName.length > 2) return siteName;
+        if (siteName && siteName.length > 2) {
+          console.log('📍 Extracted from job_address:', siteName);
+          return siteName;
+        }
       }
     }
-    if (job.geo_city) return job.geo_city;
-    return job.location_address || job.job_address || 'Site';
+
+    // Try other location fields
+    if (job.geo_city) {
+      console.log('📍 Using job.geo_city:', job.geo_city);
+      return job.geo_city;
+    }
+    if (job.billing_address) {
+      const addressParts = job.billing_address.split(',');
+      if (addressParts.length > 0) {
+        const siteName = addressParts[0].trim();
+        if (siteName && siteName.length > 2) {
+          console.log('📍 Extracted from billing_address:', siteName);
+          return siteName;
+        }
+      }
+    }
+
+    // Fallback to available address fields
+    const fallback = job.location_address || job.job_address || job.billing_address || 'Site';
+    console.log('📍 Using fallback:', fallback);
+    return fallback;
   }, [sites]);
 
   // Filter jobs based on search term and status filter
@@ -162,9 +267,29 @@ const ClientJobs = () => {
 
     let filtered = jobs.filter(job => job && job.uuid); // Filter out null/undefined jobs
 
+    // Debug: Log all jobs and their site names
+    console.log('🔍 All Jobs Debug:', jobs.map(job => ({
+      id: job.uuid || job.id,
+      siteName: getSiteName(job),
+      status: job.status,
+      location_address: job.location_address,
+      job_address: job.job_address,
+      site_name: job.site_name,
+      location_name: job.location_name
+    })));
+
+    console.log('🔍 Filter State:', {
+      siteFilter,
+      searchTerm,
+      statusFilter,
+      totalJobs: jobs.length,
+      filteredAfterNull: filtered.length
+    });
+
     // Apply search filter
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
+      const beforeSearch = filtered.length;
       filtered = filtered.filter(job =>
         (job.job_name?.toLowerCase() || '').includes(search) ||
         (job.name?.toLowerCase() || '').includes(search) ||
@@ -174,6 +299,7 @@ const ClientJobs = () => {
         (job.job_address?.toLowerCase() || '').includes(search) ||
         (job.job_number?.toString() || '').includes(search)
       );
+      console.log('🔍 After search filter:', { beforeSearch, afterSearch: filtered.length, searchTerm });
     }
 
     // Apply status filter - exclude "Unsuccessful" from all filters
@@ -187,29 +313,139 @@ const ClientJobs = () => {
         }
         switch (statusFilter) {
           case 'workorders':
-            return status === 'work order' || status === 'workorder' || status === 'work-order';
+            return status === 'work order' || status === 'workorder' || status === 'work-order' || status === 'in progress';
           case 'quotes':
-            return status === 'quote';
+            return status === 'quote' || status === 'pending';
           case 'completed':
-            return status === 'completed' || status === 'complete';
+            return status === 'completed' || status === 'complete' || status === 'finished' || status === 'done';
           default:
             return true;
         }
       });
+      console.log('🔍 After status filter:', { statusFilter, afterStatus: filtered.length });
     } else {
-      // Even for "all", exclude unsuccessful jobs
+      // For "all", only exclude truly unsuccessful jobs, but include completed ones
+      const beforeStatus = filtered.length;
       filtered = filtered.filter(job => {
         const status = job.status?.toLowerCase() || '';
         return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
       });
+      console.log('🔍 After status filter (all):', { beforeStatus, afterStatus: filtered.length });
     }
 
     // Apply site filter (from Sites page navigation)
     if (siteFilter) {
+      const beforeSiteFilter = filtered.length;
       filtered = filtered.filter(job => {
         const jobSiteName = getSiteName(job).toLowerCase();
-        return jobSiteName.includes(siteFilter.toLowerCase());
+        const filterTerm = siteFilter.toLowerCase();
+
+        // More flexible matching - check multiple job fields for site information
+        const jobFields = [
+          job.location_name?.toLowerCase() || '',
+          job.site_name?.toLowerCase() || '',
+          job.location_address?.toLowerCase() || '',
+          job.job_address?.toLowerCase() || '',
+          job.billing_address?.toLowerCase() || '',
+          job.geo_city?.toLowerCase() || '',
+          jobSiteName
+        ].filter(field => field.length > 0); // Remove empty fields
+
+        // Check if any job field contains the filter term or vice versa
+        // Also try partial word matching for better flexibility
+        const matches = jobFields.some(field => {
+          // Exact matches
+          if (field === filterTerm || field.includes(filterTerm) || filterTerm.includes(field)) {
+            return true;
+          }
+          
+          // Word-based matching - split both field and filter into words
+          const fieldWords = field.split(/\s+/).filter(word => word.length > 2);
+          const filterWords = filterTerm.split(/\s+/).filter(word => word.length > 2);
+          
+          // Check if any significant words match
+          const wordMatch = fieldWords.some(fieldWord => 
+            filterWords.some(filterWord => 
+              fieldWord.includes(filterWord) || filterWord.includes(fieldWord)
+            )
+          );
+          
+          if (wordMatch) {
+            console.log('🔍 Site Filter Word Match Found:', {
+              jobId: job.uuid || job.id,
+              matchingField: field,
+              fieldWords,
+              filterWords,
+              filterTerm,
+              jobSiteName
+            });
+            return true;
+          }
+          
+          return false;
+        });
+
+        // Debug logging for jobs that don't match
+        if (!matches) {
+          console.log('🔍 Site Filter No Match:', {
+            jobId: job.uuid || job.id,
+            jobSiteName,
+            filterTerm,
+            availableFields: jobFields,
+            job: {
+              location_name: job.location_name,
+              site_name: job.site_name,
+              location_address: job.location_address,
+              job_address: job.job_address,
+              billing_address: job.billing_address,
+              geo_city: job.geo_city
+            }
+          });
+        }
+
+        return matches;
       });
+      console.log('🔍 After site filter:', { 
+        siteFilter, 
+        beforeSiteFilter, 
+        afterSiteFilter: filtered.length,
+        filteredOut: beforeSiteFilter - filtered.length
+      });
+      
+      // If no jobs match the site filter, try a more lenient approach
+      if (filtered.length === 0 && beforeSiteFilter > 0) {
+        console.log('🔍 No exact site matches found, trying lenient matching...');
+        
+        // Reset to original filtered jobs and try a more lenient filter
+        filtered = jobs.filter(job => job && job.uuid);
+        
+        // Apply status filter again
+        filtered = filtered.filter(job => {
+          const status = job.status?.toLowerCase() || '';
+          return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
+        });
+        
+        // Try very lenient site matching - just check if any part of the site name appears anywhere
+        const filterWords = siteFilter.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+        
+        filtered = filtered.filter(job => {
+          const allJobText = [
+            job.location_name,
+            job.site_name,
+            job.location_address,
+            job.job_address,
+            job.billing_address,
+            job.geo_city,
+            job.job_name,
+            job.description,
+            job.job_description
+          ].filter(Boolean).join(' ').toLowerCase();
+          
+          return filterWords.some(word => allJobText.includes(word));
+        });
+        
+        console.log('🔍 After lenient site filter:', filtered.length);
+      }
     }
 
     // Sort by newest first (highest job number)
@@ -219,6 +455,7 @@ const ClientJobs = () => {
       return jobNumB - jobNumA; // Descending order (newest first)
     });
 
+    console.log('🔍 Final filtered jobs:', filtered.length);
     setFilteredJobs(filtered);
   }, [jobs, searchTerm, statusFilter, siteFilter, getSiteName]);
 
@@ -252,95 +489,65 @@ const ClientJobs = () => {
         return;
       }
 
-      // Try multiple endpoints to get sites
-      const endpoints = [
-        API_ENDPOINTS.SITES.GET_ALL(clientId),
-        API_ENDPOINTS.CONTACTS.GET_CLIENT_SITES(clientId),
-        `${API_URL}/api/clients/${clientId}/sites`
-      ];
+      // Use the same endpoint as ClientSites.jsx for consistency
+      console.log('🔍 Using sites endpoint:', `${API_URL}/api/clients/${clientId}/sites`);
 
-      let sitesData = [];
-      let lastError = null;
-
-      for (const endpoint of endpoints) {
-        try {
-          console.log('🔍 Trying endpoint:', endpoint);
-
-          const response = await fetch(endpoint, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-              'x-client-uuid': clientId
-            }
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log('🏢 Sites response from', endpoint, ':', data);
-
-            // Handle different response formats
-            if (Array.isArray(data)) {
-              sitesData = data;
-            } else if (data.sites && Array.isArray(data.sites)) {
-              sitesData = data.sites;
-            } else if (data.data && Array.isArray(data.data)) {
-              sitesData = data.data;
-            }
-
-            if (sitesData.length > 0) {
-              console.log(`✅ Successfully fetched ${sitesData.length} sites from ${endpoint}`);
-              break;
-            }
-          } else {
-            console.warn(`⚠️ Endpoint ${endpoint} returned status:`, response.status);
-          }
-        } catch (endpointError) {
-          console.warn(`❌ Error with endpoint ${endpoint}:`, endpointError.message);
-          lastError = endpointError;
+      const response = await fetch(`${API_URL}/api/clients/${clientId}/sites`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // If no sites found from API, create mock sites for development
-      if (sitesData.length === 0) {
-        console.warn('⚠️ No sites found from API, using mock data for development');
-        sitesData = [
-          {
-            uuid: 'site-1',
-            name: 'Main Office',
-            address: '123 Business Street, City, State 12345',
-            type: 'Office'
-          },
-          {
-            uuid: 'site-2',
-            name: 'Warehouse Location',
-            address: '456 Industrial Ave, City, State 12345',
-            type: 'Warehouse'
-          },
-          {
-            uuid: 'site-3',
-            name: 'Branch Office',
-            address: '789 Corporate Blvd, City, State 12345',
-            type: 'Office'
-          }
-        ];
+      const data = await response.json();
+      console.log('🏢 Sites API response:', data);
+
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch sites');
       }
 
-      setSites(sitesData);
-      console.log('🏢 Final sites state updated:', sitesData);
+      let sitesData = data.sites || [];
+      console.log('🏢 Raw sites data:', sitesData.length, sitesData);
+
+      // TEMPORARILY DISABLE FILTERING to see all sites
+      console.log('⚠️ TEMPORARILY NOT FILTERING SITES FOR DEBUGGING');
+      
+      // Apply the same filtering as ClientSites.jsx - exclude shops (DISABLED FOR DEBUG)
+      // const filteredSites = sitesData.filter(site => {
+      //   const hasShop = site.name && (site.name.includes('Shop') || site.name.includes('shop'));
+      //   return !hasShop;
+      // });
+      const filteredSites = sitesData; // Use all sites for now
+
+      // Sort sites like ClientSites.jsx
+      filteredSites.sort((a, b) => {
+        // Parent companies (no parent_company_uuid) come first
+        if (!a.parent_company_uuid && b.parent_company_uuid) return -1;
+        if (a.parent_company_uuid && !b.parent_company_uuid) return 1;
+        
+        // Within each group, SkinKandy sites come first
+        const aHasSkinKandy = a.name && a.name.toLowerCase().includes('skinkandy');
+        const bHasSkinKandy = b.name && b.name.toLowerCase().includes('skinkandy');
+        
+        if (aHasSkinKandy && !bHasSkinKandy) return -1;
+        if (!aHasSkinKandy && bHasSkinKandy) return 1;
+        
+        // Finally, sort alphabetically
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      console.log('🏢 Filtered and sorted sites:', filteredSites.length, filteredSites);
+      setSites(filteredSites);
     } catch (error) {
       console.error('❌ Failed to fetch sites:', error);
 
-      // Set mock sites as fallback
-      const mockSites = [
-        {
-          uuid: 'site-default',
-          name: 'Default Site',
-          address: 'Main Location',
-          type: 'Office'
-        }
-      ];
-
-      setSites(mockSites);
-      console.log('🏢 Using fallback mock sites:', mockSites);
+      // Set empty array as fallback instead of mock data
+      setSites([]);
+      console.log('🏢 Using empty sites array due to error');
     }
   }, [getClientId]);
 
@@ -496,6 +703,22 @@ const ClientJobs = () => {
     site.name?.toLowerCase().includes(siteSearchTerm.toLowerCase()) ||
     site.address?.toLowerCase().includes(siteSearchTerm.toLowerCase())
   );
+
+  // Helper function to get job number - uses ServiceM8's generated_job_id
+  const getJobNumber = (job) => {
+    // Use ServiceM8's generated job ID if available, otherwise fallback to UUID formatting
+    if (job.generated_job_id) {
+      return job.generated_job_id;
+    }
+    
+    // Fallback for old data or missing generated_job_id
+    if (!job.uuid) return 'N/A';
+    
+    // Extract only numeric digits from UUID as last resort
+    const numericDigits = job.uuid.replace(/[^0-9]/g, '');
+    const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
+    return jobNumber;
+  };
 
   // Debug logging for sites
   console.log('🏢 Sites state:', sites);
@@ -1025,69 +1248,16 @@ const ClientJobs = () => {
             </DialogContent>
           </Dialog></div>
 
-        {/* Status Bar - Similar to Admin Jobs Page */}
+        {/* Status Filter Tabs - Admin Style */}
         <div className="mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card
-              className={`cursor-pointer transition-all ${statusFilter === 'all' ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
-              onClick={() => setStatusFilter('all')}
-            >
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-gray-900">
-                  {jobs.filter(job => {
-                    const status = job.status?.toLowerCase() || '';
-                    return status !== 'unsuccessful' && status !== 'cancelled' && status !== 'rejected';
-                  }).length}
-                </div>
-                <div className="text-sm text-gray-600">All Jobs</div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className={`cursor-pointer transition-all ${statusFilter === 'quotes' ? 'ring-2 ring-orange-500 bg-orange-50' : 'hover:shadow-md'}`}
-              onClick={() => setStatusFilter('quotes')}
-            >
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {jobs.filter(job => {
-                    const status = job.status?.toLowerCase() || '';
-                    return status === 'quote';
-                  }).length}
-                </div>
-                <div className="text-sm text-gray-600">Quotes</div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className={`cursor-pointer transition-all ${statusFilter === 'workorders' ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
-              onClick={() => setStatusFilter('workorders')}
-            >
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {jobs.filter(job => {
-                    const status = job.status?.toLowerCase() || '';
-                    return status === 'work order' || status === 'workorder' || status === 'work-order';
-                  }).length}
-                </div>
-                <div className="text-sm text-gray-600">Work Orders</div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className={`cursor-pointer transition-all ${statusFilter === 'completed' ? 'ring-2 ring-green-500 bg-green-50' : 'hover:shadow-md'}`}
-              onClick={() => setStatusFilter('completed')}
-            >
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {jobs.filter(job => {
-                    const status = job.status?.toLowerCase() || '';
-                    return status === 'completed' || status === 'complete';
-                  }).length}
-                </div>
-                <div className="text-sm text-gray-600">Completed</div>
-              </CardContent>
-            </Card>
-          </div>
+          <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="all">All Jobs</TabsTrigger>
+              <TabsTrigger value="quotes">Quotes</TabsTrigger>
+              <TabsTrigger value="workorders">Work Orders</TabsTrigger>
+              <TabsTrigger value="completed">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* Search and Filter Section */}
@@ -1104,18 +1274,48 @@ const ClientJobs = () => {
                 className="pl-10"
               />
             </div>
-            {/* Status Filter */}
+
+            {/* Site Filter Dropdown */}
             <div className="flex items-center gap-2">
-              <FilterIcon className="h-4 w-4 text-gray-600" />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <MapPinIcon className="h-4 w-4 text-gray-600" />
+              <Select value={siteFilter} onValueChange={setSiteFilter}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder="Filter by site" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Jobs</SelectItem>
-                  <SelectItem value="workorders">Work Orders</SelectItem>
-                  <SelectItem value="quotes">Quotes</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <div className="p-2">
+                    <div className="relative">
+                      <SearchIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-3 w-3" />
+                      <Input
+                        placeholder="Search sites..."
+                        value={siteSearchTerm}
+                        onChange={(e) => setSiteSearchTerm(e.target.value)}
+                        className="pl-7 h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  <SelectItem value="all">All Sites</SelectItem>
+                  {filteredSites.map((site, index) => (
+                    <SelectItem key={site.uuid || site.id || `site-${index}`} value={site.name || site.uuid || site.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{site.name}</span>
+                        {site.address && (
+                          <span className="text-xs text-gray-500">{site.address}</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                  {filteredSites.length === 0 && siteSearchTerm && (
+                    <div className="px-2 py-1 text-xs text-gray-500">
+                      No sites found matching "{siteSearchTerm}"
+                    </div>
+                  )}
+                  {sites.length === 0 && (
+                    <div className="px-2 py-1 text-xs text-gray-500">
+                      No sites available
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -1151,14 +1351,17 @@ const ClientJobs = () => {
                   statusFilter === 'completed' ? 'Completed' :
                     statusFilter
                 }"`}
+              {siteFilter && ` at site "${siteFilter}"`}
             </p>
-            {(searchTerm || statusFilter !== 'all') && (
+            {(searchTerm || statusFilter !== 'all' || siteFilter) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('all');
+                  setSiteFilter('');
+                  setSiteSearchTerm('');
                 }}
               >
                 Clear filters
@@ -1188,6 +1391,8 @@ const ClientJobs = () => {
                     onClick={() => {
                       setSearchTerm('');
                       setStatusFilter('all');
+                      setSiteFilter('');
+                      setSiteSearchTerm('');
                     }}
                   >
                     Clear filters
@@ -1270,7 +1475,7 @@ const ClientJobs = () => {
                   <thead>
                     <tr className="border-b">
                       <th className="py-3 px-4 text-left">Job Number</th>
-                      <th className="py-3 px-4 text-left">Site Name</th>
+                      <th className="py-3 px-4 text-left">Site</th>
                       <th className="py-3 px-4 text-left">Description</th>
                       <th className="py-3 px-4 text-left">Status</th>
                       <th className="py-3 px-4 text-left">Created Date</th>
@@ -1333,10 +1538,10 @@ const ClientJobs = () => {
             <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
               <DialogHeader className="border-b pb-3 md:pb-4">
                 <DialogTitle className="text-lg md:text-2xl font-bold truncate">
-                  Job by Client
+                  {getSiteName(selectedJob)}
                 </DialogTitle>
                 <DialogDescription className="text-xs md:text-sm">
-                  {selectedJob.job_description || selectedJob.description || 'No description available'}
+                  {selectedJob.location_address || selectedJob.job_address || 'Location not specified'}
                 </DialogDescription>
               </DialogHeader>
 
@@ -1361,13 +1566,14 @@ const ClientJobs = () => {
                 <TabsContent value="details" className="p-0 mt-3 md:mt-4">
                   <div className="grid gap-3 md:gap-5">
 
-                    <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
-                      <Label className="font-bold text-xs md:text-sm">Job Description</Label>
-                      <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
-                        <p className="text-xs md:text-sm whitespace-pre-wrap">
-                          {selectedJob.job_description || selectedJob.description || 'No description available'}
-                        </p>
-                      </div>
+                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                      <Label className="font-bold text-xs md:text-sm">Service Location</Label>
+                      <p className="text-xs md:text-sm break-words">
+                        {selectedJob.location_address || selectedJob.job_address || 'Location not specified'}
+                      </p>
+                      {selectedJob.location_uuid && (
+                        <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
@@ -1385,19 +1591,9 @@ const ClientJobs = () => {
                         </span>
                       </div>
                       <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                        <Label className="font-bold text-xs md:text-sm">Active</Label>
-                        <p className="text-xs md:text-sm">{selectedJob.active ? 'Yes' : 'No'}</p>
+                        <Label className="font-bold text-xs md:text-sm">Job Number</Label>
+                        <p className="text-xs md:text-sm">{getJobNumber(selectedJob)}</p>
                       </div>
-                    </div>
-
-                    <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Service Location</Label>
-                      <p className="text-xs md:text-sm break-words">
-                        {selectedJob.location_address || selectedJob.job_address || 'Location not specified'}
-                      </p>
-                      {selectedJob.location_uuid && (
-                        <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
-                      )}
                     </div>
 
                     {/* Site/Location Information Section */}

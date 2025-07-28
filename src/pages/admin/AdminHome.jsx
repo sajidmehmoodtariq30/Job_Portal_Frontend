@@ -311,6 +311,61 @@ const AdminHome = () => {
     const numericDigits = job.uuid.replace(/[^0-9]/g, '');
     const jobNumber = numericDigits.padStart(8, '0').slice(0, 8);
     return jobNumber;
+  };
+
+  // Helper function to format job address
+  const formatJobAddress = (job) => {
+    if (!job) return 'No location specified';
+
+    // Try site name first (if available from our enrichment)
+    if (job.site_name || job.location_name) {
+      const siteName = job.site_name || job.location_name;
+      if (job.location_address) {
+        return `${siteName} - ${job.location_address}`;
+      }
+      return siteName;
+    }
+
+    // Try job_address field first (this is what ServiceM8 uses)
+    if (job.job_address) {
+      return job.job_address.replace(/\n/g, ', ').trim();
+    }
+
+    // Try location_address field
+    if (job.location_address) {
+      return job.location_address;
+    }
+
+    // Build address from geo fields
+    const geoParts = [];
+    if (job.geo_number) geoParts.push(job.geo_number);
+    if (job.geo_street) geoParts.push(job.geo_street);
+    if (job.geo_city) geoParts.push(job.geo_city);
+    if (job.geo_state) geoParts.push(job.geo_state);
+    if (job.geo_postcode) geoParts.push(job.geo_postcode);
+    
+    if (geoParts.length > 0) {
+      return geoParts.join(', ');
+    }
+
+    // Check for other possible location fields
+    const possibleLocationFields = [
+      'address', 'street_address', 'service_address', 
+      'site_address', 'work_address', 'job_location', 'billing_address'
+    ];
+    
+    for (const field of possibleLocationFields) {
+      if (job[field]) {
+        return job[field].replace(/\n/g, ', ').trim();
+      }
+    }
+
+    // If we have location_uuid but no address, show that with note
+    if (job.location_uuid) {
+      return `Location UUID: ${job.location_uuid} (Address not loaded)`;
+    }
+
+    return 'No location specified';
   };// Set selected status when job changes
   useEffect(() => {
     if (selectedJob) {
@@ -707,32 +762,11 @@ const AdminHome = () => {
         <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>
           <DialogContent className="max-h-[95vh] overflow-y-auto max-w-[98vw] md:max-w-6xl lg:max-w-7xl w-full p-3 md:p-6 rounded-lg">
               <DialogHeader className="border-b pb-3 md:pb-4">
-              <DialogTitle className="text-lg md:text-2xl font-bold flex items-center gap-2">
-                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                  {getJobNumber(selectedJob)}
-                </span>
-                <span className="truncate">{jobClientName}</span>
+              <DialogTitle className="text-lg md:text-2xl font-bold truncate">
+                {jobClientName}
               </DialogTitle>
-              <DialogDescription className="text-xs md:text-sm flex flex-wrap items-center gap-2 mt-2">
-                <span className={`px-2 py-1 rounded text-xs ${
-                  selectedJob.status === 'Quote' 
-                    ? 'bg-orange-100 text-orange-800' 
-                    : selectedJob.status === 'Work Order' 
-                      ? 'bg-blue-100 text-blue-800'
-                      : selectedJob.status === 'In Progress'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-green-100 text-green-800'
-                }`}>
-                  {selectedJob.status}
-                </span>
-                <span>•</span>
-                <span>{formatDate(selectedJob.date)}</span>
-                {selectedJob.job_description && (
-                  <>
-                    <span>•</span>
-                    <span className="truncate">{selectedJob.job_description}</span>
-                  </>
-                )}
+              <DialogDescription className="text-xs md:text-sm">
+                {formatJobAddress(selectedJob)}
               </DialogDescription>
             </DialogHeader>
             
@@ -754,17 +788,18 @@ const AdminHome = () => {
               </TabsList>
                 <TabsContent value="details" className="p-0 mt-3 md:mt-4">
                 <div className="grid gap-3 md:gap-5">
+                  <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
+                    <Label className="font-bold text-xs md:text-sm">Service Location</Label>
+                    <p className="text-xs md:text-sm break-words">{formatJobAddress(selectedJob)}</p>
+                    {selectedJob.location_uuid && (
+                      <p className="text-xs text-muted-foreground">Location ID: {selectedJob.location_uuid}</p>
+                    )}
+                  </div>
+
                   <div className="space-y-1 md:space-y-2 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <Label className="font-bold text-sm md:text-base text-blue-800">Client Information</Label>
                     <p className="text-sm md:text-base font-medium bg-white p-2 rounded border">{jobClientName}</p>
                     <div className="mt-1">
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 md:space-y-2 border border-gray-100 rounded-lg p-3 md:p-4">
-                    <Label className="font-bold text-xs md:text-sm">Job Description</Label>
-                    <div className="max-h-28 md:max-h-48 overflow-y-auto bg-white p-2 rounded border border-gray-200">
-                      <p className="text-xs md:text-sm whitespace-pre-wrap">{selectedJob.job_description || 'No description available'}</p>
                     </div>
                   </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
@@ -783,8 +818,8 @@ const AdminHome = () => {
                       </span>
                     </div>
                     <div className="space-y-1 md:space-y-2 bg-gray-50 p-3 rounded-lg">
-                      <Label className="font-bold text-xs md:text-sm">Date</Label>
-                      <p className="text-xs md:text-sm">{formatDate(selectedJob.date)}</p>
+                      <Label className="font-bold text-xs md:text-sm">Job Number</Label>
+                      <p className="text-xs md:text-sm">{getJobNumber(selectedJob)}</p>
                     </div>
                   </div>
 

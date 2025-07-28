@@ -18,7 +18,7 @@ const Navbar = () => {
             className="flex items-center space-x-2 bg-white text-black px-4 py-2 rounded-md hover:bg-gray-100 transition duration-200 ease-in-out shadow-sm"
           >
             <User size={18} />
-            <span className="font-medium">Get Started</span>
+            <span className="font-medium">Login</span>
           </Link>
         </div>
       </div>

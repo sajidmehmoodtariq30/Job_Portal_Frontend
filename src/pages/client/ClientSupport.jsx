@@ -1,50 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { LifeBuoy, Mail, MessageSquare, MapPin, Phone } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/UI/card';
 import { Button } from '@/components/UI/button';
 import { Input } from '@/components/UI/input';
 import { Textarea } from '@/components/UI/textarea';
+import ReCAPTCHA from 'react-google-recaptcha';
 import axios from 'axios';
 import { API_URL } from '@/lib/apiConfig';
 import logo from '@/assets/logo.png';
 
-const SUPPORT_EMAIL = 'Support@mygcce.com.au';
+const SUPPORT_EMAIL = 'assist@gcce.com.au';
 const SUPPORT_PHONE = '07 5573 2111';
 const COMPANY_ADDRESS = 'Gold Coast, Australia';
+
+// reCAPTCHA site key from environment variables
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'; // Test key for development
 
 const ClientSupport = () => {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
+  const recaptchaRef = useRef(null);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleRecaptchaChange = (token) => {
+    setRecaptchaToken(token);
+  };
+
+  const handleRecaptchaExpired = () => {
+    setRecaptchaToken(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate reCAPTCHA
+    if (!recaptchaToken) {
+      setError('Please complete the reCAPTCHA verification.');
+      return;
+    }
+    
     setSubmitting(true);
     setError(null);
     
     try {
-      // Send feedback email to ibitbytesoft@gmail.com
-      const response = await axios.post(`${API_URL}/api/support/feedback`, {
+      // Get client information from localStorage
+      const clientData = localStorage.getItem('user_data');
+      const clientInfo = clientData ? JSON.parse(clientData) : null;
+      const clientId = clientInfo?.assignedClientUuid || clientInfo?.uuid || localStorage.getItem('client_id');
+      
+      // Send support email to assist@gcce.com.au + all verified client emails in Upstash
+      const response = await axios.post(`${API_URL}/api/support/client-feedback`, {
         name: form.name,
         email: form.email,
         message: form.message,
-        recipient: SUPPORT_EMAIL
+        clientId: clientId,
+        clientInfo: clientInfo,
+        primaryRecipient: SUPPORT_EMAIL, // assist@gcce.com.au
+        recaptchaToken: recaptchaToken // Include reCAPTCHA token for backend verification
       });
       
       if (response.status === 200) {
         setSubmitted(true);
         setForm({ name: '', email: '', message: '' });
+        setRecaptchaToken(null);
+        // Reset reCAPTCHA
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
       } else {
         setError('There was a problem sending your message. Please try again.');
       }
     } catch (err) {
       console.error('Error sending feedback:', err);
-      setError('There was a problem sending your message. Please try again later.');
+      if (err.response?.status === 400 && err.response?.data?.error?.includes('reCAPTCHA')) {
+        setError('reCAPTCHA verification failed. Please try again.');
+        // Reset reCAPTCHA on verification failure
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
+        setRecaptchaToken(null);
+      } else {
+        setError('There was a problem sending your message. Please try again later.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -98,6 +141,13 @@ const ClientSupport = () => {
               <MessageSquare className="mx-auto mb-3 text-green-500" size={36} />
               <div className="text-lg font-medium mb-1">Thank you!</div>
               <div className="text-muted-foreground">Your message has been sent. Our support team will contact you soon.</div>
+              <Button 
+                onClick={() => setSubmitted(false)} 
+                variant="outline" 
+                className="mt-4"
+              >
+                Send Another Message
+              </Button>
             </div>
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -113,12 +163,24 @@ const ClientSupport = () => {
                 <label htmlFor="message" className="block text-sm font-medium mb-1">Message</label>
                 <Textarea id="message" name="message" rows={5} value={form.message} onChange={handleChange} required disabled={submitting} />
               </div>
+              
+              {/* reCAPTCHA */}
+              <div className="flex justify-center">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={RECAPTCHA_SITE_KEY}
+                  onChange={handleRecaptchaChange}
+                  onExpired={handleRecaptchaExpired}
+                  theme="light"
+                />
+              </div>
+              
               {error && (
                 <div className="p-3 text-sm bg-red-50 text-red-700 rounded border border-red-200">
                   {error}
                 </div>
               )}
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button type="submit" className="w-full" disabled={submitting || !recaptchaToken}>
                 {submitting ? 'Sending...' : 'Send Message'}
               </Button>
             </form>

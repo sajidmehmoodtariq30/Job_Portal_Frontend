@@ -226,7 +226,7 @@ const ClientUserManagement = () => {
 
   // Handle delete user
   const handleDeleteUser = async (userUuid) => {
-    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to delete this user? The user will be removed but your client account will remain intact. This action cannot be undone.')) {
       return;
     }
 
@@ -245,8 +245,8 @@ const ClientUserManagement = () => {
 
       if (data.success) {
         toast({
-          title: "Success",
-          description: "User deleted successfully",
+          title: "User Deleted Successfully",
+          description: data.message || "User has been removed. Client account remains intact.",
         });
         fetchUsers(); // Refresh the list
       } else {
@@ -254,11 +254,22 @@ const ClientUserManagement = () => {
       }
     } catch (error) {
       console.error('Error deleting user:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete user",
-        variant: "destructive"
-      });
+      
+      // Handle specific error cases
+      if (error.message.includes('User not found')) {
+        toast({
+          title: "User Not Found",
+          description: "This user may have already been deleted. Refreshing the list...",
+          variant: "destructive"
+        });
+        fetchUsers(); // Refresh to sync the list
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete user",
+          variant: "destructive"
+        });
+      }
     } finally {
       setActionLoading('');
     }

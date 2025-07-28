@@ -243,15 +243,29 @@ const AdminUsers = () => {  const [users, setUsers] = useState([])
       const data = await response.json()
 
       if (data.success) {
-        alert("User deleted successfully")
+        const clientInfo = data.data?.deletedUser?.previousClientUuid 
+          ? ` Client relationship detached but client ${data.data.deletedUser.previousClientUuid} remains intact.`
+          : '';
+        alert(`User deleted successfully.${clientInfo}`)
         // Remove user completely from the list
         setUsers(users.filter(u => u.uuid !== selectedUser.uuid))
       } else {
-        alert(data.message || "Failed to delete user")
+        if (data.message?.includes('User not found')) {
+          alert("User not found. It may have already been deleted. Refreshing the list...")
+          // Refresh the user list
+          window.location.reload()
+        } else {
+          alert(data.message || "Failed to delete user")
+        }
       }
     } catch (error) {
       console.error('Error deleting user:', error)
-      alert("Failed to delete user")
+      if (error.message?.includes('User not found')) {
+        alert("User not found. It may have already been deleted. Refreshing the list...")
+        window.location.reload()
+      } else {
+        alert("Failed to delete user")
+      }
     } finally {
       setActionLoading('')
       setIsDeleteDialogOpen(false)
