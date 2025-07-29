@@ -622,13 +622,22 @@ const ClientHome = () => {
         job_address: selectedSite?.address || '', // Fallback field
         
         // ServiceM8 site-specific fields
-        site_name: selectedSite?.name || '',
+        site_name: selectedSite?.name || newRequest.site_name || '',
         site_address: selectedSite?.address || '',
         
         // ServiceM8 contact information - map to proper ServiceM8 contact fields
         primary_contact_name: newRequest.site_contact_name,
         primary_contact_phone: newRequest.site_contact_number,
         primary_contact_email: newRequest.email,
+        
+        // ServiceM8 job contact fields - Critical for ServiceM8 integration
+        job_contact_first_name: newRequest.site_contact_name?.split(' ')[0] || '',
+        job_contact_email: newRequest.email,
+        
+        // Site contact information for Job Contact creation
+        site_contact_name: newRequest.site_contact_name,
+        site_contact_number: newRequest.site_contact_number,
+        site_contact_email: newRequest.email,
         
         // Additional contact fields that ServiceM8 uses
         contact_first_name: newRequest.site_contact_name?.split(' ')[0] || '',
@@ -637,9 +646,7 @@ const ClientHome = () => {
         contact_mobile: newRequest.site_contact_number,
         contact_email: newRequest.email,
         
-        // Legacy contact fields for compatibility
-        site_contact_name: newRequest.site_contact_name,
-        site_contact_number: newRequest.site_contact_number,
+        // Legacy email field for compatibility
         email: newRequest.email,
         
         // Purchase order and project information
@@ -668,7 +675,12 @@ const ClientHome = () => {
         
         // Custom fields that might be used by ServiceM8
         customfield_site_name: selectedSite?.name || '',
-        customfield_company_name: selectedSite?.name || ''
+        customfield_company_name: selectedSite?.name || '',
+        
+        // ServiceM8 custom fields - as shown in UI
+        customfield_rough_in_date: newRequest.work_start_date,
+        customfield_handover_date: newRequest.work_completion_date,
+        customfield_job_name: newRequest.job_name
       };
 
       // Add basic description for order type
