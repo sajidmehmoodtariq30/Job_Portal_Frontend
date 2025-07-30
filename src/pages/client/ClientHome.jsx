@@ -107,6 +107,7 @@ const ClientHome = () => {
   const [uploadError, setUploadError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('Preparing upload...');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [sites, setSites] = useState([]);
   const [siteSearchTerm, setSiteSearchTerm] = useState('');
   const [sitesLoading, setSitesLoading] = useState(false);
@@ -588,6 +589,7 @@ const ClientHome = () => {
 
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     try {
       const clientId = getClientId();
@@ -692,14 +694,41 @@ const ClientHome = () => {
 
       console.log('📤 Sending ServiceM8 job request payload:', requestPayload);
 
+      // Create FormData for multipart request if file is present
+      let requestBody;
+      let requestHeaders = {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'x-client-uuid': clientId
+      };
+
+      if (newJobFile) {
+        // Send as multipart/form-data with file
+        const formData = new FormData();
+        
+        // Add all job data fields to FormData
+        Object.keys(requestPayload).forEach(key => {
+          if (requestPayload[key] !== null && requestPayload[key] !== undefined) {
+            formData.append(key, requestPayload[key]);
+          }
+        });
+        
+        // Add the file
+        formData.append('file', newJobFile);
+        
+        requestBody = formData;
+        // Don't set Content-Type header - let browser set it with boundary
+        console.log('📎 Including file in job creation request:', newJobFile.name);
+      } else {
+        // Send as JSON if no file
+        requestHeaders['Content-Type'] = 'application/json';
+        requestBody = JSON.stringify(requestPayload);
+        console.log('📄 Sending JSON request (no file)');
+      }
+
       const response = await fetch(`${API_URL}/fetch/jobs/create`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json',
-          'x-client-uuid': clientId
-        },
-        body: JSON.stringify(requestPayload)
+        headers: requestHeaders,
+        body: requestBody
       });
 
       if (!response.ok) {
@@ -720,50 +749,67 @@ const ClientHome = () => {
       // Refresh dashboard data immediately
       fetchDashboardData(true);
 
-      // Upload attachment if one was selected
+      // Handle attachment upload (check if already uploaded during job creation)
       if (newJobFile && data.data && data.data.uuid) {
-        try {
-          // Show upload progress dialog
-          setUploadProgress(true);
-          setUploadMessage('Uploading attachment...');
-          
-          console.log(`📎 Uploading attachment for new job ${data.data.uuid}:`, newJobFile.name);
-          
-          const uploadResult = await uploadAttachment(
-            data.data.uuid,
-            newJobFile,
-            'client',
-            'Client User'
-          );
-          
-          console.log('✅ Attachment uploaded successfully:', uploadResult);
+        if (data.data.attachment) {
+          console.log('✅ Attachment already uploaded during job creation:', data.data.attachment);
           
           setUploadMessage('Upload completed successfully!');
           
           toast({
             title: 'Success',
-            description: 'Attachment uploaded successfully'
+            description: 'Job created and attachment uploaded successfully'
           });
 
           // Close all dialogs after a brief delay
           setTimeout(() => {
             resetRequestFlow();
           }, 1500);
-          
-        } catch (uploadError) {
-          console.error('❌ Failed to upload attachment:', uploadError);
-          setUploadMessage('Upload failed. Please try again.');
-          
-          toast({
-            title: 'Upload Error',
-            description: `Failed to upload attachment: ${uploadError.message}`,
-            variant: 'destructive'
-          });
+        } else {
+          // Fallback: Upload attachment separately if it wasn't included in job creation
+          try {
+            // Show upload progress dialog
+            setUploadProgress(true);
+            setUploadMessage('Uploading attachment...');
+            
+            console.log(`📎 Uploading attachment separately for job ${data.data.uuid}:`, newJobFile.name);
+            
+            const uploadResult = await uploadAttachment(
+              data.data.uuid,
+              newJobFile,
+              'client',
+              'Client User'
+            );
+            
+            console.log('✅ Attachment uploaded successfully:', uploadResult);
+            
+            setUploadMessage('Upload completed successfully!');
+            
+            toast({
+              title: 'Success',
+              description: 'Attachment uploaded successfully'
+            });
 
-          // Close dialogs after showing error
-          setTimeout(() => {
-            resetRequestFlow();
-          }, 3000);
+            // Close all dialogs after a brief delay
+            setTimeout(() => {
+              resetRequestFlow();
+            }, 1500);
+            
+          } catch (uploadError) {
+            console.error('❌ Failed to upload attachment:', uploadError);
+            setUploadMessage('Upload failed. Please try again.');
+            
+            toast({
+              title: 'Upload Error',
+              description: `Failed to upload attachment: ${uploadError.message}`,
+              variant: 'destructive'
+            });
+
+            // Close dialogs after showing error
+            setTimeout(() => {
+              resetRequestFlow();
+            }, 3000);
+          }
         }
       } else {
         // No attachment, close immediately
@@ -775,6 +821,7 @@ const ClientHome = () => {
 
     } catch (error) {
       console.error('❌ Failed to submit job request:', error);
+      setIsSubmitting(false);
       toast({
         title: 'Error',
         description: `Failed to submit request: ${error.message}`,
@@ -786,6 +833,7 @@ const ClientHome = () => {
   const resetRequestFlow = () => {
     setUploadProgress(false);
     setUploadMessage('Preparing upload...');
+    setIsSubmitting(false);
     setRequestStep('selection');
     setRequestType('');
     setNewRequest({
@@ -982,7 +1030,16 @@ const ClientHome = () => {
                     >
                       Back
                     </Button>
-                    <Button type="submit">Submit Order</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit Order'
+                      )}
+                    </Button>
                   </div>
                 </form>
               )}
@@ -1142,7 +1199,16 @@ const ClientHome = () => {
                     >
                       Back
                     </Button>
-                    <Button type="submit">Submit {requestType.charAt(0).toUpperCase() + requestType.slice(1)}</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Submitting...
+                        </>
+                      ) : (
+                        `Submit ${requestType.charAt(0).toUpperCase() + requestType.slice(1)}`
+                      )}
+                    </Button>
                   </div>
                 </form>
               )}

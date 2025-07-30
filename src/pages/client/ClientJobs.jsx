@@ -65,6 +65,7 @@ const ClientJobs = () => {
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -599,6 +600,7 @@ const ClientJobs = () => {
   };
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     try {
       const clientId = getClientId();
@@ -611,7 +613,10 @@ const ClientJobs = () => {
 
       console.log('🏢 Selected site for job request:', selectedSite);
 
-      // Create proper ServiceM8 job payload with correct field mappings
+      // ===== STEP 1: CREATE JOB WITHOUT CONTACT INFO AND ATTACHMENT =====
+      console.log('🔄 CHAIN STEP 1: Creating job without contact info...');
+      
+      // Create proper ServiceM8 job payload - EXCLUDING contact fields and attachment
       const requestPayload = {
         clientId: clientId,
         userId: clientId,
@@ -635,30 +640,6 @@ const ClientJobs = () => {
         // ServiceM8 site-specific fields
         site_name: selectedSite?.name || newRequest.site_name || '',
         site_address: selectedSite?.address || '',
-        
-        // ServiceM8 contact information - map to proper ServiceM8 contact fields
-        primary_contact_name: newRequest.site_contact_name,
-        primary_contact_phone: newRequest.site_contact_number,
-        primary_contact_email: newRequest.email,
-        
-        // ServiceM8 job contact fields - Critical for ServiceM8 integration
-        job_contact_first_name: newRequest.site_contact_name?.split(' ')[0] || '',
-        job_contact_email: newRequest.email,
-        
-        // Site contact information for Job Contact creation
-        site_contact_name: newRequest.site_contact_name,
-        site_contact_number: newRequest.site_contact_number,
-        site_contact_email: newRequest.email,
-        
-        // Additional contact fields that ServiceM8 uses
-        contact_first_name: newRequest.site_contact_name?.split(' ')[0] || '',
-        contact_last_name: newRequest.site_contact_name?.split(' ').slice(1).join(' ') || '',
-        contact_phone: newRequest.site_contact_number,
-        contact_mobile: newRequest.site_contact_number,
-        contact_email: newRequest.email,
-        
-        // Legacy email field for compatibility
-        email: newRequest.email,
         
         // Purchase order and project information
         purchase_order_number: newRequest.purchase_order_number,
@@ -701,16 +682,43 @@ const ClientJobs = () => {
         requestPayload.job_name = newRequest.basic_description;
       }
 
-      console.log('📤 Sending ServiceM8 job request payload:', requestPayload);
+      console.log('📤 STEP 1: Sending ServiceM8 job request payload (without contact info):', requestPayload);
+
+      // Create FormData for multipart request if file is present
+      let requestBody;
+      let requestHeaders = {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'x-client-uuid': clientId
+      };
+
+      if (newJobFile) {
+        // Send as multipart/form-data with file
+        const formData = new FormData();
+        
+        // Add all job data fields to FormData
+        Object.keys(requestPayload).forEach(key => {
+          if (requestPayload[key] !== null && requestPayload[key] !== undefined) {
+            formData.append(key, requestPayload[key]);
+          }
+        });
+        
+        // Add the file
+        formData.append('file', newJobFile);
+        
+        requestBody = formData;
+        // Don't set Content-Type header - let browser set it with boundary
+        console.log('📎 Including file in job creation request:', newJobFile.name);
+      } else {
+        // Send as JSON if no file
+        requestHeaders['Content-Type'] = 'application/json';
+        requestBody = JSON.stringify(requestPayload);
+        console.log('📄 Sending JSON request (no file)');
+      }
 
       const response = await fetch(`${API_URL}/fetch/jobs/create`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json',
-          'x-client-uuid': clientId
-        },
-        body: JSON.stringify(requestPayload)
+        headers: requestHeaders,
+        body: requestBody
       });
 
       if (!response.ok) {
@@ -720,37 +728,70 @@ const ClientJobs = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Job created successfully:', data);
+      console.log('✅ STEP 1: Job created successfully:', data);
       
       // Add the new job to the jobs list immediately
       setJobs(prev => [data.data, ...prev]);
 
-      // Upload attachment if one was selected
-      if (newJobFile && data.data && data.data.uuid) {
+      const jobUuid = data.data.uuid;
+      let stepProgress = 1;
+
+      // ===== STEP 2: CREATE JOB CONTACT WITH EXCLUDED FIELDS =====
+      if (newRequest.site_contact_name || newRequest.site_contact_number || newRequest.email) {
         try {
-          // Show upload progress dialog
+          console.log('🔄 CHAIN STEP 2: Creating job contact with excluded fields...');
           setUploadProgress(true);
-          setUploadMessage(`Uploading ${newJobFile.name}...`);
-          
-          console.log(`📎 Uploading attachment for new job ${data.data.uuid}:`, newJobFile.name);
-          
-          const uploadResult = await uploadAttachment(
-            data.data.uuid,
-            newJobFile,
-            'client',
-            'Client User'
-          );
-          
-          console.log('✅ Attachment uploaded successfully:', uploadResult);
+          setUploadMessage(`Step ${++stepProgress}/3: Creating job contact...`);
+
+          const contactPayload = {
+            job_uuid: jobUuid,
+            first: newRequest.site_contact_name?.split(' ')[0] || '',
+            last: newRequest.site_contact_name?.split(' ').slice(1).join(' ') || '',
+            phone: newRequest.site_contact_number || '',
+            mobile: newRequest.site_contact_number || '',
+            email: newRequest.email || '',
+            type: 'Site Contact',
+            active: 1
+          };
+
+          console.log('📤 STEP 2: Creating job contact:', contactPayload);
+
+          const contactResponse = await fetch(`${API_URL}/api/servicem8/jobcontact`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'Content-Type': 'application/json',
+              'x-client-uuid': clientId
+            },
+            body: JSON.stringify(contactPayload)
+          });
+
+          if (contactResponse.ok) {
+            const contactData = await contactResponse.json();
+            console.log('✅ STEP 2: Job contact created successfully:', contactData);
+          } else {
+            console.warn('⚠️ STEP 2: Job contact creation failed (non-fatal)');
+          }
+
+        } catch (contactError) {
+          console.error('⚠️ STEP 2: Failed to create job contact (non-fatal):', contactError);
+        }
+      }
+
+      // ===== STEP 3: HANDLE ATTACHMENT (if not already uploaded) =====
+      if (newJobFile && jobUuid) {
+        // Check if attachment was already uploaded during job creation
+        if (data.data.attachment) {
+          console.log('✅ STEP 3: Attachment already uploaded during job creation:', data.data.attachment);
           
           // Update the job data with attachment information
           setJobs(prev => prev.map(job => 
-            job.uuid === data.data.uuid 
-              ? { ...job, attachments: [uploadResult.data] }
+            job.uuid === jobUuid 
+              ? { ...job, attachments: [data.data.attachment] }
               : job
           ));
           
-          setUploadMessage('Attachment uploaded successfully!');
+          setUploadMessage('✅ Chain completed: Job → Contact → Attachment');
           
           // Wait a moment to show success message
           setTimeout(() => {
@@ -762,44 +803,106 @@ const ClientJobs = () => {
             setIsNewJobDialogOpen(false);
             
             toast({ 
-              title: 'Success', 
-              description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully with attachment` 
+              title: 'Chain Complete!', 
+              description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} chain completed: Job created → Contact added → Attachment uploaded` 
             });
-          }, 1500);
+          }, 2000);
+        } else {
+          // Fallback: Upload attachment separately if it wasn't included in job creation
+          try {
+            console.log('🔄 CHAIN STEP 3: Uploading attachment separately...');
+            setUploadMessage(`Step ${++stepProgress}/3: Uploading ${newJobFile.name}...`);
+            
+            console.log(`📎 STEP 3: Uploading attachment for job ${jobUuid}:`, newJobFile.name);
+            
+            const uploadResult = await uploadAttachment(
+              jobUuid,
+              newJobFile,
+              'client',
+              'Client User'
+            );
+            
+            console.log('✅ STEP 3: Attachment uploaded successfully:', uploadResult);
+            
+            // Update the job data with attachment information
+            setJobs(prev => prev.map(job => 
+              job.uuid === jobUuid 
+                ? { ...job, attachments: [uploadResult.data] }
+                : job
+            ));
+            
+            setUploadMessage('✅ Chain completed: Job → Contact → Attachment');
+            
+            // Wait a moment to show success message
+            setTimeout(() => {
+              setUploadProgress(false);
+              setUploadMessage('');
+              
+              // Reset form and close dialogs
+              resetRequestFlow();
+              setIsNewJobDialogOpen(false);
+              
+              toast({ 
+                title: 'Chain Complete!', 
+                description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} chain completed: Job created → Contact added → Attachment uploaded` 
+              });
+            }, 2000);
+            
+          } catch (uploadError) {
+            console.error('❌ STEP 3: Failed to upload attachment:', uploadError);
+            setUploadMessage('❌ Chain partially complete: Job + Contact created, attachment failed');
+            
+            // Wait a moment to show error message
+            setTimeout(() => {
+              setUploadProgress(false);
+              setUploadMessage('');
+              
+              // Reset form and close dialogs even if upload failed
+              resetRequestFlow();
+              setIsNewJobDialogOpen(false);
+              
+              toast({ 
+                title: 'Partial Chain Success', 
+                description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} and contact created, but attachment upload failed: ${uploadError.message}`,
+                variant: 'destructive'
+              });
+            }, 3000);
+          }
+        }
+      } else {
+        // No attachment to upload, show completion for job + contact
+        if (newRequest.site_contact_name || newRequest.site_contact_number || newRequest.email) {
+          setUploadProgress(true);
+          setUploadMessage('✅ Chain completed: Job → Contact');
           
-        } catch (uploadError) {
-          console.error('❌ Failed to upload attachment:', uploadError);
-          setUploadMessage('Attachment upload failed');
-          
-          // Wait a moment to show error message
           setTimeout(() => {
             setUploadProgress(false);
             setUploadMessage('');
-            
-            // Reset form and close dialogs even if upload failed
             resetRequestFlow();
             setIsNewJobDialogOpen(false);
             
             toast({ 
-              title: 'Partial Success', 
-              description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} created successfully, but attachment upload failed: ${uploadError.message}`,
-              variant: 'destructive'
+              title: 'Chain Complete!', 
+              description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} chain completed: Job created → Contact added` 
             });
-          }, 2000);
+          }, 1500);
+        } else {
+          // Only job created
+          resetRequestFlow();
+          setIsNewJobDialogOpen(false);
+          
+          toast({ 
+            title: 'Success', 
+            description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` 
+          });
         }
-      } else {
-        // No attachment to upload, close immediately
-        resetRequestFlow();
-        setIsNewJobDialogOpen(false);
-        
-        toast({ 
-          title: 'Success', 
-          description: `${requestType.charAt(0).toUpperCase() + requestType.slice(1)} request submitted successfully` 
-        });
       }
 
     } catch (error) {
       console.error('❌ Failed to submit job request:', error);
+      setUploadProgress(false);
+      setUploadMessage('');
+      setIsSubmitting(false);
       toast({ title: 'Error', description: `Failed to submit request: ${error.message}`, variant: 'destructive' });
     }
   };
@@ -807,6 +910,7 @@ const ClientJobs = () => {
   const resetRequestFlow = () => {
     setUploadProgress(false);
     setUploadMessage('Preparing upload...');
+    setIsSubmitting(false);
     setRequestStep('selection');
     setRequestType('');
     setNewRequest({
@@ -1221,7 +1325,16 @@ const ClientJobs = () => {
                     >
                       Back
                     </Button>
-                    <Button type="submit">Submit Order</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit Order'
+                      )}
+                    </Button>
                   </div>
                 </form>
               )}
@@ -1379,7 +1492,16 @@ const ClientJobs = () => {
                     >
                       Back
                     </Button>
-                    <Button type="submit">Submit {requestType.charAt(0).toUpperCase() + requestType.slice(1)}</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Submitting...
+                        </>
+                      ) : (
+                        `Submit ${requestType.charAt(0).toUpperCase() + requestType.slice(1)}`
+                      )}
+                    </Button>
                   </div>
                 </form>
               )}
